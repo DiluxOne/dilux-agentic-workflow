@@ -1,7 +1,7 @@
 {
   "name": "ddw",
-  "version": "0.57.0",
-  "description": "Dilux Development Workflow — a spec-driven agentic pipeline enforced by deterministic gates",
+  "version": "0.57.1",
+  "description": "Dilux Agentic Workflow — a spec-driven agentic pipeline enforced by deterministic gates",
   "type": "module",
   "main": "adapters/opencode/plugin/ddw.js",
   "exports": "./adapters/opencode/plugin/ddw.js",

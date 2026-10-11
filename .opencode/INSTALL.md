@@ -1,4 +1,4 @@
-# DDW for OpenCode — installer
+# DAW for OpenCode — installer
 
 > **Agent: you are the installer.** The user asked you to fetch and follow this
 > file. Do the steps below exactly, in order, and do nothing else. Show the user
@@ -15,11 +15,11 @@ is for one project only, use the project's `opencode.json`. Create the file with
 
 ```json
 {
-  "plugin": ["ddw@git+https://github.com/soydiloreto/dilux-development-workflow.git"]
+  "plugin": ["ddw@git+https://github.com/DiluxOne/dilux-agentic-workflow.git"]
 }
 ```
 
-There is no step for making the model aware of DDW: the plugin does that
+There is no step for making the model aware of DAW: the plugin does that
 itself. On load it registers the packaged skills with OpenCode's discovery and
 prefixes a bootstrap — method path, current phase, classify-first — to the
 session's first user message.
@@ -28,7 +28,7 @@ session's first user message.
 
 Tell the user, in these words or your language's equivalent:
 
-> DDW is registered. Restart OpenCode — the plugin installs itself on the next
+> DAW is registered. Restart OpenCode — the plugin installs itself on the next
 > start (the first launch takes longer: it is cloning the repo). Then ask me
 > "where is the pipeline?" to verify.
 

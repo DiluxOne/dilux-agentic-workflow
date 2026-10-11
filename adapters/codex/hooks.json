@@ -1,5 +1,5 @@
 {
-  "description": "DDW — Dilux Development Workflow: FSM enforcement.",
+  "description": "DAW — Dilux Agentic Workflow: FSM enforcement.",
   "hooks": {
     "SessionStart": [
       {

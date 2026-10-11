@@ -1,12 +1,12 @@
 # Changelog
 
-All notable changes to DDW are recorded here. The format follows
+All notable changes to DAW are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## What semantic versioning covers here
 
-DDW is a method plus the wiring that plugs it into a coding agent, and those two
+DAW is a method plus the wiring that plugs it into a coding agent, and those two
 move at different speeds. So the promise is specific:
 
 - **Covered.** The method itself: the phases, the transition graph's format, the
@@ -15,9 +15,28 @@ move at different speeds. So the promise is specific:
 - **Not covered.** The wiring for each individual tool. When Claude Code, Codex,
   Copilot, Cursor, Gemini or OpenCode changes its hook contract, that adapter
   follows it — in a patch release if it can, immediately either way. Tracking
-  someone else's product is not a promise DDW can make on a version number.
+  someone else's product is not a promise DAW can make on a version number.
 
 ---
+
+## [0.57.1] - 2026-10-11
+
+### Changed — a new home and a new name: DAW — Dilux Agentic Workflow
+
+- **The repository moved to `DiluxOne/dilux-agentic-workflow`.** Every URL
+  that points at it now says so: the README badge and links, `/plugin
+  marketplace add` and `copilot plugin marketplace add`, the `curl | bash`
+  one-liner, the tarball `install.sh` fetches, the OpenCode `git+https`
+  entry, the issue-template links and the manifests' `homepage` and
+  `repository`. GitHub redirects the old URLs, so nothing already installed
+  breaks; the patch exists so new installs stop leaning on the redirect.
+- **The product is DAW — Dilux Agentic Workflow**, formerly DDW — Dilux
+  Development Workflow: the manifests' display names, the installer's
+  banner, `NOTICE`, the user-facing docs and the pipeline diagram.
+- **Nothing internal moved.** The marketplace is still `dilux`, the plugin
+  still `ddw` (`ddw@dilux`), and `ddw/`, `docs/ddw/`, `.ddw-state.json`, the
+  hooks, the `DDW_*` variables and the prompts keep the old name. Renaming
+  them is a migration with its own release, not a cosmetic patch.
 
 ## [0.57.0] - 2026-09-03
 

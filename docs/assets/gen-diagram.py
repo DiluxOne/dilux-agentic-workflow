@@ -45,7 +45,7 @@ def lines_at(txt, font, cx, y, fill, lh):
         center(ln, font, cx, y + i * lh, fill)
 
 # ── header ────────────────────────────────────────────────────────────────
-center("DDW — Dilux Development Workflow", F_TITLE, W / 2, 42, DILUX_DARK)
+center("DAW — Dilux Agentic Workflow", F_TITLE, W / 2, 42, DILUX_DARK)
 center("Six phases, and a gate to clear between each one", F_SUB, W / 2, 98, MUTED)
 
 # ── geometry ─────────────────────────────────────────────────────────────────

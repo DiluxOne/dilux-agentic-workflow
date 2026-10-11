@@ -1,14 +1,14 @@
 {
   "name": "ddw",
-  "displayName": "DDW — Dilux Development Workflow",
-  "version": "0.57.0",
+  "displayName": "DAW — Dilux Agentic Workflow",
+  "version": "0.57.1",
   "description": "An agent-driven development pipeline: phases in order, gates enforced by hooks outside the model, auditors that did not write the code they review, and state that survives closing the session.",
   "author": {
     "name": "Pablo Ariel Di Loreto",
     "url": "https://github.com/soydiloreto"
   },
-  "homepage": "https://github.com/soydiloreto/dilux-development-workflow",
-  "repository": "https://github.com/soydiloreto/dilux-development-workflow",
+  "homepage": "https://github.com/DiluxOne/dilux-agentic-workflow",
+  "repository": "https://github.com/DiluxOne/dilux-agentic-workflow",
   "license": "Apache-2.0",
   "keywords": [
     "agentic",

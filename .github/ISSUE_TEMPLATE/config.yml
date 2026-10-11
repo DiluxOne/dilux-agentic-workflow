@@ -6,13 +6,13 @@ blank_issues_enabled: false
 
 contact_links:
   - name: 🔒 Report a vulnerability
-    url: https://github.com/soydiloreto/dilux-development-workflow/security/advisories/new
+    url: https://github.com/DiluxOne/dilux-agentic-workflow/security/advisories/new
     about: >
       Privately, never as a public issue. "This guard can be bypassed by X" is
       the most valuable thing you can send — see SECURITY.md.
 
   - name: 📖 Why does DDW do it that way?
-    url: https://github.com/soydiloreto/dilux-development-workflow/blob/main/docs/RATIONALE.md
+    url: https://github.com/DiluxOne/dilux-agentic-workflow/blob/main/docs/RATIONALE.md
     about: >
       Every decision that could have gone the other way, what it rests on, and
       what it costs. Check here before opening an issue about a design choice —

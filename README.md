@@ -1,6 +1,6 @@
-# DDW — Dilux Development Workflow
+# DAW — Dilux Agentic Workflow
 
-[![verify](https://github.com/soydiloreto/dilux-development-workflow/actions/workflows/verify.yml/badge.svg)](https://github.com/soydiloreto/dilux-development-workflow/actions/workflows/verify.yml)
+[![verify](https://github.com/DiluxOne/dilux-agentic-workflow/actions/workflows/verify.yml/badge.svg)](https://github.com/DiluxOne/dilux-agentic-workflow/actions/workflows/verify.yml)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 
 **A development pipeline your coding agent has to walk through.** Phases in order, gates it cannot
@@ -13,17 +13,22 @@ a tier that says so out loud (`FREE`) rather than a hole that lets you drift out
 Works with **Claude Code**, **Codex CLI**, **Copilot CLI**, **Cursor**, **Gemini CLI** and
 **OpenCode** — one method, six wirings.
 
-![The DDW pipeline: six phases and the gates between them](docs/assets/ddw-pipeline.png)
+> **Formerly DDW — Dilux Development Workflow.** The product was renamed and the repository moved to
+> `DiluxOne/dilux-agentic-workflow` (the old URLs redirect). The internal names keep the old one for
+> now — the `ddw` plugin (`ddw@dilux`), the `ddw/` directory, the `docs/ddw/` artifacts,
+> `.ddw-state.json` and the `DDW_*` variables — and will move in a later release.
+
+![The DAW pipeline: six phases and the gates between them](docs/assets/ddw-pipeline.png)
 
 ## Install
 
-**As a plugin, and nothing of DDW's lands in your repository.** The method lives in the tool; what
+**As a plugin, and nothing of DAW's lands in your repository.** The method lives in the tool; what
 stays with the project is the `AGENTS.md` you write, the documents each phase produces, and the
 pipeline's state.
 
 | Tool | How |
 |---|---|
-| **Claude Code** | `/plugin marketplace add soydiloreto/dilux-development-workflow`, then `/plugin install ddw@dilux --scope project` |
+| **Claude Code** | `/plugin marketplace add DiluxOne/dilux-agentic-workflow`, then `/plugin install ddw@dilux --scope project` |
 | **Copilot CLI** | [`.github/INSTALL.md`](.github/INSTALL.md) — written as steps to hand to your agent |
 | **OpenCode** | [`.opencode/INSTALL.md`](.opencode/INSTALL.md) — same, and it registers the plugin in `opencode.json` |
 
@@ -37,7 +42,7 @@ instead — install the skills and stop, and it looks alive while enforcing noth
 > and is one line:
 >
 > ```bash
-> curl -fsSL https://raw.githubusercontent.com/soydiloreto/dilux-development-workflow/main/install.sh | bash -s -- . --target codex
+> curl -fsSL https://raw.githubusercontent.com/DiluxOne/dilux-agentic-workflow/main/install.sh | bash -s -- . --target codex
 > ```
 >
 > See [`docs/INSTALL.md`](docs/INSTALL.md) for what it does and how to pin what it fetches.
@@ -48,7 +53,7 @@ the method works, rather than only use it. Both ways, and what each one costs, a
 
 Then open your agent in the project and ask it for something. The pipeline starts on its own.
 
-> 🌍 **On language.** This repo is in English; DDW is not. Its files are **prompts**, and they carry
+> 🌍 **On language.** This repo is in English; DAW is not. Its files are **prompts**, and they carry
 > an explicit directive: answer in the language the user writes in, and write every artifact — PRDs,
 > specs, commit messages — in that same language. Ask in Spanish, get a Spanish PRD.
 
@@ -86,14 +91,14 @@ model. Try to write code with no approved spec and the write does not happen —
 apologizes and continues".
 
 **Where that guarantee ends, stated plainly:** it covers the write tools. A shell command does not go
-through them, so `bash -c 'cat > src/x.py'` reaches the disk. DDW does not try to parse your shell to
+through them, so `bash -c 'cat > src/x.py'` reaches the disk. DAW does not try to parse your shell to
 catch it — every spelling it failed to anticipate would fail open, and a guard that reads as total
 and is not is worse than an honest gap. What it does instead is **notice**, and say so.
 
 That is the line through every decision here: if a rule matters, it is executable. If it cannot be
 executed, it does not get to call itself a gate.
 
-### Not every gate is the same strength, and DDW says which
+### Not every gate is the same strength, and DAW says which
 
 A gate is refused-without and recorded. What **backs** the claim is graded, and the grading is
 written down instead of implied. **All eight rest on something outside the model's word**: six on a
@@ -115,7 +120,7 @@ forged by the party doing the work. A required status check is the same idea in 
 uses daily: you cannot merge until CI reports the check, and you cannot report it for CI.
 
 **What none of them attest is that the work is right, and the distinction is the whole design.**
-DDW does not run your suite and does not scan your code. The `tests` receipt says the account of the
+DAW does not run your suite and does not scan your code. The `tests` receipt says the account of the
 run is complete — the runner and the exact command named, the counts adding up, every failure
 identified, three coverage numbers against a floor quoted from your project, every skip explained.
 The `sast` receipt says the report judged every catalogued category, located what it found, and did
@@ -174,7 +179,7 @@ that ran at three in the morning is a record that lies by omission.
 ```bash
 bash scripts/verify_install.sh    # the full suite: install, FSM, and every adapter's enforcement
 python3 scripts/lint_method.py    # the prose against the graph, the catalog and the filesystem
-python3 scripts/mutate.py         # breaks DDW on purpose and checks the suite notices
+python3 scripts/mutate.py         # breaks DAW on purpose and checks the suite notices
 ```
 
 ## Docs
@@ -194,13 +199,13 @@ python3 scripts/mutate.py         # breaks DDW on purpose and checks the suite n
 [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md)
 
 **Something to report?** A bug, an adapter you drove against a real tool, a decision you would have
-made differently — [each has its own form](https://github.com/soydiloreto/dilux-development-workflow/issues/new/choose).
-**A vulnerability goes to a [private advisory](https://github.com/soydiloreto/dilux-development-workflow/security/advisories/new), never a public issue.**
+made differently — [each has its own form](https://github.com/DiluxOne/dilux-agentic-workflow/issues/new/choose).
+**A vulnerability goes to a [private advisory](https://github.com/DiluxOne/dilux-agentic-workflow/security/advisories/new), never a public issue.**
 
 ## Where it comes from
 
 Years of building production software with teams, where you find out quickly which parts of a process
-earn their cost and which ones everybody routes around. DDW is that way of working, built completely
+earn their cost and which ones everybody routes around. DAW is that way of working, built completely
 for once, with nothing left as an intention. Every decision in it is one I would defend on its own
 terms, and [`docs/RATIONALE.md`](docs/RATIONALE.md) is where I do.
 
@@ -220,5 +225,5 @@ Built by **[Pablo Di Loreto](https://github.com/soydiloreto)** — Director of E
 MVP for Azure & AI, and someone who got tired of explaining the same process to an agent every
 morning.
 
-DDW is the framework behind the *Agentic Orchestration* module of **AI-First Builders Lab**, where
+DAW is the framework behind the *Agentic Orchestration* module of **AI-First Builders Lab**, where
 students take it apart, rewire it for their own stack, and port it to a second tool.
