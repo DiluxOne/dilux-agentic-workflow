@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# install.sh — install DDW (Dilux Development Workflow) into any repo.
+# install.sh — install DAW (Dilux Agentic Workflow) into any repo.
 #
 #   bash install.sh [/path/to/repo] [--target <tool>|all] [--mode plugin|dropin]
 #
@@ -68,10 +68,10 @@ if ! { [ -f "$SELF/.claude-plugin/plugin.json" ] && [ -d "$SELF/ddw" ] && [ -d "
   fi
   command -v tar >/dev/null 2>&1 || {
     echo "install.sh: unpacking the method needs tar, and it is not present." >&2; exit 1; }
-  DDW_TARBALL="${DDW_TARBALL:-https://codeload.github.com/soydiloreto/dilux-development-workflow/tar.gz/$DDW_REF}"
+  DDW_TARBALL="${DDW_TARBALL:-https://codeload.github.com/DiluxOne/dilux-agentic-workflow/tar.gz/$DDW_REF}"
   DDW_BOOT_DIR="$(mktemp -d)"
   trap 'rm -rf "$DDW_BOOT_DIR"' EXIT
-  echo "  Fetching DDW ($DDW_REF)…"
+  echo "  Fetching DAW ($DDW_REF)…"
   $FETCH "$DDW_TARBALL" | tar xz -C "$DDW_BOOT_DIR" || {
     echo "install.sh: could not fetch $DDW_TARBALL" >&2; exit 1; }
   DDW_REAL="$(find "$DDW_BOOT_DIR" -maxdepth 2 -name install.sh -type f | head -1)"
@@ -174,9 +174,9 @@ esac
 echo
 echo "$RULE"
 if [ -n "$VERSION" ]; then
-  echo "  Dilux Development Workflow (DDW)  ·  v$VERSION"
+  echo "  Dilux Agentic Workflow (DAW)  ·  v$VERSION"
 else
-  echo "  Dilux Development Workflow (DDW)"
+  echo "  Dilux Agentic Workflow (DAW)"
 fi
 echo "$RULE"
 cat <<'ABOUT'
@@ -391,10 +391,10 @@ try:
     cfg = json.loads(re.sub(r"^\s*//.*$", "", raw, flags=re.M)) if raw.strip() else {}
 except ValueError:
     print("  ⚠ opencode: %s is not readable as JSON, so it was left untouched." % path)
-    print("    Add \"plugin\": [\"ddw@git+https://github.com/soydiloreto/"
-          "dilux-development-workflow.git\"] by hand.")
+    print("    Add \"plugin\": [\"ddw@git+https://github.com/DiluxOne/"
+          "dilux-agentic-workflow.git\"] by hand.")
     raise SystemExit(0)
-entry = "ddw@git+https://github.com/soydiloreto/dilux-development-workflow.git"
+entry = "ddw@git+https://github.com/DiluxOne/dilux-agentic-workflow.git"
 plugins = cfg.get("plugin")
 plugins = list(plugins) if isinstance(plugins, list) else []
 if not any(isinstance(p, str) and p.startswith("ddw@") for p in plugins):

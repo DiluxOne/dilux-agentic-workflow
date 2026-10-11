@@ -92,7 +92,7 @@ the underlying guarantee true has broken the only thing anyone is buying.
    and this repository has shipped several. `docs/RATIONALE.md` §10 explains why
    the mutation carries as much weight as the fix.
 
-9. **Commits here follow the convention DDW itself prescribes.** Gitmoji,
+9. **Commits here follow the convention DAW itself prescribes.** Gitmoji,
    conventional type, and the `AI-assisted: yes` / `AI-full: yes` trailer that
    `ddw/rules/commits.instructions.md` calls mandatory. Never `Co-Authored-By` —
    the method rules that out by name, and the method applies to the method.
@@ -136,7 +136,7 @@ the underlying guarantee true has broken the only thing anyone is buying.
 
 The maintainer (Pablo Ariel Di Loreto,
 [@soydiloreto](https://github.com/soydiloreto)) develops this project with Claude
-Code, **using DDW**. The same rules apply. The maintainer is responsible for every
+Code, **using DAW**. The same rules apply. The maintainer is responsible for every
 commit on `main` regardless of how it was authored: if a model-driven session
 lands a bug, that is on the maintainer, not the model.
 
@@ -167,7 +167,7 @@ regression, and it does not discover. Anyone who reads the mutation score as
 
 ## Why this policy exists
 
-DDW's entire thesis is that **a rule in a prompt is a promise and a rule enforced
+DAW's entire thesis is that **a rule in a prompt is a promise and a rule enforced
 by code is a guarantee**. A project that argues that, and then accepts
 unreviewed model output into the prose that becomes other people's prompts, has
 refuted itself in public.

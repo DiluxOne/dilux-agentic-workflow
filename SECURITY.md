@@ -1,6 +1,6 @@
 # Security
 
-## What DDW does to your repository
+## What DAW does to your repository
 
 The installer writes into the repo you point it at: `.ddw/`, the wiring
 directory for the tools you pick, a context file, and a `.gitignore` block. It
@@ -8,8 +8,8 @@ never writes outside that repo, never touches your machine's global config, and
 never sends anything anywhere. There is no telemetry and no network access at
 any point, install or run.
 
-DDW then installs hooks that your coding agent executes. That is the point — the
-enforcement is code running outside the model — but it means installing DDW means
+DAW then installs hooks that your coding agent executes. That is the point — the
+enforcement is code running outside the model — but it means installing DAW means
 running its scripts on every write. They are short and readable, and reading them
 before you install is a reasonable thing to do.
 
@@ -17,12 +17,12 @@ Codex CLI and Gemini CLI fingerprint the hooks a repository brings and quarantin
 them until you approve them with `/hooks`. That is a defence against exactly this
 class of risk, and it is worth understanding rather than clicking past.
 
-## What DDW does not protect you from
+## What DAW does not protect you from
 
 It is a process guard, not a sandbox. It refuses transitions the graph does not
 carry and writes of product source from phases that forbid them. It does not
 contain what your agent does inside a phase where writing is allowed, and it
-cannot stop a tool DDW does not intercept.
+cannot stop a tool DAW does not intercept.
 
 The SAST gate finds known patterns in code. It does not find business-logic flaws
 or authorization mistakes, and the repository says so in more detail than most

@@ -1,11 +1,11 @@
-# Why DDW decides what it decides
+# Why DAW decides what it decides
 
 A framework without its reasoning is a configuration file: you either adopt it whole or you argue
 with it in the dark. This is the other document — every decision the method makes that a reasonable
 engineer could have made differently, why it went the way it did, what it is standing on, and what
 it costs you.
 
-It is here so you can read it **before** you adopt DDW, and disagree on the merits.
+It is here so you can read it **before** you adopt DAW, and disagree on the merits.
 
 Two ground rules for this file. Every entry names its cost — a decision presented with only its
 upside is advocacy, not reasoning. And a claim that rests on somebody else's evidence cites it, so
@@ -40,13 +40,13 @@ tool calls one shared gate — so there is one decision to get right rather than
 **The decision.** Security is two phases — a threat model in PLAN, SAST in CODE. There is no
 dynamic-analysis gate.
 
-**Why.** DAST needs a running deployment, and DDW cannot know whether you have one, where it is, or
+**Why.** DAST needs a running deployment, and DAW cannot know whether you have one, where it is, or
 whether it is safe to attack. A gate that cannot be satisfied honestly gets satisfied dishonestly:
 somebody marks it green to move on, and now every gate in the pipeline is a suggestion. **One gate
 nobody believes is worse than one gate fewer.**
 
 **The cost.** A whole class of vulnerability — the ones that only appear at runtime — is outside
-what DDW checks. It says so rather than implying coverage it does not have.
+what DAW checks. It says so rather than implying coverage it does not have.
 
 ---
 
@@ -106,7 +106,7 @@ limitation is exactly why the next entry exists.
 checked when the spec is validated. And acceptance criteria are written in **EARS**, whose fifth
 pattern — `IF <trigger>, THEN THE <system> SHALL <response>` — exists for faults and misuse.
 
-**Why.** This one comes from a defect in DDW's own acceptance run. The rules were all there: the PRD
+**Why.** This one comes from a defect in DAW's own acceptance run. The rules were all there: the PRD
 warned about missing error scenarios, the spec had to document error handling, and VERIFY demanded a
 sad-path test for every input. Nothing joined the middle two. A spec passed PLAN with a full
 error-handling section and a happy-path-only test list; VERIFY caught it two phases later, when the
@@ -132,7 +132,7 @@ drift when resuming a branch and again before the PR. Report and ask; never reba
 
 **Why.** DORA's research puts the useful lifetime of a branch at under a day, and treats integrating
 at least daily as a capability of high-performing teams. GitHub encodes the same idea as a merge
-requirement. DDW cannot merge for you, so it does the part it can: never start you from a stale base,
+requirement. DAW cannot merge for you, so it does the part it can: never start you from a stale base,
 and never let you find out late.
 
 `git pull` is ruled out by name because it needs a clean tree on the base branch and can trigger a
@@ -176,7 +176,7 @@ who only want code have more to scroll past.
 ## 8. The context file stays minimal
 
 **The decision.** `ddw-context-check` reports only knowledge the agent **cannot discover on its own**
-— the commands DDW is about to run: pre-commit, the CI invocations, the real test and lint commands.
+— the commands DAW is about to run: pre-commit, the CI invocations, the real test and lint commands.
 It never proposes prose, conventions or architecture.
 
 **Why.** This one runs against the intuition. A study of repository context files across 138 real
@@ -188,7 +188,7 @@ So the value is not "tell the agent more". It is "tell the agent the handful of 
 otherwise get wrong" — which is exactly the category the AGENTS.md guidance says belongs there.
 Without that restriction the skill becomes the problem the study describes.
 
-**The cost.** DDW will not warn you about a convention it cannot see evidence for. It reports that
+**The cost.** DAW will not warn you about a convention it cannot see evidence for. It reports that
 your repo has a linter configured and the context file names no lint command; it will not tell you
 that you ought to have a linter.
 
@@ -247,7 +247,7 @@ silently. That is not a partial guard — it is a guard **that looks total and i
 reading "no approved spec, no code" would believe it holds everywhere. Same reasoning as decision 2:
 a gate nobody can honestly satisfy is worse than one fewer gate.
 
-**Why it reports rather than refuses.** DDW cannot tell the agent's shell from yours. Editing your
+**Why it reports rather than refuses.** DAW cannot tell the agent's shell from yours. Editing your
 own code in another terminal while a ticket sits in PLAN is an ordinary thing to do; being refused
 for it would be a defect. Reporting a fact is useful. Blocking on an inference about who typed it is
 not.
@@ -265,7 +265,7 @@ and **reports** where it cannot. It is not pretended to be the same everywhere.
 
 **Why.** GitHub documents Copilot CLI's `postToolUse` as able to modify a result
 or add context and nothing more: `permissionDecision` belongs to `preToolUse`,
-and a non-zero exit is logged and skipped. DDW was sending it a refusal it
+and a non-zero exit is logged and skipped. DAW was sending it a refusal it
 ignores — so a `.ddw-state.json` forged with `sed` was detected correctly, by a
 hook whose verdict went nowhere, while the suite reported the check as passing.
 
@@ -286,7 +286,7 @@ someone choosing a tool deserves to know which one they are getting.
 
 *(A teaching decision, from the course this method is taught in.)*
 
-**The decision.** When DDW is used to compare tools, each tool rebuilds the same application in its
+**The decision.** When DAW is used to compare tools, each tool rebuilds the same application in its
 own repository. Only the PRD travels.
 
 **Why.** An incremental repo makes the second tool look better than the first for a reason that has
@@ -300,7 +300,7 @@ worth reading.
 
 ## 14. A corrupt state is reported to a human, never repaired by the agent
 
-**The decision.** When DDW finds a `.ddw-state.json` that cannot be true, the agent is told to stop
+**The decision.** When DAW finds a `.ddw-state.json` that cannot be true, the agent is told to stop
 and report it. It is not told to fix it, and it is refused if it tries. Recovery is the user's:
 their own backup, or `transition.py` from the last state the history supports. Not `git checkout` —
 the install gitignores the state, so git never has a copy. The first live run on OpenCode proved
@@ -308,7 +308,7 @@ why the advice has to say so: the refusal used to recommend exactly that command
 it to the user, the pathspec failed, and the agent read the failure as "the committed file is
 corrupt too" — a guessed fact born from a door the method itself had painted on.
 
-**Why.** For most of DDW's life the refusal said the opposite — *"fix the state and redo the
+**Why.** For most of DAW's life the refusal said the opposite — *"fix the state and redo the
 transition with the write tool"* — and blamed `Bash/jq/sed` for it. Both halves were wrong in ways
 that only showed up under a real agent:
 
@@ -395,7 +395,7 @@ suite: it checks that the verdict is complete, and the numbers in it remain the 
 what it ran. Every one of these scripts prints, on every run, which rules it answered and which it
 left to the model — because a receipt whose scope is unstated is read as covering everything.
 
-This is not DDW's invention and the vocabulary is not ours. Software supply chain calls the artifact
+This is not DAW's invention and the vocabulary is not ours. Software supply chain calls the artifact
 an **attestation** and the graded version **provenance**, and the ladder is
 [SLSA](https://slsa.dev/spec/v1.0/requirements): at level 1 provenance may be self-declared by
 whoever did the work; from level 2 it is produced and signed by the platform, and the party doing
@@ -403,7 +403,7 @@ the work cannot forge it. A required status check on a pull request is the same 
 everyone already uses daily — you cannot merge until **the CI** reports the check, and you cannot
 report it on CI's behalf.
 
-Read against that ladder, DDW's gates were all level 1. `commit` and `pr` are level 2 — a system
+Read against that ladder, DAW's gates were all level 1. `commit` and `pr` are level 2 — a system
 answers, and the party doing the work cannot forge the answer. The six receipts are a kind of their
 own — the receipt is produced by a script the model does not write, over a
 document the model does. Level 2 for the shape of the record, level 1 for its content, and the run
@@ -419,7 +419,7 @@ is a different claim and is labelled as one on every run.
 
 **`sast` was on this list, and the argument for keeping it there was answering a question nobody
 asked.** It read: a receipt would take "the model reported it looked" and write it into a file that
-reads as proof. True — of the *code*. DDW does not scan anything and no file will make its reading a
+reads as proof. True — of the *code*. DAW does not scan anything and no file will make its reading a
 proof, so that receipt is still refused, and always will be.
 
 What the paragraph never noticed is that it was defending the code and leaving the **report**
@@ -440,15 +440,15 @@ blessed: the numbers stay the model's, the completeness stops being optional. Ap
 was not a change of principle. It was noticing that the principle had been used to justify checking
 nothing, which is the more comfortable of the two readings and was never the honest one.
 
-`tests` is the one people will ask for, and the one that would make DDW something it must not
-become. Verifying it means DDW runs your suite: knowing whether this is pytest or jest or a
+`tests` is the one people will ask for, and the one that would make DAW something it must not
+become. Verifying it means DAW runs your suite: knowing whether this is pytest or jest or a
 monorepo with five runners, in what directory, with which environment, and being right about it in
-somebody else's repository. CI can do that because CI **is** the environment. DDW lives inside your
+somebody else's repository. CI can do that because CI **is** the environment. DAW lives inside your
 project and cannot honestly promise it — the same reasoning as decision 2, where the missing DAST
 gate is missing on purpose.
 
 `tests` was the last one, and its paragraph made the same move `sast`'s did: it defended the *run*
-and left the *report* undefended. DDW running your suite is still refused and still impossible for
+and left the *report* undefended. DAW running your suite is still refused and still impossible for
 the reasons above. What `tests: true` meant in the meantime was one word — no runner, no command, no
 counts, no names, nothing reproducible. `validate_tests.py` refuses that: the runner and the exact
 command, counts that add up, every failure named, three coverage numbers against a floor quoted from
@@ -498,7 +498,7 @@ prevent.
 
 **The decision.** You can step back one phase, always, and stepping back gives up what that phase
 granted. A ticket can be **paused at CLOSEOUT** once its commit and its pull request exist. Resuming
-there asks about both again. And when the phase is IDLE and the repo has a remote, DDW asks the
+there asks about both again. And when the phase is IDLE and the repo has a remote, DAW asks the
 forge what is waiting for you.
 
 **The complaint this answers.** You finish, you open the pull request, and the review takes two
@@ -574,13 +574,13 @@ human was demonstrably in the loop.
 
 **Why the forge is asked at IDLE and nowhere else.** The rule is deterministic on purpose: phase is
 IDLE and the repo has a remote → ask, every time; anything else → never. A network call on every
-session start, in every repo DDW is installed in, is a cost this project should refuse to hide; and
+session start, in every repo DAW is installed in, is a cost this project should refuse to hide; and
 mid-ticket the answer is not one you need. IDLE is where you decide what is next, and it is also the
 only moment a fresh clone on another machine can be told anything — the pause lives in
 `.ddw-paused/`, which never leaves the machine that wrote it.
 
 **The cost.** Three things this does not do, said plainly. Two machines on one ticket are not
-coordinated: git is the arbiter, and DDW only reports that your branch fell behind. The `history`
+coordinated: git is the arbiter, and DAW only reports that your branch fell behind. The `history`
 does not travel between machines — the shared record of that work is the commits and the pull
 request. And resuming on a second machine means re-walking the pipeline over the committed
 artifacts, re-earning each receipt, because writing a state that claims eight gates is the forged
@@ -590,7 +590,7 @@ state the hook exists to refuse.
 
 ## 18. The pipeline does not get to edit the pipeline
 
-**The decision.** DDW's own machinery is unwritable from inside a ticket, in every phase: the method
+**The decision.** DAW's own machinery is unwritable from inside a ticket, in every phase: the method
 (`.ddw/`), the receipts (`.ddw-sessions/`), the journal, the install manifest, and each tool's hook
 scripts and the settings key that wires them. `.ddw-state.json`, `.ddw-paused/` and `docs/` stay
 writable — writing the state is how the pipeline advances, and every other rule here judges that
@@ -669,7 +669,7 @@ installing, ejecting and writing documents never require a ticket.
 **What FREE is not.** It is not a way out of a ticket already in flight: no working phase has an edge
 into it, and the tier cannot change outside `CLASSIFY`, so the gates a ticket has been asked for
 cannot be walked away from by relabelling the work. And it is not a licence to disarm the pipeline:
-DDW's own files, the journal and the state are exactly as sealed in `FREE` as anywhere else. `FREE`
+DAW's own files, the journal and the state are exactly as sealed in `FREE` as anywhere else. `FREE`
 turns the pipeline off; it does not hand over the thing that would turn it off for good.
 
 **The cost.** Touching one line of product code now requires either a ticket or an explicit

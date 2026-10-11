@@ -1,4 +1,4 @@
-# Installing DDW
+# Installing DAW
 
 Two ways in, and the difference is **where the method lives**.
 
@@ -62,7 +62,7 @@ The manual equivalents are below, and are what the installer runs.
 ### Claude Code
 
 ```
-/plugin marketplace add soydiloreto/dilux-development-workflow
+/plugin marketplace add DiluxOne/dilux-agentic-workflow
 /plugin install ddw@dilux --scope user
 ```
 
@@ -92,7 +92,7 @@ section means by *verified at the boundary*.
 
 **The method is never copied into your repo, and no pipeline artifact appears until one starts.**
 Clone something to read for five minutes and you get no state file and no edited `.gitignore`. Under
-the installer's user-scope activation nothing of DDW is written into the repo at all — Claude,
+the installer's user-scope activation nothing of DAW is written into the repo at all — Claude,
 Copilot and OpenCode all register in your profile. (If you choose Claude's `--scope project`
 yourself, the activation lands untracked in the repo's `.claude/settings.json`; commit it when you
 want your teammates to have it.)
@@ -100,11 +100,11 @@ want your teammates to have it.)
 **The repo always wins.** Every hook looks for `.ddw/` in the project first and the plugin second, so
 a repo that wants its own version just has one.
 
-**No `AGENTS.md` is created either**, and that file is where DDW reads your stack. Under a drop-in
-install the installer copies a template when it finds none; under a plugin no content of DDW's is
+**No `AGENTS.md` is created either**, and that file is where DAW reads your stack. Under a drop-in
+install the installer copies a template when it finds none; under a plugin no content of DAW's is
 copied anywhere in your tree. The first CLASSIFY offers to create it, from what it
-can detect in the repo and with none of DDW's own content in it — or you write it yourself first.
-Either way the file is yours: DDW never puts its blocks, phases or boilerplate in it under a plugin.
+can detect in the repo and with none of DAW's own content in it — or you write it yourself first.
+Either way the file is yours: DAW never puts its blocks, phases or boilerplate in it under a plugin.
 
 ---
 
@@ -112,7 +112,7 @@ Either way the file is yours: DDW never puts its blocks, phases or boilerplate i
 
 ```bash
 cd /path/to/your/project
-curl -fsSL https://raw.githubusercontent.com/soydiloreto/dilux-development-workflow/main/install.sh | bash -s -- . --target claude
+curl -fsSL https://raw.githubusercontent.com/DiluxOne/dilux-agentic-workflow/main/install.sh | bash -s -- . --target claude
 ```
 
 The installer copies the method out of its own tree, so pasted from a URL it has no tree: it
@@ -123,10 +123,10 @@ still asks its questions — every read goes to your terminal, not to the pipe i
 repository, run the same script out of it and nothing is downloaded:
 
 ```bash
-git clone https://github.com/soydiloreto/dilux-development-workflow.git
+git clone https://github.com/DiluxOne/dilux-agentic-workflow.git
 
 cd /path/to/your/project
-bash /path/to/dilux-development-workflow/install.sh . --target claude
+bash /path/to/dilux-agentic-workflow/install.sh . --target claude
 ```
 
 Drop `--target` and it asks. Valid values: `claude`, `codex`, `copilot`, `cursor`, `gemini`,
@@ -151,7 +151,7 @@ uncommitted changes before the run is left out and named, for you to review.
 The reason the offer exists: an installation that is never committed surfaces
 at the first ticket's closeout, whose commit gate demands a clean tree — and
 that ticket's pull request ends up carrying the whole framework alongside its
-own change. Measured: 68 files of DDW inside a PR about a web form.
+own change. Measured: 68 files of DAW inside a PR about a web form.
 
 A repo with no commits yet skips the branch question (there is no base to
 branch from) and offers the installation as the repository's first commit.
@@ -186,17 +186,17 @@ writing a recipe that says where that tool looks for things — never translatin
 
 ### Upgrading
 
-Pull, re-run the same command. The installer is idempotent, replaces DDW's own files, and **never
-overwrites something you made yours**: if one of your skills shares a name with one of DDW's, it says
+Pull, re-run the same command. The installer is idempotent, replaces DAW's own files, and **never
+overwrites something you made yours**: if one of your skills shares a name with one of DAW's, it says
 so and leaves yours alone. Your state, your artifacts under `docs/ddw/` and your stack are untouched.
 
 Two things decide what "yours" means:
 
-- **The activation block.** DDW writes a block delimited by `<!-- BEGIN DDW -->` / `<!-- END DDW -->`
+- **The activation block.** DAW writes a block delimited by `<!-- BEGIN DDW -->` / `<!-- END DDW -->`
   into your tool's context file and refreshes it on every upgrade — that block is what loads the
   orchestrator, so a stale one would quietly run an old method. **Only what is between the markers is
   touched.** Anything you wrote outside it is not read, moved or reformatted.
-- **It is always `AGENTS.md`.** DDW's instructions live in that one file whatever tool you installed,
+- **It is always `AGENTS.md`.** DAW's instructions live in that one file whatever tool you installed,
   so it holds both your stack and a managed block. Claude and Gemini read `CLAUDE.md`/`GEMINI.md`
   instead, so those get a four-line pointer and nothing else. Nothing is duplicated, so nothing can
   drift.
@@ -204,27 +204,27 @@ Two things decide what "yours" means:
 ### Taking it out
 
 ```bash
-bash /path/to/dilux-development-workflow/uninstall.sh .        # shows the plan, then asks
-bash /path/to/dilux-development-workflow/uninstall.sh . --plan # just the plan, changes nothing
+bash /path/to/dilux-agentic-workflow/uninstall.sh .        # shows the plan, then asks
+bash /path/to/dilux-agentic-workflow/uninstall.sh . --plan # just the plan, changes nothing
 ```
 
 It removes the method, the runtime, each installed tool's wiring, the activation block and the
-`.gitignore` rules — **and nothing else**. What is DDW's is read from the manifest, not guessed from
+`.gitignore` rules — **and nothing else**. What is DAW's is read from the manifest, not guessed from
 directory names: `.claude/` is Claude Code's directory and your own skills live there too, so they
-stay. Your hooks in `settings.json` stay while DDW's are unwired, which matters more than tidiness —
+stay. Your hooks in `settings.json` stay while DAW's are unwired, which matters more than tidiness —
 hooks left pointing at deleted scripts fail on every session afterwards.
 
 **`docs/` is never removed.** The PRDs, specs, threat models and verification reports are the record
 of what was decided and why. Uninstalling the tool is not a reason to lose them.
 
-A DDW file you have edited since installing is kept and reported; `--force` removes those too.
+A DAW file you have edited since installing is kept and reported; `--force` removes those too.
 
 ---
 
 ## The file you have to write
 
 `AGENTS.md` is the one part of the install you own — your stack, your architecture conventions, your
-domain glossary. **Read [`AGENTS-MD.md`](AGENTS-MD.md) before you edit it.** DDW manages exactly one
+domain glossary. **Read [`AGENTS-MD.md`](AGENTS-MD.md) before you edit it.** DAW manages exactly one
 block inside that file, and a heading the method looks up and does not find fails **quietly**: the
 pipeline runs on, knowing nothing about your project.
 

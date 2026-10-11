@@ -1,4 +1,4 @@
-# DDW for Copilot CLI — installer
+# DAW for Copilot CLI — installer
 
 > **Agent: you are the installer.** The user asked you to fetch and follow this
 > file. Do the steps below exactly, in order, and do nothing else. Show the user
@@ -9,7 +9,7 @@
 Run, in the user's shell:
 
 ```bash
-copilot plugin marketplace add soydiloreto/dilux-development-workflow
+copilot plugin marketplace add DiluxOne/dilux-agentic-workflow
 copilot plugin install ddw@dilux
 ```
 
@@ -52,7 +52,7 @@ Measured 2026-08-22/23, same repo, same prompt, the only variable changed being
 User-level hooks refuse it either way. The trap is that trust is invisible: the
 repo a developer has been opening interactively for weeks IS trusted, so its
 gates hold — and the same repo cloned fresh on CI, or driven by a script, is not,
-and enforces nothing while looking identical. So DDW wires the gates at user
+and enforces nothing while looking identical. So DAW wires the gates at user
 level for the drop-in as well as the plugin, and writes no repo-level manifest at
 all: where the folder is trusted, keeping both would run both and judge every
 write twice.
@@ -66,15 +66,15 @@ permission: the gate exits 2, `||` catches it, `echo` exits 0, and Copilot reads
 0 as allow. It must be `if [ -f hook ]; then exec bash hook; fi; echo '{}'`.
 
 The scripts resolve the method repo-first, plugin-root second: a repo with its
-own drop-in is judged by its own `.ddw/`, and a repo with no DDW at all is
+own drop-in is judged by its own `.ddw/`, and a repo with no DAW at all is
 answered with `{}` and left alone.
 
 ## Step 3 — hand back to the user
 
-Tell the user: DDW is installed for Copilot. **Close every open `copilot`
+Tell the user: DAW is installed for Copilot. **Close every open `copilot`
 session** — hooks are read at startup, so a session opened before this install
 runs without gates — then start a fresh one and ask "where is the pipeline?"
-to verify. Nothing of DDW lands in any repo until
+to verify. Nothing of DAW lands in any repo until
 a ticket starts — then only `.ddw-state.json`, its `.gitignore` entry and the
 phase artifacts.
 
@@ -108,4 +108,4 @@ copilot plugin marketplace remove dilux
 ```
 
 Then delete `~/.copilot/hooks/ddw.json` — but only if no repo on this machine
-still has DDW installed for Copilot. That one file is what gates all of them.
+still has DAW installed for Copilot. That one file is what gates all of them.

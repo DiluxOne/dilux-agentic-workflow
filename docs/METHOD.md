@@ -53,7 +53,7 @@ the history says when you stepped out and why.
 
 Three things it is not. It is not a way out of a ticket already in flight: no working phase has an
 edge into it, and the tier cannot change outside CLASSIFY, so gates already asked for cannot be shed
-by relabelling the work. It is not a licence to disarm the pipeline: DDW's own files, the journal and
+by relabelling the work. It is not a licence to disarm the pipeline: DAW's own files, the journal and
 the state are as sealed in `FREE` as anywhere else. And it is not quiet.
 
 What a repository at rest still writes with nothing open: everything under `docs/`, your context
@@ -68,7 +68,7 @@ the history is what someone reads six months from now to find out why this was d
 
 ## About that PRD
 
-Most organisations write the PRD before anyone opens an editor, and DDW does not ask you to write it
+Most organisations write the PRD before anyone opens an editor, and DAW does not ask you to write it
 twice. It **takes the one you have** — a ticket, a document, a paragraph in a chat — validates it
 against the codebase it is about to be built in, and materialises it in the repo next to the code.
 
@@ -120,7 +120,7 @@ None of these can be produced by saying so, and the check runs in the hook, so w
 hand does not get around it. Edit the document after validating and its receipt stops matching: the
 hash is of the bytes, not of the filename.
 
-**What they do not attest is that the work is right, and that distinction is the whole design.** DDW
+**What they do not attest is that the work is right, and that distinction is the whole design.** DAW
 does not run your suite and does not scan your code. The `tests` receipt says the account of the run
 is complete — runner, exact command, counts that add up, failures named, three coverage numbers
 against a floor quoted from your project, skips explained. The `sast` receipt says the report judged

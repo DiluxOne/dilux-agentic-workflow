@@ -1,6 +1,6 @@
-# AGENTS.md — the one file DDW needs you to write
+# AGENTS.md — the one file DAW needs you to write
 
-Everything DDW does, it does inside your repository. It brings its own method, its own gates and its
+Everything DAW does, it does inside your repository. It brings its own method, its own gates and its
 own wiring. The one thing it cannot bring is **what your project is** — and that is what `AGENTS.md`
 holds.
 
@@ -16,7 +16,7 @@ holding the operational context an AI coding agent needs. It was formalised in 2
 Google, Cursor and Factory, and donated to the Linux Foundation's Agentic AI Foundation in December
 2025. Codex, Copilot, Cursor and OpenCode read it natively.
 
-DDW keeps your context there, and not in `CLAUDE.md`, for one reason: **it is the same file for every
+DAW keeps your context there, and not in `CLAUDE.md`, for one reason: **it is the same file for every
 tool**. Port the pipeline from Claude to Copilot and your stack, conventions and glossary come along
 untouched. That is the same reason `.ddw/` is byte-identical across the six adapters.
 
@@ -29,12 +29,12 @@ untouched. That is the same reason `.ddw/` is byte-identical across the six adap
 | | Owner | What happens on an upgrade |
 |---|---|---|
 | Everything outside the markers | **You** | Never read, never moved, never rewritten |
-| The `<!-- BEGIN DDW -->` … `<!-- END DDW -->` block | **DDW** | Replaced with the current version |
+| The `<!-- BEGIN DDW -->` … `<!-- END DDW -->` block | **DAW** | Replaced with the current version |
 
 **Do not edit inside the block.** Its first line says so. On the next `install.sh` it is replaced,
 and your edit is gone — and unlike most losses, this one is silent.
 
-Everything else in the file is yours, forever. DDW never touches it.
+Everything else in the file is yours, forever. DAW never touches it.
 
 ---
 
@@ -43,8 +43,8 @@ Everything else in the file is yours, forever. DDW never touches it.
 It depends on what your tool reads. This is worth knowing, because it is the difference between the
 pipeline having your context and not having it.
 
-**DDW's instructions live in `AGENTS.md`, always** — whatever tool you installed, and however many.
-One file, one answer to "where are DDW's instructions?", and nothing to move when you port the
+**DAW's instructions live in `AGENTS.md`, always** — whatever tool you installed, and however many.
+One file, one answer to "where are DAW's instructions?", and nothing to move when you port the
 pipeline to another agent.
 
 | Tool | Reads | What it gets |
@@ -77,7 +77,7 @@ runs knowing nothing about your project.
 
 ## The headings the method looks up by name
 
-DDW does not read `AGENTS.md` as one blob. Specific phases look up specific headings:
+DAW does not read `AGENTS.md` as one blob. Specific phases look up specific headings:
 
 Two of them are cited by name in the method's own instructions, so a phase goes looking for them.
 The other three are read by whoever is doing the work — they are in the template, and
@@ -136,11 +136,11 @@ report the ones that are absent.
 
 ## The two situations that leave you without them
 
-`AGENTS.md` is created from DDW's template **once** — only when the installer finds no `AGENTS.md` at
-all. After that it is yours and DDW never restructures it. So:
+`AGENTS.md` is created from DAW's template **once** — only when the installer finds no `AGENTS.md` at
+all. After that it is yours and DAW never restructures it. So:
 
 **1. You already had your own `AGENTS.md`.** The template is not applied — correctly, it is your
-file. You get the DDW block appended at the end and none of the headings. The installer says so:
+file. You get the DAW block appended at the end and none of the headings. The installer says so:
 
 ```
 ✓ AGENTS.md   already exists (your content kept as it is)
@@ -150,7 +150,7 @@ file. You get the DDW block appended at the end and none of the headings. The in
                 ## Domain glossary
 ```
 
-**2. A later version of DDW started reading a new heading.** Your file was written before it existed.
+**2. A later version of DAW started reading a new heading.** Your file was written before it existed.
 Nothing outside the block is managed, so it will not appear on its own.
 
 In both cases the fix is the same, and it is thirty seconds of work.
@@ -176,7 +176,7 @@ a ticket: **CLASSIFY detects your stack from the repo's own config files** — `
 write it without asking.
 
 Or run **`/ddw-context-check`** any time. It reports every missing heading with what reads it, and
-every command your repo has configured that DDW was never told about — your linter, your
+every command your repo has configured that DAW was never told about — your linter, your
 `pre-commit`, the commands your CI runs. It proposes; you decide; it writes nothing you did not
 approve.
 
@@ -227,7 +227,7 @@ approve.
 
 ## The short version
 
-- **`AGENTS.md` is yours.** DDW manages exactly one block in it and nothing else.
+- **`AGENTS.md` is yours.** DAW manages exactly one block in it and nothing else.
 - **Never edit inside `<!-- BEGIN DDW -->`.** It is replaced on every upgrade, without warning.
 - **The headings matter more than the prose.** A missing heading fails silently; that is the one
   failure mode of this file.

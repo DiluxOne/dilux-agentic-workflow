@@ -17,7 +17,7 @@ major version.
 
 ```bash
 mkdir /tmp/ddw-acceptance-<tool> && cd $_ && git init -q
-bash /path/to/dilux-development-workflow/install.sh . --target <tool>
+bash /path/to/dilux-agentic-workflow/install.sh . --target <tool>
 ```
 
 Fill in the `Stack` section of the context file it created — one line is enough

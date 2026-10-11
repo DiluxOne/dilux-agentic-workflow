@@ -1,8 +1,8 @@
-# DDW — Internals
+# DAW — Internals
 
-How DDW works on the inside. To install and use it, see **[README.md](../README.md)**.
+How DAW works on the inside. To install and use it, see **[README.md](../README.md)**.
 
-DDW separates **the method** from **the wiring**:
+DAW separates **the method** from **the wiring**:
 
 - `ddw/` in this repo installs into your project as `.ddw/` — the tool-agnostic method (orchestrator,
   rules, scripts). It never changes between tools.
@@ -17,7 +17,7 @@ plugin root rather than the project.
 Every hook resolves the method through `ddw_method` in `adapters/claude/hooks/lib/guard.sh`:
 **the repo's `.ddw/` first, the plugin second.** That sentence used to be here
 and was false — two of the five hooks did it, the other three looked only in the
-repo, and `session-start.sh` was one of them. Installed as a plugin, DDW loaded
+repo, and `session-start.sh` was one of them. Installed as a plugin, DAW loaded
 its skills and its agents and enforced nothing, which is the failure
 `scripts/acceptance.md` opens by naming. It read as working because the drop-in
 path, which is what anyone tested, never exercised the other branch.
@@ -54,7 +54,7 @@ commas, or `all`. Omit it and the installer asks.
 
 The installer is idempotent and records what it wrote in `.ddw-installed.json`. That record is what
 lets it tell its own older copy of a file (→ upgrade it on the next run) from a file you have made
-yours (→ leave it alone and report it). Without it, every difference read as "the user's", and a DDW
+yours (→ leave it alone and report it). Without it, every difference read as "the user's", and a DAW
 update quietly left the repo running a mix of two versions.
 
 ## The orchestrator
@@ -134,7 +134,7 @@ where the repo root comes from, and how that harness spells "no".
 ### Shared guard (`hooks/lib/guard.sh`)
 
 `ddw_guard`: exits 0 (silently) if `CLAUDE_PROJECT_DIR` is unset or the directory is not a git repo.
-There is no master switch: in drop-in mode DDW is active by virtue of its hooks being wired in
+There is no master switch: in drop-in mode DAW is active by virtue of its hooks being wired in
 `settings.json`.
 
 ### FSM validator (`.ddw/scripts/validate-transition.py`)
@@ -248,7 +248,7 @@ chain (with a cycle guard) and a tier's own edges override what it inherits.
 
 ## How this repo is kept honest
 
-DDW is mostly prompts, and prompts do not crash. A rule that cites a gate which
+DAW is mostly prompts, and prompts do not crash. A rule that cites a gate which
 no longer exists, a router that contradicts the phase it routes, an adapter
 written against an envelope its tool does not send — none of these throw. The
 model simply reads the wrong instruction and does the wrong thing, and every
@@ -259,7 +259,7 @@ layer can catch, because each of these was added the day something got through.
 
 ### 1. `scripts/verify_install.sh` — behaviour, through the real entry points
 
-Installs DDW into throwaway repos and drives **the hooks each tool actually
+Installs DAW into throwaway repos and drives **the hooks each tool actually
 runs**, with that tool's own envelope shape. The distinction is the whole point:
 for a long time this suite called the validator as a Python library, so it was
 green while two adapters consumed the event before the validator could read it

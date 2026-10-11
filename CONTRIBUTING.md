@@ -5,7 +5,7 @@ Three things run before anything is merged. Run them locally; CI runs them too.
 ```bash
 python3 scripts/lint_method.py     # the prose against the graph and the catalog
 bash scripts/verify_install.sh     # behaviour, through the hooks each tool runs
-python3 scripts/mutate.py          # breaks DDW on purpose; the suite must notice
+python3 scripts/mutate.py          # breaks DAW on purpose; the suite must notice
 ```
 
 `docs/DEVELOPMENT.md` explains what each of the three catches and why it exists.
@@ -59,7 +59,7 @@ five manifests (`.claude-plugin/`, `.codex-plugin/`, `.cursor-plugin/`,
 `gemini-extension.json`, `package.json`), and they must all say the same thing.
 
 That is a decision worth stating, because the tempting alternative is to version
-each wiring on its own. DDW is one product shipped six ways: `ddw/` is
+each wiring on its own. DAW is one product shipped six ways: `ddw/` is
 byte-identical everywhere and an adapter is a recipe, not software with a life of
 its own. If Claude read 1.0.5 and Copilot 1.0.2, nothing would tell you they came
 from the same commit, a bug report would stop mapping to a place in the history,
