@@ -1,0 +1,5 @@
+# Who is asked to review a pull request. The organisation's rulesets do
+# not require code-owner approval; this only puts every pull request in
+# the maintainer's queue. Kept in step by DiluxOne/.github
+# (scripts/sync-repos.py).
+* @soydiloreto
