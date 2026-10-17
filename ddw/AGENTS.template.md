@@ -51,6 +51,19 @@ files and **propose the text for you to paste here**. You always confirm it.
 
 ---
 
+## Specification framework
+
+Spec format: [DAW (default), or OpenSpec]
+
+This is an opt-in. Enable the integration only by making the line in this
+section exactly `Spec format: OpenSpec` (including its value). It requires the
+OpenSpec CLI and an `openspec/specs/` product baseline. For each DAW ticket,
+PLAN then binds the DAW execution plan to one proposed change under
+`openspec/changes/<slug>/`. Leave the placeholder or set `Spec format: DAW` to
+retain DAW's legacy behavior unchanged.
+
+---
+
 ## Testing
 
 **The coverage floor lives here, and nowhere else.** `ddw-test` and

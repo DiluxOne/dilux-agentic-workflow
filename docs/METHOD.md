@@ -86,6 +86,26 @@ the copy in the repo ages, and the agent builds against a PRD that stopped being
 What is not negotiable is that work **starts** from one. A feature, a bug, a one-line change: if
 nobody can say what "done" means, there is nothing for the pipeline to gate.
 
+### OpenSpec projects (opt-in)
+
+DAW's ticket-specific spec is an **execution plan**, not a second product
+baseline. Enable it only with the exact `AGENTS.md` marker:
+
+```markdown
+## Specification framework
+Spec format: OpenSpec
+```
+
+The project must have the OpenSpec CLI and an `openspec/specs/` baseline. PLAN
+writes one proposed OpenSpec change (`proposal.md`, `design.md`, `tasks.md`, and
+`specs/<capability>/spec.md`) under `openspec/changes/<slug>/` alongside the DAW
+implementation plan; its header links that change. The baseline remains current
+product behavior; a change delta is proposed behavior and is not merged into the
+baseline by DAW. The existing `spec` gate requires both DAW validation and
+OpenSpec strict validation. Its receipt covers every current change file, so an
+edit invalidates the gate until PLAN validates both artifacts again. Without the
+exact opt-in, nothing changes. See [OpenSpec integration](OPENSPEC.md).
+
 ## Security is a phase, not a footnote
 
 Two controls, at two moments, each catching what the other cannot:

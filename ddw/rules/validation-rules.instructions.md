@@ -1,6 +1,6 @@
 ---
 applyTo: '**'
-version: 1.16.0
+version: 1.17.0
 ---
 
 # Validation Rules — Central Catalog
@@ -182,6 +182,12 @@ completeness principle (every design decision must be documented).
 |---|---|---|---|
 | W-SPEC-02 | Large block | A block modifies more than 5 files or has more than 500 words of description. It may indicate it should be split. | Maintainability. Does not block, because some blocks (refactoring, infra) legitimately touch many files. |
 | W-SPEC-03 | No rollback (FEATURE) | For tier FEATURE: the spec includes no rollback or reverse-migration considerations. Does not apply if there are no schema changes or data migrations. | Good practice. Not always necessary for pure features with no migration. |
+
+### 2.7 Optional OpenSpec bridge
+
+| ID | Check | Precise description | Basis |
+|---|---|---|---|
+| F-OS-01 | Invalid opted-in OpenSpec change | **Only when `AGENTS.md` explicitly opts in under `## Specification framework` with `Spec format: OpenSpec`.** The DAW spec must link exactly one `openspec/changes/<slug>` change. `openspec validate <slug> --strict` must pass, and the DAW spec receipt must be bound to the hashes of every regular file in that linked change, so any byte change invalidates the receipt. For legacy projects without this explicit opt-in, the existing DAW spec validation and receipt behavior is unchanged; naming an OpenSpec change without opting in → FAIL. | OpenSpec strict validation makes the linked change structurally valid; receipt binding preserves the approved plan-to-change traceability and prevents a later unvalidated change from reusing the DAW spec gate. |
 
 ---
 

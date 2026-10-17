@@ -26,6 +26,9 @@ import re
 import subprocess
 import sys
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import openspec_bridge  # noqa: E402 — shared receipt input for the opt-in format
+
 # Verbs that mean a tool is writing. Matched as substrings because every tool
 # spells it differently — `Write`, `write_file`, `create_file`, `apply_patch`,
 # `str_replace_editor`, `NotebookEdit`. A tool whose name says none of these and
@@ -1703,6 +1706,19 @@ def sealed_artifact_denied(target, root, state):
                 f"{owner} (the {phase}→{owner} edge is in the graph and clears `{gate}`), fix it "
                 f"there, re-validate, and re-earn the gate. Say out loud that you are going back "
                 f"and why, so the approval that follows is read as the re-approval it is.")
+    if gates.get("spec"):
+        specs = [os.path.join(root, "docs", "ddw", "specs", f"{stem}-{ticket}.md")
+                 for stem in ("spec", "fix")]
+        spec = next((p for p in specs if os.path.isfile(p)), None)
+        if spec:
+            try:
+                with open(spec, encoding="utf-8") as fh:
+                    change = openspec_bridge.change_path(root, fh.read())
+            except (OSError, UnicodeDecodeError, openspec_bridge.OpenSpecError):
+                return "the approved spec's OpenSpec change cannot be read; return to PLAN"
+            if change and rel.startswith(change + "/"):
+                return (f"`{rel}` belongs to the OpenSpec change behind the earned `spec` gate. "
+                        "Return to PLAN, correct and re-validate the change, then re-earn the gate.")
 
 
 # ── The two decisions, in one place each ──────────────────────────────────────
@@ -1889,8 +1905,10 @@ def _receipt_missing(root, state, gate, receipt, subdir, stems, script, artifact
         # again, which makes it the worst shape a refusal can have.
         with open(path, encoding="utf-8") as fh:
             text = fh.read()
+        if receipt == "spec":
+            text = openspec_bridge.receipt_text(root, text)
         digest = hashlib.sha256(text.encode("utf-8")).hexdigest()[:12]
-    except (OSError, UnicodeDecodeError) as exc:
+    except (OSError, UnicodeDecodeError, openspec_bridge.OpenSpecError) as exc:
         # Also a refusal. A document nothing can read is a document no receipt
         # can name, and returning None here meant one stray non-UTF-8 byte
         # converted the gate from enforced to decorative.

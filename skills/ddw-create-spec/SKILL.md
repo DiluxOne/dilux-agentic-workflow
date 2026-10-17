@@ -31,6 +31,9 @@ what the implementation is judged against.
 - The ticket info in `.ddw-state.json` (for FIX)
 - The `tier` from `.ddw-state.json`
 - The project's architecture conventions (`AGENTS.md`)
+- If `AGENTS.md` contains the exact OpenSpec opt-in — `## Specification framework`
+  with `Spec format: OpenSpec` — read the authoritative baseline under
+  `openspec/specs/` and the ticket's proposed change under `openspec/changes/`.
 
 ## Execution Protocol
 
@@ -42,11 +45,27 @@ what the implementation is judged against.
 4. Produce the document: header, summary, numbered blocks with atomic tasks, execution order, final
    verification.
 5. Every block carries: files to create/modify, logic, required tests, completion criterion.
+6. In an opted-in OpenSpec project, first create or update ONE change under
+   `openspec/changes/<slug>/` with its proposal, design, tasks and capability
+   deltas (`specs/<capability>/spec.md`). Read `openspec/specs/` for current
+   requirements; a change delta is proposed behavior, never the current baseline.
+   Keep product requirements in OpenSpec rather than duplicating them in this
+   execution plan. Add `| OpenSpec change | openspec/changes/<slug> |` to this
+   plan's header table. The DAW plan still owns numbered implementation blocks,
+   PRD coverage and its normal validation receipt. Do not start CODE until the
+   linked change passes `openspec validate <slug> --strict` and DAW's own spec
+   validator passes; the latter binds the receipt to the change's current files.
+   An edit to any linked change file invalidates that receipt: return to PLAN,
+   update both artifacts as needed, and validate again.
 
 ### Creation mode — FIX (lightweight fix-plan)
 1. Read the diagnosis of the problem.
 2. Identify the root cause and the affected files.
 3. Produce the document: problem, root cause, solution with steps, tests, regression risk.
+4. In an opted-in OpenSpec project, create or update the change as above and add
+   its `OpenSpec change` row to the fix-plan header. Both formats are validated;
+   change-file edits invalidate the combined spec receipt and require PLAN to
+   validate again.
 
 The **Rollback plan** is mandatory for FIX (F-SPEC-15), and the fix-plan references the RCA that
 DEFINE produced (`docs/ddw/specs/rca-{ticket}.md`) — the reference is a convention of the tier, not
