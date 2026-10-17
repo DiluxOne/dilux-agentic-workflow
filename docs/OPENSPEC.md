@@ -7,8 +7,11 @@ proposed requirement change.
 
 ## Enable it
 
-The target repository must have the OpenSpec CLI available and a product
-baseline at `openspec/specs/`. Add these exact lines to its `AGENTS.md`:
+The target repository must have the OpenSpec CLI available (either as the
+executable `node_modules/.bin/openspec` in that repository or on `PATH`) and a
+product baseline at `openspec/specs/`. The repository-local executable takes
+precedence, so an npm project can install it with `npm ci` without requiring a
+global OpenSpec installation. Add these exact lines to its `AGENTS.md`:
 
 ```markdown
 ## Specification framework

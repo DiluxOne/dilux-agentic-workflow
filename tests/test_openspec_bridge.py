@@ -134,6 +134,39 @@ def test_opt_in_requires_one_valid_change_and_strict_cli(tmp_path, monkeypatch):
         bridge.receipt_text(str(tmp_path), text)
 
 
+def test_opt_in_uses_repo_local_cli_without_global_install(tmp_path, monkeypatch):
+    spec, _ = _project(tmp_path)
+    bin_dir = tmp_path / "node_modules" / ".bin"
+    bin_dir.mkdir(parents=True)
+    local_cli = bin_dir / "openspec"
+    local_cli.write_text(
+        '#!/bin/sh\nprintf "%s\\n" "$@" > "$OPENSPEC_LOG"\n', encoding="utf-8"
+    )
+    local_cli.chmod(0o755)
+    monkeypatch.setenv("PATH", str(bin_dir.parent))
+    log = tmp_path / "openspec.args"
+    monkeypatch.setenv("OPENSPEC_LOG", str(log))
+
+    assert bridge.validate(str(tmp_path), spec.read_text(encoding="utf-8"))
+    assert log.read_text(encoding="utf-8").splitlines() == [
+        "validate", "add-ledger", "--strict"
+    ]
+
+
+def test_nonexecutable_repo_local_cli_does_not_bypass_missing_global_cli(
+    tmp_path, monkeypatch
+):
+    spec, _ = _project(tmp_path)
+    bin_dir = tmp_path / "node_modules" / ".bin"
+    bin_dir.mkdir(parents=True)
+    local_cli = bin_dir / "openspec"
+    local_cli.write_text("not executable", encoding="utf-8")
+    monkeypatch.setenv("PATH", str(bin_dir))
+
+    with pytest.raises(bridge.OpenSpecError, match="cannot run OpenSpec validation"):
+        bridge.validate(str(tmp_path), spec.read_text(encoding="utf-8"))
+
+
 def test_opt_in_requires_the_baseline_specs_directory(tmp_path):
     spec, _ = _project(tmp_path)
     (tmp_path / "openspec" / "specs").rmdir()

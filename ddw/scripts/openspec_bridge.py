@@ -142,9 +142,15 @@ def validate(root: str, spec_text: str) -> str:
     change = change_path(root, spec_text)
     if change is None:
         return bundled
+    local_cli = os.path.join(root, "node_modules", ".bin", "openspec")
+    cli = (
+        local_cli
+        if os.path.isfile(local_cli) and os.access(local_cli, os.X_OK)
+        else "openspec"
+    )
     try:
         result = subprocess.run(
-            ["openspec", "validate", change.rsplit("/", 1)[-1], "--strict"],
+            [cli, "validate", change.rsplit("/", 1)[-1], "--strict"],
             cwd=root,
             capture_output=True,
             text=True,
