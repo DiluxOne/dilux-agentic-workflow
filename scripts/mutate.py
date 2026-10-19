@@ -661,15 +661,15 @@ MUTATIONS = [
           "")),
     ("the bootstrap stops forbidding the self-install that broke the plugin promise",
      edit("adapters/opencode/plugin/ddw.js",
-          '    "The method STAYS with the plugin: do NOT install DDW into this repo — no install.sh, no copying .ddw/ or .opencode/. " +\n'
-          '    "Where the method\'s documents say `.ddw/...`, resolve them under the path above. " +\n'
-          '    "Only .ddw-state.json, the context file and the phase artifacts (docs/) belong in the repo.",\n',
+           '      "The method STAYS with the plugin: do NOT install DDW into this repo — no install.sh, no copying .ddw/ or .opencode/. " +\n'
+           '      "Where the method\'s documents say `.ddw/...`, resolve them under the path above. " +\n'
+           '      "Only .ddw-state.json, the context file and the phase artifacts (docs/) belong in the repo.",\n',
           '')),
     ("the bootstrap lets DDW content leak into the project's context file",
      edit("adapters/opencode/plugin/ddw.js",
-          '    "The context file (AGENTS.md) is the PROJECT\'s, not DDW\'s: if it is missing, gather the stack and conventions " +\n'
-          '    "from the user and write it as a plain project file. Never put DDW content in it — no DDW blocks, no DDW " +\n'
-          '    "template boilerplate, no references to DDW or its phases. A reader without the plugin must see an ordinary repo.",\n',
+           '      "The context file (AGENTS.md) is the PROJECT\'s, not DDW\'s: if it is missing, gather the stack and conventions " +\n'
+           '      "from the user and write it as a plain project file. Never put DDW content in it — no DDW blocks, no DDW " +\n'
+           '      "template boilerplate, no references to DDW or its phases. A reader without the plugin must see an ordinary repo.",\n',
           '')),
     ("the bootstrap never reaches the first user message",
      edit("adapters/opencode/plugin/ddw.js",

@@ -39,6 +39,7 @@ const methodFor = (directory) => {
 
 const bootstrapFor = (ddw, state) => {
   if (!existsSync(join(ddw, "orchestrator.md"))) return ""
+  const dropin = ddw === join(dirname(state), ".ddw")
   let status = "There is no .ddw-state.json: the pipeline is IDLE — no ticket has been started in this repo."
   try {
     const s = JSON.parse(readFileSync(state, "utf8"))
@@ -48,13 +49,19 @@ const bootstrapFor = (ddw, state) => {
     BOOT_MARK,
     "This repo is governed by DDW (Dilux Development Workflow), a strict state machine over",
     "CLASSIFY → DEFINE → PLAN → CODE → VERIFY → CLOSEOUT, recorded in .ddw-state.json at the repo root.",
-    `The method lives at ${ddw} — read ${join(ddw, "orchestrator.md")} and follow its Boot Sequence before doing anything else.`,
-    "The method STAYS with the plugin: do NOT install DDW into this repo — no install.sh, no copying .ddw/ or .opencode/. " +
-    "Where the method's documents say `.ddw/...`, resolve them under the path above. " +
-    "Only .ddw-state.json, the context file and the phase artifacts (docs/) belong in the repo.",
-    "The context file (AGENTS.md) is the PROJECT's, not DDW's: if it is missing, gather the stack and conventions " +
-    "from the user and write it as a plain project file. Never put DDW content in it — no DDW blocks, no DDW " +
-    "template boilerplate, no references to DDW or its phases. A reader without the plugin must see an ordinary repo.",
+    ...(dropin ? [
+      `The method is installed in this repo at ${ddw} — read ${join(ddw, "orchestrator.md")} and follow its Boot Sequence before doing anything else.`,
+      "This is a drop-in installation: keep .ddw/ and .opencode/ intact; do not reinstall over them.",
+      "AGENTS.md contains the project's context and a managed DDW block; preserve both.",
+    ] : [
+      `The method lives at ${ddw} — read ${join(ddw, "orchestrator.md")} and follow its Boot Sequence before doing anything else.`,
+      "The method STAYS with the plugin: do NOT install DDW into this repo — no install.sh, no copying .ddw/ or .opencode/. " +
+      "Where the method's documents say `.ddw/...`, resolve them under the path above. " +
+      "Only .ddw-state.json, the context file and the phase artifacts (docs/) belong in the repo.",
+      "The context file (AGENTS.md) is the PROJECT's, not DDW's: if it is missing, gather the stack and conventions " +
+      "from the user and write it as a plain project file. Never put DDW content in it — no DDW blocks, no DDW " +
+      "template boilerplate, no references to DDW or its phases. A reader without the plugin must see an ordinary repo.",
+    ]),
     status,
     "Work that changes this repo starts by CLASSIFYING it into a ticket (the ddw-* skills exist for each phase) — never by writing code first.",
     "Any message starting with `DDW:` comes from the plugin's gates, not from the user. Obey it literally — especially STOP instructions.",

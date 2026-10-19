@@ -1235,6 +1235,7 @@ for (const [directory, isDropin] of [[process.argv[2], true], [process.argv[3], 
   assert.match(text, /CLASSIFY.*DEFINE.*PLAN.*CODE.*VERIFY.*CLOSEOUT/s);
   assert.equal(text.includes("do NOT install DDW into this repo"), !isDropin);
   if (isDropin) assert.match(text, /method is installed in this repo/);
+  else assert.match(text, /Never put DDW content in it/);
 }
 '''
     r = subprocess.run(["node", "--input-type=module", "-e", js,
