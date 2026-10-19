@@ -660,11 +660,15 @@ MUTATIONS = [
           "      if (!config.skills.paths.includes(skills)) config.skills.paths.push(skills)\n",
           "")),
     ("the bootstrap stops forbidding the self-install that broke the plugin promise",
-     edit("adapters/opencode/plugin/ddw.js",
+      edit("adapters/opencode/plugin/ddw.js",
            '      "The method STAYS with the plugin: do NOT install DDW into this repo — no install.sh, no copying .ddw/ or .opencode/. " +\n'
            '      "Where the method\'s documents say `.ddw/...`, resolve them under the path above. " +\n'
            '      "Only .ddw-state.json, the context file and the phase artifacts (docs/) belong in the repo.",\n',
-          '')),
+           '')),
+    ("the drop-in bootstrap treats its installed method as an external plugin",
+     edit("adapters/opencode/plugin/ddw.js",
+          '  const dropin = ddw === join(dirname(state), ".ddw")',
+          '  const dropin = false')),
     ("the bootstrap lets DDW content leak into the project's context file",
      edit("adapters/opencode/plugin/ddw.js",
            '      "The context file (AGENTS.md) is the PROJECT\'s, not DDW\'s: if it is missing, gather the stack and conventions " +\n'
