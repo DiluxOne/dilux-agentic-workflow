@@ -1212,6 +1212,37 @@ await assert.rejects(
     assert r.returncode == 0, r.stderr
 
 
+def test_opencode_v2_bootstrap_distinguishes_dropin_from_plugin(tmp_path):
+    dropin = tmp_path / "dropin"
+    shutil.copytree(os.path.join(ROOT, "ddw"), dropin / ".ddw")
+    plugin_only = tmp_path / "plugin-only"
+    plugin_only.mkdir()
+    js = r'''
+import assert from "node:assert/strict";
+import { pathToFileURL } from "node:url";
+const plugin = (await import(pathToFileURL(process.argv[1]))).default;
+for (const [directory, isDropin] of [[process.argv[2], true], [process.argv[3], false]]) {
+  let context;
+  await plugin.setup({
+    location: { directory },
+    tool: { hook: async () => {} },
+    session: { hook: async (name, fn) => {
+      if (name === "context") { context = { system: [] }; fn(context); }
+    } },
+    event: { subscribe: async function* () {} },
+  });
+  const text = context.system[0]?.text || "";
+  assert.match(text, /CLASSIFY.*DEFINE.*PLAN.*CODE.*VERIFY.*CLOSEOUT/s);
+  assert.equal(text.includes("do NOT install DDW into this repo"), !isDropin);
+  if (isDropin) assert.match(text, /method is installed in this repo/);
+}
+'''
+    r = subprocess.run(["node", "--input-type=module", "-e", js,
+                        os.path.join(ROOT, "adapters/opencode/plugin/ddw.js"),
+                        str(dropin), str(plugin_only)], capture_output=True, text=True)
+    assert r.returncode == 0, r.stderr
+
+
 # ── El gate del merge ────────────────────────────────────────────────────────
 #
 # The one act of the pipeline that leaves the repo and that nobody here can
