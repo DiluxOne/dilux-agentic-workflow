@@ -11,15 +11,16 @@ import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { execFileSync } from "node:child_process"
 
-// OpenCode's real tool ids (opencode.ai/docs/tools). `apply_patch` is a write
-// tool and belongs here; ids that do not exist match nothing and gate nothing.
-const WRITE_TOOLS = new Set(["write", "edit", "apply_patch"])
+// V1 calls these tools apply_patch and bash; V2 maps patch and shell to them
+// below. IDs that do not exist match nothing and gate nothing.
+const WRITE_TOOLS = new Set(["write", "edit", "apply_patch", "bash"])
 // The post-write net must also watch the shell: `bash` is exactly how a state
 // gets forged behind the pre-write hook, and filtering it out meant the one
 // check that exists to catch that could never see it.
 const POST_TOOLS = new Set([...WRITE_TOOLS, "bash"])
+const BOOT_MARK = "<DDW_BOOTSTRAP>"
 
-export const DdwPlugin = async ({ directory }) => {
+const methodFor = (directory) => {
   // Repo first, plugin second — the same resolution the Claude plugin's hooks
   // use. A repo that carries its own .ddw/ (drop-in, or vendored to diverge)
   // keeps winning; a repo with none gets the method that travels with this
@@ -33,7 +34,36 @@ export const DdwPlugin = async ({ directory }) => {
     join(here, "..", "..", "..", "ddw"), // package layout: adapters/opencode/plugin/ → repo root
     join(here, "..", "ddw"),            // global install: ~/.config/opencode/plugins/ → ~/.config/opencode/ddw
   ]
-  const ddw = candidates.find((c) => existsSync(join(c, "scripts", "hook-gate.py"))) ?? candidates[0]
+  return candidates.find((c) => existsSync(join(c, "scripts", "hook-gate.py"))) ?? candidates[0]
+}
+
+const bootstrapFor = (ddw, state) => {
+  if (!existsSync(join(ddw, "orchestrator.md"))) return ""
+  let status = "There is no .ddw-state.json: the pipeline is IDLE — no ticket has been started in this repo."
+  try {
+    const s = JSON.parse(readFileSync(state, "utf8"))
+    status = `Current state: phase ${s.phase}, tier ${s.tier ?? "?"}, ticket ${s.ticket ?? "?"}.`
+  } catch {}
+  return [
+    BOOT_MARK,
+    "This repo is governed by DDW (Dilux Development Workflow), a strict state machine over",
+    "CLASSIFY → DEFINE → PLAN → CODE → VERIFY → CLOSEOUT, recorded in .ddw-state.json at the repo root.",
+    `The method lives at ${ddw} — read ${join(ddw, "orchestrator.md")} and follow its Boot Sequence before doing anything else.`,
+    "The method STAYS with the plugin: do NOT install DDW into this repo — no install.sh, no copying .ddw/ or .opencode/. " +
+    "Where the method's documents say `.ddw/...`, resolve them under the path above. " +
+    "Only .ddw-state.json, the context file and the phase artifacts (docs/) belong in the repo.",
+    "The context file (AGENTS.md) is the PROJECT's, not DDW's: if it is missing, gather the stack and conventions " +
+    "from the user and write it as a plain project file. Never put DDW content in it — no DDW blocks, no DDW " +
+    "template boilerplate, no references to DDW or its phases. A reader without the plugin must see an ordinary repo.",
+    status,
+    "Work that changes this repo starts by CLASSIFYING it into a ticket (the ddw-* skills exist for each phase) — never by writing code first.",
+    "Any message starting with `DDW:` comes from the plugin's gates, not from the user. Obey it literally — especially STOP instructions.",
+    "</DDW_BOOTSTRAP>",
+  ].join("\n")
+}
+
+export const DdwPlugin = async ({ directory }) => {
+  const ddw = methodFor(directory)
   const state = join(directory, ".ddw-state.json")
   // The skills travel next to the method (repo root of the package). The
   // drop-in does not need this — its skills are installed to .opencode/skills,
@@ -63,31 +93,7 @@ export const DdwPlugin = async ({ directory }) => {
     }
   }
 
-  const BOOT_MARK = "<DDW_BOOTSTRAP>"
-  const bootstrap = () => {
-    if (!existsSync(join(ddw, "orchestrator.md"))) return ""
-    let status = "There is no .ddw-state.json: the pipeline is IDLE — no ticket has been started in this repo."
-    try {
-      const s = JSON.parse(readFileSync(state, "utf8"))
-      status = `Current state: phase ${s.phase}, tier ${s.tier ?? "?"}, ticket ${s.ticket ?? "?"}.`
-    } catch {}
-    return [
-      BOOT_MARK,
-      "This repo is governed by DDW (Dilux Development Workflow), a strict state machine over",
-      "CLASSIFY → DEFINE → PLAN → CODE → VERIFY → CLOSEOUT, recorded in .ddw-state.json at the repo root.",
-      `The method lives at ${ddw} — read ${join(ddw, "orchestrator.md")} and follow its Boot Sequence before doing anything else.`,
-      "The method STAYS with the plugin: do NOT install DDW into this repo — no install.sh, no copying .ddw/ or .opencode/. " +
-      "Where the method's documents say `.ddw/...`, resolve them under the path above. " +
-      "Only .ddw-state.json, the context file and the phase artifacts (docs/) belong in the repo.",
-      "The context file (AGENTS.md) is the PROJECT's, not DDW's: if it is missing, gather the stack and conventions " +
-      "from the user and write it as a plain project file. Never put DDW content in it — no DDW blocks, no DDW " +
-      "template boilerplate, no references to DDW or its phases. A reader without the plugin must see an ordinary repo.",
-      status,
-      "Work that changes this repo starts by CLASSIFYING it into a ticket (the ddw-* skills exist for each phase) — never by writing code first.",
-      "Any message starting with `DDW:` comes from the plugin's gates, not from the user. Obey it literally — especially STOP instructions.",
-      "</DDW_BOOTSTRAP>",
-    ].join("\n")
-  }
+  const bootstrap = () => bootstrapFor(ddw, state)
   const graph = join(ddw, "rules", "transition-graph.json")
   const gate = join(ddw, "scripts", "hook-gate.py")
   const boot = join(ddw, "scripts", "session-boot.py")
@@ -189,7 +195,9 @@ export const DdwPlugin = async ({ directory }) => {
       if (!WRITE_TOOLS.has(input?.tool)) return
       if (!installed()) return
       try {
-        runGate("pre", envelope(input.tool, output?.args ?? {}))
+        const payload = envelope(input.tool, output?.args ?? {})
+        if (input.tool === "bash") runGate("commit", payload)
+        runGate("pre", payload)
       } catch (e) {
         const reason = (e.stderr?.toString() || e.stdout?.toString() || "").trim()
         throw new Error(`DDW blocked the write.\n${reason}`)
@@ -210,4 +218,46 @@ export const DdwPlugin = async ({ directory }) => {
       }
     },
   }
+}
+
+// V2 does not execute the V1 hooks returned by DdwPlugin. Keep that entrypoint
+// for older installations, but register the same enforcement on V2's domains.
+export default {
+  id: "ddw",
+  async setup(ctx) {
+    const directory = ctx.location.directory
+    const ddw = methodFor(directory)
+    const legacy = await DdwPlugin({ directory })
+    const toolName = (tool) => ({ patch: "apply_patch", shell: "bash" })[tool] ?? tool
+    await ctx.tool.hook("execute.before", (event) => {
+      const tool = toolName(event.tool)
+      const args = event.tool === "patch" ? event.input.patchText : event.input
+      return legacy["tool.execute.before"]({ tool }, { args })
+    })
+    await ctx.tool.hook("execute.after", (event) =>
+      legacy["tool.execute.after"]({ tool: toolName(event.tool) }))
+    await ctx.session.hook("context", (event) => {
+      const text = bootstrapFor(ddw, join(directory, ".ddw-state.json"))
+      if (text) event.system.push({ type: "text", text })
+    })
+    await ctx.session.hook("prompt", () => {
+      if (!existsSync(join(ddw, "scripts", "hook-gate.py"))) return
+      try {
+        execFileSync("python3", [join(ddw, "scripts", "hook-gate.py"), "--mode", "turn",
+                                 "--state", join(directory, ".ddw-state.json"),
+                                 "--graph", join(ddw, "rules", "transition-graph.json"),
+                                 "--repo", directory, "--method", ddw],
+                     { stdio: ["ignore", "ignore", "ignore"] })
+      } catch {} // A missed count delays confirmation; it must not block a user prompt.
+    })
+    const controller = new AbortController()
+    void (async () => {
+      for await (const event of ctx.event.subscribe({ signal: controller.signal })) {
+        await legacy.event({ event })
+      }
+    })().catch((error) => {
+      if (!controller.signal.aborted) console.error("DDW: event subscription failed", error)
+    })
+    return () => controller.abort()
+  },
 }

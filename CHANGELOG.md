@@ -19,6 +19,13 @@ move at different speeds. So the promise is specific:
 
 ---
 
+## [0.58.1] - 2026-10-19
+
+### Fixed
+
+- VERIFY checks numbered FIX steps and descriptive test commitments rather than FEATURE blocks and `test_*` names.
+- OpenCode V2 registers pre-write, post-write, context and user-turn hooks; the generated reviewer denies edits and requires approval for shell commands. The existing V1 entrypoint remains available.
+
 ## [0.58.0] - 2026-10-17
 
 ### Added — optional OpenSpec changes are evidence, not a second workflow
