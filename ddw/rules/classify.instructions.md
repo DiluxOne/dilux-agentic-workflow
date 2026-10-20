@@ -1,6 +1,6 @@
 ---
 applyTo: '**'
-version: 2.19.0
+version: 2.20.0
 ---
 
 # CLASSIFY Phase (Recognition and Classification)
@@ -472,19 +472,24 @@ never let it be chosen by someone who was not told what it removes.
 - **`minimal`** — the arrows stop waiting. Nothing else changes: the same eight gates, the same
   receipts, refused by the same hook over the same bytes. What goes away is the confirmation on a
   transition whose evidence is already on disk.
+- **`autonomous`** — `minimal`, plus the acts that leave the repository: it commits, pushes, merges
+  and closes the tracker ticket without asking. The gates do not change; only the last confirmation
+  goes. It is chosen by name ("corré completamente solo", "sin preguntarme nada", "sin
+  restricción") and never inferred.
 
 **Say what it costs, once, here, before they agree:** in `minimal` nobody reads the tables. The
 receipts still refuse an incomplete PRD, an unvalidated spec, a SAST report that never judged SSRF
 or a test run whose numbers do not add up — but *complete* is not *true*, and the person who would
-have noticed the difference is the one who just stepped out of the loop.
+have noticed the difference is the one who just stepped out of the loop. `autonomous` adds one more
+step out: nobody reads the diff before the merge either.
 
-Three things still stop the run, in either mode, and they are not configurable: a decision nobody
+Three things still stop the run, in every mode, and they are not configurable: a decision nobody
 wrote down (asking is the only correct move — inventing a requirement to clear a check is a worse
 defect than the one it silences), a corrective loop that hit its ceiling, and a corrupt state.
 
-Every transition taken without a human carries `"autonomy": "minimal"` in its history entry, because
-six months later the record has to distinguish a run somebody watched from one that did not have
-anyone to watch it.
+Every transition taken without a human carries `"autonomy": "minimal"` or `"autonomy":
+"autonomous"` in its history entry, because six months later the record has to distinguish a run
+somebody watched from one that did not have anyone to watch it.
 
 ---
 
@@ -493,7 +498,7 @@ anyone to watch it.
 1. Update `.ddw-state.json`:
    - `tier` → the confirmed tier (`"QUICK-FIX"`, `"FIX"`, `"FEATURE"`, `"DISCOVERY"` or
      `"FREE"`)
-   - `autonomy` → `"assisted"` unless the user asked for the other one (see below)
+   - `autonomy` → `"assisted"` unless the user asked for `"minimal"` or `"autonomous"` (see above)
    - `phase`:
      - For `QUICK-FIX`, `FIX`, `FEATURE` → `"DEFINE"`
      - For `DISCOVERY` → `"DISCOVERY"`

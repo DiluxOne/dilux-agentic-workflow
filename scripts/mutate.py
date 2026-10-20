@@ -435,8 +435,8 @@ MUTATIONS = [
           "            reason = second_arrow_in_one_turn(root, old_state, new_state)")),
     ("minimal gets caught by the rule it opted out of",
      edit("ddw/scripts/validate-transition.py",
-          '    if autonomy == "minimal":\n        return None\n    turn = _turn_now(root)',
-          '    if autonomy == "never-happens":\n        return None\n    turn = _turn_now(root)')),
+          '    if autonomy in ("minimal", "autonomous"):\n        return None\n    turn = _turn_now(root)',
+          '    if autonomy in ("autonomous",):\n        return None\n    turn = _turn_now(root)')),
     # Both halves together: without a counter, `_turn_now` returns 0 instead of
     # None and `_record_arrow` writes anyway, so the first arrow leaves a mark
     # and the second is refused — in every tool that does not write turns.
@@ -3485,8 +3485,8 @@ MUTATIONS = [
           "**One arrow\n  per RESPONSE** holds either way.")),
     ("the autonomy section stops naming the guard that exempts `minimal`",
      edit("ddw/orchestrator.md",
-          "hook agrees — `second_arrow_in_one_turn` exempts this mode",
-          "hook agrees — the enforcement exempts this mode")),
+          "hook agrees — `second_arrow_in_one_turn` exempts both modes",
+          "hook agrees — the enforcement exempts both modes")),
     ("CLASSIFY goes back to reading as an exit that waits in every mode",
      edit("ddw/rules/classify.instructions.md",
           '> **Under `autonomy: "minimal"` this arrow does not wait.** The mode was chosen\n',

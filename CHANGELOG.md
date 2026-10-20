@@ -19,6 +19,26 @@ move at different speeds. So the promise is specific:
 
 ---
 
+## [0.59.0] - 2026-10-20
+
+### Added — a fully-autonomous mode
+
+- **`autonomy: "autonomous"`**, a third mode set in CLASSIFY alongside the tier.
+  It is `minimal` plus the acts that leave the repository: an autonomous run
+  commits, pushes, merges and closes the tracker ticket without asking. The
+  eight gates do not change — they are earned by receipts and refused by the
+  same hook over the same bytes. The three integrity stops (a decision nobody
+  wrote down, a corrective loop at its ceiling, a corrupt state) still hold in
+  every mode.
+
+### Changed
+
+- The commit gate and the one-arrow-per-turn refusal treat `autonomous` like
+  `minimal`. A merge keeps its confirmation in `assisted` and `minimal`; only
+  `autonomous` takes the merge button.
+
+---
+
 ## [0.58.1] - 2026-10-19
 
 ### Fixed
