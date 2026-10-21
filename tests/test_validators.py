@@ -945,6 +945,13 @@ def test_minimal_no_espera(tmp_path):
     assert _commit(tmp_path, 'git commit -m "x"').returncode == 0
 
 
+def test_autonomous_no_espera(tmp_path):
+    """`autonomous` adds the acts that leave the repo to `minimal`; a local
+    commit still never waits."""
+    _repo_en_define(tmp_path, autonomy="autonomous")
+    assert _commit(tmp_path, 'git commit -m "x"').returncode == 0
+
+
 # ── The rules that passed on emptiness ───────────────────────────────────────
 #
 # The pattern measured in round 4: a rule whose parser extracts zero elements
@@ -1304,6 +1311,14 @@ def test_minimal_no_exime_al_merge(tmp_path):
     _repo_en_define(tmp_path, autonomy="minimal")
     assert _merge(tmp_path).returncode == 2, \
         "minimal exempted the act the prose says is never exempt"
+
+
+def test_autonomous_exime_al_merge(tmp_path):
+    """`autonomous` is the one mode that takes the merge button: a merge runs
+    with nobody having seen the proposal first."""
+    _repo_en_define(tmp_path, autonomy="autonomous")
+    assert _merge(tmp_path).returncode == 0, \
+        "autonomous still reserved the merge for a person"
 
 
 def test_un_merge_propuesto_en_el_mismo_turno_es_rechazado(tmp_path):

@@ -494,7 +494,7 @@ def _check_gates_have_a_ticket(new_state):
         )
 
 
-AUTONOMY_VALUES = ("assisted", "minimal")
+AUTONOMY_VALUES = ("assisted", "minimal", "autonomous")
 
 
 def _check_autonomy(old_state, new_state, appended):
@@ -516,7 +516,7 @@ def _check_autonomy(old_state, new_state, appended):
     raw_new = new_state.get("autonomy")
     if raw_new is not None and raw_new not in AUTONOMY_VALUES:
         raise Block(
-            f"`autonomy` must be null, \"assisted\" or \"minimal\", got {raw_new!r}. An "
+            f"`autonomy` must be null, \"assisted\", \"minimal\" or \"autonomous\", got {raw_new!r}. An "
             "unrecognised value is read as 'not assisted' by anything that tests for the string, "
             "which is the failure mode of every unvalidated enum."
         )
@@ -2997,7 +2997,7 @@ def _record_arrow(root):
 def second_arrow_in_one_turn(root, old_state, new_state):
     """The reason to refuse a second transition in one response, or None."""
     autonomy = new_state.get("autonomy") or old_state.get("autonomy") or "assisted"
-    if autonomy == "minimal":
+    if autonomy in ("minimal", "autonomous"):
         return None
     turn = _turn_now(root)
     if turn is None:
@@ -3068,7 +3068,7 @@ def goback_gate(root, old_state, new_state, graph):
     if not (isinstance(cfg, dict) and cfg.get("clears")):
         return None                     # forward edges have their own approvals
     autonomy = new_state.get("autonomy") or old_state.get("autonomy") or "assisted"
-    if autonomy == "minimal":
+    if autonomy in ("minimal", "autonomous"):
         return None                     # opted into with the cost stated out loud
     if _turn_now(root) is None:
         return None                     # no turn signal from this tool: declared above

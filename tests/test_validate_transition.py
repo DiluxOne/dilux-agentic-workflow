@@ -979,6 +979,17 @@ def test_en_minimal_las_flechas_no_esperan(tmp_path):
                   "--action", "definir") is None, "minimal got caught by the rule"
 
 
+def test_en_autonomous_las_flechas_no_esperan(tmp_path):
+    """What `autonomous` adds to `minimal` is the acts that leave the repo;
+    the arrows chain the same way."""
+    d = _repo_con_estado(tmp_path, autonomy="autonomous")
+    _turn_passes(d)
+    _arrow(d, "--to", "CLASSIFY", "--tier", "FEATURE", "--ticket", "F-1",
+           "--autonomy", "autonomous", "--action", "clasificar")
+    assert _arrow(d, "--to", "DEFINE", "--tier", "FEATURE", "--ticket", "F-1",
+                  "--action", "definir") is None, "autonomous got caught by the rule"
+
+
 def test_sin_señal_de_turno_no_se_refusa_nada(tmp_path):
     """A guard that fires because a counter is missing refuses every write in
     every tool that does not write one."""
