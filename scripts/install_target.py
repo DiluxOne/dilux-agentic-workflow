@@ -255,14 +255,19 @@ def _public(mapping):
 
 
 def yaml_block(mapping, indent=0):
-    """Emit the recipe's frontmatter mapping as YAML. Values are scalars, lists,
-    or one level of nesting, which is all any adapter dialect needs so far."""
+    """Emit the recipe's frontmatter mapping as YAML, including list rules."""
     pad = " " * indent
     lines = []
     for k, v in _public(mapping).items():
         if isinstance(v, dict):
             lines.append(f"{pad}{k}:")
             lines.extend(yaml_block(v, indent + 2))
+        elif isinstance(v, list) and v and all(isinstance(item, dict) for item in v):
+            lines.append(f"{pad}{k}:")
+            for item in v:
+                fields = yaml_block(item, indent + 2)
+                lines.append(f"{pad}  - {fields[0].lstrip()}")
+                lines.extend("  " + field for field in fields[1:])
         else:
             lines.append(f"{pad}{k}: {_yaml_scalar(v)}")
     return lines

@@ -527,12 +527,14 @@ def _merge_paths(repo):
 def merge_verdict(repo, command, require_seal=True):
     """None to allow a `gh pr merge`, or the reason to refuse.
 
-    Unlike the commit gate, this one applies under BOTH autonomy modes — the
+    Unlike the commit gate, this one applies under `assisted` AND `minimal` — the
     method has said so in prose from the day `minimal` existed ("merging a pull
     request keeps its confirmation in both modes") and this is the hook that
-    makes the sentence true. And nothing is consumed here: the commit gate
-    taught that lesson — the permission is spent by the act EXISTING, which for
-    a merge means the forge saying MERGED, read by the post hook.
+    makes the sentence true. `autonomous` is the one mode that lifts it, chosen
+    in CLASSIFY with an even louder cost stated. And nothing is consumed here:
+    the commit gate taught that lesson — the permission is spent by the act
+    EXISTING, which for a merge means the forge saying MERGED, read by the post
+    hook.
     """
     proposal, seal = _merge_paths(repo)
     rel = os.path.join(".ddw-work", "merge-proposal.txt")
@@ -540,8 +542,8 @@ def merge_verdict(repo, command, require_seal=True):
         "\nHow this works: write what is about to happen — `merge PR #<n> into <base>` and the "
         "PR's title — to `%s`, show it to the user, and END YOUR TURN. When they answer, run "
         "the same `gh pr merge` again. A merge leaves the repository and nobody here can "
-        "revert it, so it waits for a person in EVERY autonomy mode: `minimal` removes the "
-        "pauses on arrows, not this. A picker choice is not the answer — no hook receives "
+        "revert it, so it waits for a person in `assisted` and `minimal`; only `autonomous` "
+        "takes the merge button. A picker choice is not the answer — no hook receives "
         "one; the message is." % rel)
     digest = _digest(proposal)
     if digest is None:
@@ -794,26 +796,30 @@ def main():
         command = tool_input.get("command")
         if not isinstance(command, str):
             allow(args.dialect)
-        # The merge first, and OUTSIDE the autonomy exemption below: a merge
-        # keeps its confirmation in both modes, which is the method's own
-        # sentence — this is the hook that makes it true.
+        try:
+            with open(args.state, encoding="utf-8") as fh:
+                autonomy = (json.load(fh) or {}).get("autonomy")
+        except (OSError, ValueError, AttributeError):
+            autonomy = None              # unreadable reads as assisted, like absent
+        # The merge first. Under `assisted` and `minimal` a merge keeps its
+        # confirmation — it is the one irreversible-and-outward act the method
+        # never lets the model take on its own — which is this hook's sentence
+        # made true. `autonomous` opted into lifting even that, with the cost
+        # stated in CLASSIFY.
         if _IS_PR_MERGE.search(command):
-            reason = merge_verdict(args.repo, command)
-            if reason:
-                deny(args.dialect, reason)
+            if autonomy != "autonomous":
+                reason = merge_verdict(args.repo, command)
+                if reason:
+                    deny(args.dialect, reason)
             allow(args.dialect)
         if not _IS_COMMIT.search(command):
             allow(args.dialect)
         # `minimal` was opted into with the cost stated out loud, and what it
         # removes is the asking, not the showing. A commit is local and
         # reversible, so it is not one of the acts that keep their confirmation
-        # in both modes — those are the ones that leave the repository.
-        try:
-            with open(args.state, encoding="utf-8") as fh:
-                autonomy = (json.load(fh) or {}).get("autonomy")
-        except (OSError, ValueError, AttributeError):
-            autonomy = None              # unreadable reads as assisted, like absent
-        if autonomy == "minimal":
+        # under `assisted` — those that leave the repository do, unless the run
+        # is `autonomous`.
+        if autonomy in ("minimal", "autonomous"):
             allow(args.dialect)
         reason = commit_verdict(args.repo, command)
         if reason:
@@ -832,17 +838,18 @@ def main():
     if args.mode == "pre" and args.dialect == "copilot":
         _cmd = tool_input.get("command")
         if isinstance(_cmd, str) and _cmd.strip():
+            try:
+                with open(args.state, encoding="utf-8") as fh:
+                    _autonomy = (json.load(fh) or {}).get("autonomy")
+            except (OSError, ValueError, AttributeError):
+                _autonomy = None
             if _IS_PR_MERGE.search(_cmd):
-                reason = merge_verdict(args.repo, _cmd, require_seal=False)
-                if reason:
-                    deny(args.dialect, reason)
+                if _autonomy != "autonomous":
+                    reason = merge_verdict(args.repo, _cmd, require_seal=False)
+                    if reason:
+                        deny(args.dialect, reason)
             elif _IS_COMMIT.search(_cmd):
-                try:
-                    with open(args.state, encoding="utf-8") as fh:
-                        _autonomy = (json.load(fh) or {}).get("autonomy")
-                except (OSError, ValueError, AttributeError):
-                    _autonomy = None
-                if _autonomy != "minimal":
+                if _autonomy not in ("minimal", "autonomous"):
                     reason = commit_verdict(args.repo, _cmd, require_seal=False)
                     if reason:
                         deny(args.dialect, reason)

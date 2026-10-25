@@ -324,25 +324,34 @@ receipts, refused by the same hook over the same bytes. What goes away is asking
 approve a transition whose evidence is already on disk, which is a rubber stamp, and rubber stamps
 are how approvals come to mean nothing.
 
+**`autonomous`** — `minimal`, plus the acts `minimal` still reserves for a person. An autonomous
+run takes every arrow AND the acts that leave the repository: it commits, pushes, merges, and closes
+the tracker ticket without asking, inheriting every `minimal` exemption the phase rules already
+name. Everything else is the same: the eight gates are earned by receipts and refused by the same
+hook over the same bytes, so a run with nobody watching is still held to the same evidence. It is
+chosen by name ("corré completamente solo", "sin preguntarme nada", "sin restricción"), never
+inferred, and its cost is stated once in CLASSIFY.
+
 **Stopping is what goes away, not only asking.** An arrow that waits for a message it does not need
-is the same interruption under another name, so under `minimal` the arrows CHAIN: one response
-carries as many as the work reaches, each written on its own, each with its evidence on disk. The
-hook agrees — `second_arrow_in_one_turn` exempts this mode from the one-arrow-per-turn
-refusal by name, and the commit gate does the same.
+is the same interruption under another name, so under `minimal` and `autonomous` the arrows CHAIN:
+one response carries as many as the work reaches, each written on its own, each with its evidence
+on disk. The hook agrees — `second_arrow_in_one_turn` exempts both modes from the
+one-arrow-per-turn refusal by name, and the commit gate does the same.
 
 **What `minimal` does NOT touch: acts that leave the repository.** Merging a pull request and
 closing a tracker ticket are not arrows in this graph — they are irreversible things done to systems
 other people read, and no receipt attests that the user wanted them. They keep their confirmation in
-both modes, and the skills that perform them say so. `minimal` removes the pause on a transition
-whose evidence is already on disk; it does not hand the model the merge button.
+`assisted` and `minimal`, and the skills that perform them say so. `minimal` removes the pause on a
+transition whose evidence is already on disk; it does not hand the model the merge button.
+`autonomous` does — that is the one thing it adds, and the one reason it is a heavier choice.
 
 **And the gates are earned by their receipts, not by the approval.** `gates.define` turns true
 because `validate_prd.py` passed and left a receipt bound to those bytes — the approval was never
 what made it true, which is why removing the approval leaves the gate chain intact. A skill that
 says "set the gate once the user approves" means "once the validation passed and you showed them";
-under `minimal` the showing still happens and the asking does not.
+under `minimal` and `autonomous` the showing still happens and the asking does not.
 
-**Stop and ask anyway, in either mode:**
+**Stop and ask anyway, in every mode:**
 
 1. **A decision nobody wrote down.** A ❌ the script names is a defect to fix; a question born of
    missing information is not. Inventing a requirement, a criterion or a threshold to clear a check
@@ -352,9 +361,10 @@ under `minimal` the showing still happens and the asking does not.
    record.
 3. **A corrupt state.** Unchanged: stop, report, repair nothing.
 
-**Every transition taken without a human carries `"autonomy": "minimal"` in its history entry.** A
-record that reads identically for a run somebody watched and one that had nobody to watch it is a
-record that lies by omission — and this is the one field that says which happened.
+**Every transition taken without a human carries `"autonomy": "minimal"` or `"autonomy":
+"autonomous"` in its history entry.** A record that reads identically for a run somebody watched
+and one that had nobody to watch it is a record that lies by omission — and this is the one field
+that says which happened.
 - DDW's skills and any the project brings coexist in `.claude/skills/`. **NEVER invoke a skill that
   is not listed in the active phase's router**, whether it belongs to DDW or to the project. If the
   project ships a skill with the SAME name as one of DDW's, that is ambiguous: tell the user and ask

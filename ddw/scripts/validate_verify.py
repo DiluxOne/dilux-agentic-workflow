@@ -6,7 +6,7 @@ suite: it does not know whether this is pytest or jest or a monorepo with five
 runners, and a gate that cannot be satisfied honestly gets satisfied dishonestly
 (docs/RATIONALE.md decisions 2 and 16). So this script does NOT verify that the
 tests pass. It verifies that **the verdict was written and is complete** — that
-every AC in the PRD is accounted for, every block of the spec is accounted for,
+every AC in the PRD is accounted for, every block or fix-plan step is accounted for,
 the three coverage numbers are stated and meet the minimum the rules set, and
 lint and the sad paths have an answer instead of a silence.
 
@@ -32,7 +32,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import ddw_receipt  # noqa: E402 — same directory, resolved above
 
 def _promised_tests(spec_text):
-    """The test NAMES a spec promises — read only where it promises them.
+    """The test NAMES a FEATURE spec promises — read only where it promises them.
 
     Two things are deliberate here, and both were paid for.
 
@@ -84,6 +84,33 @@ def _required_tests_parts(spec_text):
         nxt = re.search(r"^[ \t]*#{2,4}\s", rest, re.MULTILINE)
         parts.append(rest[:nxt.start()] if nxt else rest)
     return parts
+
+
+def _fix_section(text, heading):
+    match = re.search(r"^##\s+" + heading + r"\b[^\n]*\n", text,
+                      re.MULTILINE | re.IGNORECASE)
+    if not match:
+        return ""
+    remainder = text[match.end():]
+    next_heading = re.search(r"^##\s+", remainder, re.MULTILINE)
+    return remainder[:next_heading.start()] if next_heading else remainder
+
+
+def _fix_tests(spec_text):
+    section = _fix_section(spec_text, r"(?:Tests|Pruebas)")
+    bullets = re.findall(r"^[ \t]*[-*]\s+(?:\[[ x]\]\s*)?(.+)$", section, re.MULTILINE)
+    descriptions = [re.sub(r"[`*]", "", bullet).strip() for bullet in bullets]
+    return ["" if re.fullmatch(r"[\w/.-]+\.[\w-]+", description) else description
+            for description in descriptions]
+
+
+def _fix_verdicts(report, kind):
+    verdicts = {}
+    for mark, number, detail in re.findall(
+            r"^[ \t]*[-*]\s+([✅❌⚠])\s+" + kind + r"\s+(\d+)\b([^\n]*)$",
+            report, re.MULTILINE | re.IGNORECASE):
+        verdicts.setdefault(int(number), []).append((mark, detail))
+    return verdicts
 
 
 def _project_floor(report_path):
@@ -266,7 +293,7 @@ def main():
             else:
                 ok("F-VER-01", f"all {len(acs)} AC from the PRD carry a passing verdict")
 
-    # F-VER-02 / F-VER-06: every block, and every test the spec promised.
+    # F-VER-02 / F-VER-06: every block/step, and every test the spec promised.
     spec_text = ""
     if spec_path:
         try:
@@ -276,6 +303,39 @@ def main():
     if not spec_text:
         fail("F-VER-02/06", "the spec could not be read, so block and test coverage were NOT "
                             "checked. Pass --spec <path> and run again")
+    elif args.tier == "FIX":
+        steps = re.findall(r"^[ \t]*(\d+)\.\s+\S", _fix_section(spec_text, r"Solution\s*[—-]\s*steps"),
+                           re.MULTILINE)
+        if not steps or len(set(steps)) != len(steps):
+            fail("F-VER-02", "the fix-plan has no uniquely numbered solution steps (%s)"
+                 % _repo_relative(spec_path))
+        else:
+            verdicts = _fix_verdicts(text, r"(?:Step|Paso)")
+            missing = [f"Step {number}" for number in steps
+                       if len(verdicts.get(int(number), [])) != 1
+                       or verdicts[int(number)][0][0] != "✅"
+                       or not verdicts[int(number)][0][1].lstrip(" —:-").strip()]
+            if missing:
+                fail("F-VER-02", "fix-plan step missing or not passing: " + ", ".join(missing))
+            else:
+                ok("F-VER-02", f"all {len(steps)} fix-plan step(s) carry passing verdicts")
+
+        tests = _fix_tests(spec_text)
+        if not tests:
+            fail("F-VER-06", "the fix-plan names no tests under 'Tests' (%s)"
+                 % _repo_relative(spec_path))
+        else:
+            verdicts = _fix_verdicts(text, r"(?:Test|Prueba)")
+            missing = [f"Test {number}" for number, description in enumerate(tests, 1)
+                       if (not description or len(verdicts.get(number, [])) != 1
+                           or verdicts[number][0][0] != "✅"
+                           or description.casefold() not in
+                           re.sub(r"[`*]", "", verdicts[number][0][1]).casefold())]
+            if missing:
+                fail("F-VER-06", "fix-plan test missing, failing or without its description: "
+                     + ", ".join(missing))
+            else:
+                ok("F-VER-06", f"all {len(tests)} fix-plan test(s) carry passing verdicts")
     else:
         blocks = re.findall(r"^##\s+Block\s+(\d+)", spec_text, re.MULTILINE)
         missing = [f"Block {b}" for b in blocks

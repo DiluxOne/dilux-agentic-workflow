@@ -30,7 +30,7 @@ set -uo pipefail
 # a knob anyone could turn from outside the file. `docs/AI-POLICY.md` and
 # `CONTRIBUTING.md` both name this variable as the thing not to soften; it was
 # softenable without editing the file they were talking about.
-EXPECT_CHECKS=671
+EXPECT_CHECKS=672
 EXPECT_SKILLS=20
 EXPECT_AGENTS=5
 EXPECT_RULES=14
@@ -40,7 +40,7 @@ EXPECT_ADAPTERS=6
 # `--check-anchors`, `--cover` and every check in this file green, and the
 # published percentage went on being a percentage of a smaller list. The same
 # reason `EXPECT_CHECKS` exists, one file over.
-EXPECT_MUTATIONS=785
+EXPECT_MUTATIONS=793
 
 SELF="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # EXPORTED, because the Python blocks below anchor their own temporary
@@ -8434,15 +8434,20 @@ js = open(os.path.join(repo, ".opencode", "plugins", "ddw.js"), encoding="utf-8"
 # under the wrong key it is never called, so nothing ever boots.
 assert '"session.created":' not in js, "opencode: session.created is an event type, not a hook key"
 assert "event:" in js, "opencode: the generic event hook is missing, so the pipeline never boots"
-# opencode.ai/docs/tools: the real ids. `patch` and `multiedit` do not exist.
-assert '"apply_patch"' in js, "opencode: apply_patch is a real write tool and is not gated"
-assert '"multiedit"' not in js and '"patch"' not in js, "opencode: gating tool ids that do not exist"
-assert '"bash"' in js, "opencode: the post net cannot see the shell, which is what forges a state"
+# OpenCode V1 uses apply_patch/bash; V2 calls those patch/shell. Both must
+# reach the same gate, or a V2 patch edits source without ever being judged.
+assert '"apply_patch"' in js, "opencode: V1 apply_patch is not gated"
+assert 'patch: "apply_patch"' in js, "opencode: V2 patch is not mapped to the gate"
+assert 'shell: "bash"' in js, "opencode: V2 shell is not mapped to the commit/post gates"
+assert '"multiedit"' not in js, "opencode: gating a tool id neither runtime has"
 
 oc = json.load(open(os.path.join(src, "adapters", "opencode", "adapter.json"), encoding="utf-8"))
-perm = oc["agents"]["when_readonly"]["permission"]
-# opencode.ai/docs/agents: the permission keys are read/edit/bash/… — no `write`.
-assert "write" not in perm, "opencode: `write` is not a permission key; edit covers it"
+perm = oc["agents"]["when_readonly"]["permissions"]
+# OpenCode V2 reads ordered action/resource/effect rules, not V1 permission keys.
+assert any(p == {"action": "edit", "resource": "*", "effect": "deny"} for p in perm), \
+    "opencode: read-only agents must deny edits through V2 permissions"
+assert any(p == {"action": "shell", "resource": "*", "effect": "ask"} for p in perm), \
+    "opencode: reviewer shell commands must need approval instead of bypassing edit-deny"
 
 # OpenCode discovers skills and never turns them into /name, so without the
 # commands block its seventeen skills load and have no entry point at all. The

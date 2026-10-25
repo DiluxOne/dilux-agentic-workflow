@@ -66,7 +66,8 @@ spec. A blocking gate.
 ### Then, for every tier: write the verdict and validate that it is complete
 
 Write the verdict to `docs/ddw/reports/verify-{ticket}.md` — every AC by ID with its result, every
-block, the three coverage numbers, the sad-path answer and the lint answer. Then run:
+FEATURE block or FIX step, every promised test, the three coverage numbers, the sad-path answer and
+the lint answer. Then run:
 
 `python3 .ddw/scripts/validate_verify.py docs/ddw/reports/verify-{ticket}.md --tier <tier>`
 
@@ -78,7 +79,7 @@ the VERIFY→CLOSEOUT transition refuses.
 **What that receipt does and does not say.** DDW does not run your suite — it does not know your
 runner, your directory or your environment, and a gate that cannot be satisfied honestly gets
 satisfied dishonestly (`docs/RATIONALE.md` decisions 2 and 16). The script checks that the verdict is
-**complete**: that no acceptance criterion is missing from it, no block is unaccounted for, the three
+**complete**: that no acceptance criterion is missing from it, no block or fix-plan step is unaccounted for, the three
 coverage numbers are stated and clear the minimum, and lint and the sad paths have an answer instead
 of a silence. The numbers themselves remain your report of what you ran. Say that plainly to the
 user rather than letting the receipt imply more.
@@ -168,6 +169,14 @@ Result: PASSED
 Every AC by its **identifier** (`AC-01`, not "the first criterion"), every block by its **number**,
 every test the spec promised by **name**, the three coverage numbers, and the floor quoted from the
 project. Those are what F-VER-01 to F-VER-06 look for, one rule each.
+
+For FIX, use `- ✅ Paso 1 — ...` for **each** numbered `## Solution — steps` item. Under
+`## Tests`, report **each** promised bullet as `- ✅ Prueba 1 — <first line of the bullet without
+Markdown formatting> — <actual run/result>`, in the same order. Use ❌ when evidence fails or is
+missing; do not mark a test green just to satisfy the parser. The first-line description ties the
+verdict to the approved fix-plan, which often names commands and behaviors rather than `test_*`
+functions. A mere file path or an unnumbered summary does not cover a promised test. The independent
+reviewer must inspect the underlying execution evidence, not just the checkmarks in this report.
 
 ## PASS/FAIL criteria
 - **PASSED:** 0 FAILs → `gates.verify` = `true`. WARNINGs are reported and do not block.

@@ -1,6 +1,6 @@
 ---
 applyTo: '**'
-version: 1.13.0
+version: 1.14.0
 ---
 
 # Phase 2: PLAN (Technical Planning)
@@ -93,6 +93,30 @@ because:
    - Resume designing the spec, taking the PRD changes into account.
    - If there was a partial spec on disk, update it to reflect the changes.
    - Continue the normal PLAN flow.
+
+---
+
+## OpenSpec opt-in (all PLAN tiers)
+
+Only an `AGENTS.md` containing `Spec format: OpenSpec` under the exact heading
+`## Specification framework` enables this integration. In that mode, PLAN:
+
+- reads `openspec/specs/` as the product baseline;
+- creates or updates exactly one proposed change at `openspec/changes/<slug>/`,
+  including its proposal, design, tasks, and capability deltas;
+- keeps the DAW spec/fix-plan as the ticket's execution plan, with numbered
+  implementation work and PRD coverage, and links the change in its header;
+- requires both DAW validation and `openspec validate <slug> --strict` before
+  the existing `spec` gate can be earned. **F-OS-01** enforces that the DAW
+  plan links exactly one change, strict validation passes, and the receipt is
+  bound to hashes of every regular file in that change; naming a change without
+  the explicit opt-in fails that rule.
+
+The spec receipt includes the linked change's current files. Editing either the
+DAW plan or any file in that change invalidates the receipt, so return to PLAN
+and validate both again. Do not modify `openspec/specs/` to pre-approve a
+proposal or treat a proposed delta as current product behavior. Without this
+exact opt-in, the PLAN flow and its artifacts are unchanged.
 
 ---
 

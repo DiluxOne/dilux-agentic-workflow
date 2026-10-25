@@ -19,6 +19,52 @@ move at different speeds. So the promise is specific:
 
 ---
 
+## [0.59.0] - 2026-10-20
+
+### Added — a fully-autonomous mode
+
+- **`autonomy: "autonomous"`**, a third mode set in CLASSIFY alongside the tier.
+  It is `minimal` plus the acts that leave the repository: an autonomous run
+  commits, pushes, merges and closes the tracker ticket without asking. The
+  eight gates do not change — they are earned by receipts and refused by the
+  same hook over the same bytes. The three integrity stops (a decision nobody
+  wrote down, a corrective loop at its ceiling, a corrupt state) still hold in
+  every mode.
+
+### Changed
+
+- The commit gate and the one-arrow-per-turn refusal treat `autonomous` like
+  `minimal`. A merge keeps its confirmation in `assisted` and `minimal`; only
+  `autonomous` takes the merge button.
+
+---
+
+## [0.58.1] - 2026-10-19
+
+### Fixed
+
+- VERIFY checks numbered FIX steps and descriptive test commitments rather than FEATURE blocks and `test_*` names.
+- OpenCode V2 registers pre-write, post-write, context and user-turn hooks; the generated reviewer denies edits and requires approval for shell commands. The existing V1 entrypoint remains available.
+- The OpenCode bootstrap now acknowledges an existing drop-in method instead of telling its agent to remove the installation.
+
+## [0.58.0] - 2026-10-17
+
+### Added — optional OpenSpec changes are evidence, not a second workflow
+
+- **Projects explicitly configured for OpenSpec bind each DAW execution plan to
+  exactly one change.** The plan remains the artifact that carries the ticket's
+  implementation decision; the linked change must contain OpenSpec's required
+  proposal, design, tasks, and capability delta.
+- **OpenSpec validation runs in strict mode before DAW writes the `spec`
+  receipt.** That receipt also seals every linked change file, so a later edit
+  cannot reuse approval earned for earlier bytes.
+- **The earned spec gate seals the linked OpenSpec change.** Editing it returns
+  the ticket to PLAN to correct and validate the change again.
+- A mutation removes the strict-validation refusal; the OpenSpec bridge tests
+  must kill it.
+- **Claude adapter hook commands quote their repository-root paths.** Claude
+  CLI 2.1.296 strict plugin validation otherwise rejects them.
+
 ## [0.57.1] - 2026-10-11
 
 ### Changed — a new home and a new name: DAW — Dilux Agentic Workflow

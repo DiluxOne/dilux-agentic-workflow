@@ -41,6 +41,8 @@ not a neutral act — without this restriction, this one becomes the problem tha
 ## Inputs
 
 - The context file in use (`AGENTS.md`, `CLAUDE.md` or `GEMINI.md`) — its "Stack" and commands.
+- `AGENTS.md`, when present — the optional `## Specification framework` setting is read from this
+  file only.
 - The repository root and its configuration files (read-only).
 
 ## Execution Protocol
@@ -61,6 +63,32 @@ not a neutral act — without this restriction, this one becomes the problem tha
 | `.nvmrc`, `.python-version`, `.tool-versions` | no runtime version | Runs against the wrong version |
 | A lockfile (`package-lock.json`, `poetry.lock`, `uv.lock`, …) | no install command | The agent guesses the package manager |
 
+### Optional OpenSpec framework check
+
+This is not a required context heading. **Do not report an absent `## Specification framework`
+section, or its default `Spec format: DAW`, as a gap.** DAW's legacy format is the default and must
+remain silent.
+
+If `AGENTS.md` has that heading and attempts to select OpenSpec, the only active opt-in is these
+exact lines:
+
+```markdown
+## Specification framework
+Spec format: OpenSpec
+```
+
+For that active opt-in, check two discoverable prerequisites:
+
+| Evidence | Finding when missing | Why it matters |
+|---|---|---|
+| `openspec` is executable on `PATH` | OpenSpec CLI is unavailable | PLAN cannot run `openspec validate <slug> --strict` |
+| `openspec/specs/` exists | OpenSpec product baseline is unavailable | PLAN has no baseline against which to prepare a proposed change |
+
+If the section mentions OpenSpec but does not use the exact marker, report the marker as malformed
+and show the exact two lines above. **Do not describe the repository as OpenSpec-enabled, or claim
+that DAW will validate an OpenSpec change, until both the exact marker and prerequisites are present.**
+These are findings for an explicitly requested mode, not a prompt to opt every project in.
+
 ## Also: the sections the method reads
 
 The context file is not only commands. The method reads it by **heading**, and a heading that is not
@@ -76,6 +104,7 @@ there is a lookup that silently finds nothing:
 | `## Testing` | `ddw-test`, `ddw-verify-module` — the coverage floor and where it came from |
 | `## What this project is` | CLASSIFY, `ddw-create-prd` — what the work is FOR, when the request does not say |
 | `## Repo family` | CLASSIFY Step 1.2 — the mono/multi switch; only report it as missing when the repo visibly belongs to a family (a workspace repo names it), never as a default gap |
+| `## Specification framework` | PLAN and `ddw-validate-spec` — optional OpenSpec opt-in; absence/default DAW is not a gap |
 
 `AGENTS.md` is copied from DDW's template **once**, when the installer finds none. Three situations
 leave it without these, and all three are ordinary:
@@ -91,9 +120,10 @@ leave it without these, and all three are ordinary:
   DDW's own material into it: under a plugin the repo is meant to come away with nothing of DDW's
   in it.
 
-So report a missing heading like any other gap, with **the heading and one line saying what reads
-it**. Propose the heading, empty, and nothing else: what goes underneath is the user's to write, and
-writing it for them is the bloat this skill exists to avoid. For `## Stack` specifically, CLASSIFY
+So report a missing required heading like any other gap, with **the heading and one line saying what
+reads it**. Do not apply this rule to the optional `## Specification framework` heading. Propose the
+required heading, empty, and nothing else: what goes underneath is the user's to write, and writing
+it for them is the bloat this skill exists to avoid. For `## Stack` specifically, CLASSIFY
 already knows how to detect a stack from the repo's config files and offer the text — point at that
 rather than duplicating it.
 

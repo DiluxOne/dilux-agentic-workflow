@@ -23,9 +23,9 @@ question for every FAIL.
 ## The rules live in the catalog, not here
 
 **`.ddw/rules/validation-rules.instructions.md` §2 is the single source of truth**: F-SPEC-01 to
-F-SPEC-16 (FAIL) and W-SPEC-01 to W-SPEC-03 (WARNING). Do not re-derive criteria from memory and do
-not duplicate them here — read the catalog and evaluate its rules mechanically, citing each rule's
-ID in the report.
+F-SPEC-16 and, only for an explicitly opted-in OpenSpec project, F-OS-01 (FAIL); and W-SPEC-01 to
+W-SPEC-03 (WARNING). Do not re-derive criteria from memory and do not duplicate them here — read the
+catalog and evaluate its rules mechanically, citing each rule's ID in the report.
 
 Summary of what each ID covers:
 
@@ -47,6 +47,7 @@ Summary of what each ID covers:
 | F-SPEC-13 | Terminology diverges from the PRD | FEATURE |
 | F-SPEC-14 | A fix-plan has no regression test | FIX |
 | F-SPEC-15 | A fix-plan has no rollback plan | FIX |
+| F-OS-01 | An opted-in OpenSpec change is missing, invalid, or not receipt-bound | Explicit OpenSpec opt-in only |
 
 **F-SPEC-01 has no exceptions:** an approved FR with no coverage is a FAIL, never a WARNING. If the
 requirement was deliberately deferred, it has to come out of the PRD first (with the user's
@@ -54,6 +55,23 @@ approval), through a corrective loop back to DEFINE.
 
 **Tier modifier:** if `tier == "QUICK-FIX"`, none of `F-SPEC-*` applies — that tier has no PLAN
 phase and no spec.
+
+### Optional OpenSpec bridge (F-OS-01)
+
+This bridge is enabled **only** when the repository's `AGENTS.md` contains these exact marker lines:
+
+```markdown
+## Specification framework
+Spec format: OpenSpec
+```
+
+When enabled, the DAW spec/fix-plan must link exactly one
+`openspec/changes/<slug>` change in its header. The validator runs
+`openspec validate <slug> --strict`; it must pass, and the receipt binds every regular file in that
+linked change as well as the DAW plan. A later byte change to either invalidates the receipt.
+
+Without that exact opt-in, default DAW validation and receipt behavior are unchanged. A plan that
+names an OpenSpec change without the opt-in fails F-OS-01.
 
 ## Execution Protocol
 
@@ -63,7 +81,9 @@ runs*. What follows is what they mean here.
 1. **Run the validator — do not re-derive its rules yourself:**
    `python3 .ddw/scripts/validate_spec.py <spec-path> --tier <tier>`
    (under a plugin install, resolve `.ddw/scripts/` at the plugin's method path). Add
-   `--prd <path>` if the spec's header table does not name its PRD.
+    `--prd <path>` if the spec's header table does not name its PRD. For an explicitly opted-in
+    OpenSpec project, this invocation also performs F-OS-01: it validates the linked change with
+    the OpenSpec CLI in strict mode and binds its files into the receipt.
    **Paste its output VERBATIM** as the body of your report — every row, every rule ID, nothing
    collapsed into a total. A run of this skill that shows no script output did not validate
    anything: the script is the validation, and a PASSED run writes the content-hashed receipt the
@@ -80,11 +100,12 @@ runs*. What follows is what they mean here.
    means, in the user's language and not the repo's.
 5. Show the whole table, the totals, the verdict and **the link to the full report** the script
    wrote next to the spec, and ask for approval. **Every run, including a re-validation of a spec
-   that has not changed** — the receipt matching says the bytes are the same, not that anyone read
-   what was checked.
+    that has not changed** — the receipt matching says the DAW plan and linked change-file bytes are
+    the same, not that anyone read what was checked.
 
 If the spec is edited after validating, run the script again: the receipt is bound to the content,
-and a stale one does not open the gate.
+and a stale one does not open the gate. Under the OpenSpec opt-in, do the same after editing any
+file in the linked change.
 
 ## Output Format
 

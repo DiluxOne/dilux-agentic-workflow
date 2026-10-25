@@ -435,8 +435,8 @@ MUTATIONS = [
           "            reason = second_arrow_in_one_turn(root, old_state, new_state)")),
     ("minimal gets caught by the rule it opted out of",
      edit("ddw/scripts/validate-transition.py",
-          '    if autonomy == "minimal":\n        return None\n    turn = _turn_now(root)',
-          '    if autonomy == "never-happens":\n        return None\n    turn = _turn_now(root)')),
+          '    if autonomy in ("minimal", "autonomous"):\n        return None\n    turn = _turn_now(root)',
+          '    if autonomy in ("autonomous",):\n        return None\n    turn = _turn_now(root)')),
     # Both halves together: without a counter, `_turn_now` returns 0 instead of
     # None and `_record_arrow` writes anyway, so the first arrow leaves a mark
     # and the second is refused — in every tool that does not write turns.
@@ -547,6 +547,10 @@ MUTATIONS = [
           # gate broke the mutation that guards the others.
           '''GATE_EVIDENCE = {"define": _prd_receipt_missing, "spec": _spec_receipt_missing,''',
           '''GATE_EVIDENCE = {"define": _prd_receipt_missing, "_spec": _spec_receipt_missing,''')),
+    ("an opted-in OpenSpec change attests even after strict validation rejects it",
+     edit("ddw/scripts/openspec_bridge.py",
+          "    if result.returncode:\n",
+          "    if False:\n")),
     ("the spec validator stops counting a block's errors against its tests",
      edit("ddw/scripts/validate_spec.py",
           "        if errors and len(sad) < len(errors):\n",
@@ -656,16 +660,20 @@ MUTATIONS = [
           "      if (!config.skills.paths.includes(skills)) config.skills.paths.push(skills)\n",
           "")),
     ("the bootstrap stops forbidding the self-install that broke the plugin promise",
+      edit("adapters/opencode/plugin/ddw.js",
+           '      "The method STAYS with the plugin: do NOT install DDW into this repo — no install.sh, no copying .ddw/ or .opencode/. " +\n'
+           '      "Where the method\'s documents say `.ddw/...`, resolve them under the path above. " +\n'
+           '      "Only .ddw-state.json, the context file and the phase artifacts (docs/) belong in the repo.",\n',
+           '')),
+    ("the drop-in bootstrap treats its installed method as an external plugin",
      edit("adapters/opencode/plugin/ddw.js",
-          '      "The method STAYS with the plugin: do NOT install DDW into this repo — no install.sh, no copying .ddw/ or .opencode/. " +\n'
-          '      "Where the method\'s documents say `.ddw/...`, resolve them under the path above. " +\n'
-          '      "Only .ddw-state.json, the context file and the phase artifacts (docs/) belong in the repo.",\n',
-          '')),
+          '  const dropin = ddw === join(dirname(state), ".ddw")',
+          '  const dropin = false')),
     ("the bootstrap lets DDW content leak into the project's context file",
      edit("adapters/opencode/plugin/ddw.js",
-          '      "The context file (AGENTS.md) is the PROJECT\'s, not DDW\'s: if it is missing, gather the stack and conventions " +\n'
-          '      "from the user and write it as a plain project file. Never put DDW content in it — no DDW blocks, no DDW " +\n'
-          '      "template boilerplate, no references to DDW or its phases. A reader without the plugin must see an ordinary repo.",\n',
+           '      "The context file (AGENTS.md) is the PROJECT\'s, not DDW\'s: if it is missing, gather the stack and conventions " +\n'
+           '      "from the user and write it as a plain project file. Never put DDW content in it — no DDW blocks, no DDW " +\n'
+           '      "template boilerplate, no references to DDW or its phases. A reader without the plugin must see an ordinary repo.",\n',
           '')),
     ("the bootstrap never reaches the first user message",
      edit("adapters/opencode/plugin/ddw.js",
@@ -706,8 +714,8 @@ MUTATIONS = [
           '    "session.created": async ({ event }) => {')),
     ("OpenCode stops gating apply_patch",
      edit("adapters/opencode/plugin/ddw.js",
-          'const WRITE_TOOLS = new Set(["write", "edit", "apply_patch"])',
-          'const WRITE_TOOLS = new Set(["write", "edit"])')),
+          'const WRITE_TOOLS = new Set(["write", "edit", "apply_patch", "bash"])',
+          'const WRITE_TOOLS = new Set(["write", "edit", "bash"])')),
     ("Cursor's post net moves back to an event that cannot block",
      json_edit("adapters/cursor/hooks.json",
                lambda d: d["hooks"].update({"afterFileEdit": d["hooks"].pop("postToolUse")}))),
@@ -2085,8 +2093,8 @@ MUTATIONS = [
           "        return None\n        where = tried[0] if len(tried) == 1 else \" or \".join(\"`%s`\" % t for t in tried)")),
     ("a document nothing can decode opens its gate again",
      edit("ddw/scripts/validate-transition.py",
-          "    except (OSError, UnicodeDecodeError) as exc:",
-          "    except (OSError, UnicodeDecodeError) as exc:\n        return None")),
+          "    except (OSError, UnicodeDecodeError, openspec_bridge.OpenSpecError) as exc:",
+          "    except (OSError, UnicodeDecodeError, openspec_bridge.OpenSpecError) as exc:\n        return None")),
     ("a directory named like the document ends the search for it",
      edit("ddw/scripts/validate-transition.py",
           "        if os.path.isfile(cand):", "        if os.path.exists(cand):")),
@@ -2857,14 +2865,8 @@ MUTATIONS = [
           "machine: it decides what you are allowed to do based on the phase recorded in `.ddw-state.json`.\n")),
     ("OpenCode's plugin stops judging writes before they happen",
      edit("adapters/opencode/plugin/ddw.js",
-          '      if (!WRITE_TOOLS.has(input?.tool)) return\n'
-          '      if (!installed()) return\n'
-          '      try {\n'
-          '        runGate("pre",',
-          '      if (true) return\n'
-          '      if (!installed()) return\n'
-          '      try {\n'
-          '        runGate("pre",')),
+          '      if (!WRITE_TOOLS.has(input?.tool)) return',
+          '      if (true) return')),
     ("W-SAST-01 stops counting the word 'low' and only looks at 'informational'",
      edit("ddw/scripts/validate_sast.py",
           '    lows = [m for m in re.finditer(r"\\b(?:low|informational|informativ\\w*)\\b",',
@@ -3207,6 +3209,31 @@ MUTATIONS = [
           "            if reason:\n                return reason\n", "")),
     ("a PRD with no acceptance criteria passes as all zero of them again",
      edit("ddw/scripts/validate_verify.py", "    elif not acs:", "    elif False:")),
+    ("FIX verification goes back to looking for FEATURE blocks instead of fix-plan steps",
+     edit("ddw/scripts/validate_verify.py", '    elif args.tier == "FIX":', '    elif False:')),
+    ("FIX tests go back to counting generic checkmarks without the promised description",
+     edit("ddw/scripts/validate_verify.py",
+          'or description.casefold() not in\n'
+          '                           re.sub(r"[`*]", "", verdicts[number][0][1]).casefold())]',
+          'or False)]')),
+    ("the OpenCode verifier is installed with a legacy permission key V2 ignores",
+     edit('adapters/opencode/adapter.json', '"permissions": [', '"permission": [')),
+    ("the OpenCode verifier can use an unapproved shell to bypass edit-deny",
+     edit('adapters/opencode/adapter.json',
+          '{"action": "shell", "resource": "*", "effect": "ask"}',
+          '{"action": "shell", "resource": "*", "effect": "allow"}')),
+    ("OpenCode V2 loads a plugin that no longer intercepts writes before they land",
+     edit("adapters/opencode/plugin/ddw.js",
+          '    await ctx.tool.hook("execute.before", (event) => {\n'
+          '      const tool = toolName(event.tool)\n'
+          '      const args = event.tool === "patch" ? event.input.patchText : event.input\n'
+          '      return legacy["tool.execute.before"]({ tool }, { args })\n'
+          '    })',
+          '    await ctx.tool.hook("execute.before", () => {})')),
+    ("OpenCode V2 stops counting user turns for approval gates",
+     edit("adapters/opencode/plugin/ddw.js",
+          '    await ctx.session.hook("prompt", () => {',
+          '    await ctx.session.hook("not-a-prompt", () => {')),
     ("a verdict can be checked against another ticket's documents again",
      edit("ddw/scripts/validate_verify.py",
           '    _ticket = re.match(r"verify-(.+)\\.md$", os.path.basename(args.report))',
@@ -3458,8 +3485,8 @@ MUTATIONS = [
           "**One arrow\n  per RESPONSE** holds either way.")),
     ("the autonomy section stops naming the guard that exempts `minimal`",
      edit("ddw/orchestrator.md",
-          "hook agrees — `second_arrow_in_one_turn` exempts this mode",
-          "hook agrees — the enforcement exempts this mode")),
+          "hook agrees — `second_arrow_in_one_turn` exempts both modes",
+          "hook agrees — the enforcement exempts both modes")),
     ("CLASSIFY goes back to reading as an exit that waits in every mode",
      edit("ddw/rules/classify.instructions.md",
           '> **Under `autonomy: "minimal"` this arrow does not wait.** The mode was chosen\n',

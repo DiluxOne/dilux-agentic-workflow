@@ -31,6 +31,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import ddw_receipt  # noqa: E402 — same directory, resolved above
+import openspec_bridge  # noqa: E402 — optional project spec format
 
 # A block opens with `## Block N — name`; a fix-plan's unit is a numbered step
 # under `## Solution — steps`. Both are what the create-spec templates emit.
@@ -524,6 +525,15 @@ def main():
         ok("F-SPEC-LOOP", f"{loops} loop(s) since a human decided, under the ceiling of "
                      f"{LOOP_CEILING}; {total_loops} in total for this document")
 
+    receipt_content = text
+    try:
+        receipt_content = openspec_bridge.validate(ddw_receipt.repo_root(args.spec), text)
+        if receipt_content != text:
+            ok("F-OS-01", "the linked OpenSpec change passes strict validation and is bound to "
+                          "this spec's receipt")
+    except openspec_bridge.OpenSpecError as exc:
+        fail("F-OS-01", str(exc))
+
     result = "PASSED" if fails == 0 else f"FAILED ({fails} FAIL{'S' if fails > 1 else ''})"
     report = [f"/ddw-validate-spec {args.spec} — {result}", "─" * 64]
     report += rows
@@ -549,7 +559,7 @@ def main():
     if fails == 0:
         # One writer for all six receipts, so the rule cannot drift six ways —
         # and so that writing one is RECORDED in the journal the gate reads.
-        print("Receipt: .ddw-sessions/" + ddw_receipt.write(args.spec, "spec", text, args.tier))
+        print("Receipt: .ddw-sessions/" + ddw_receipt.write(args.spec, "spec", receipt_content, args.tier))
 
     # The table above is for the USER, and it does not reach them by itself.
     #

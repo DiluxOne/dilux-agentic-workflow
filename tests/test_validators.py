@@ -945,6 +945,13 @@ def test_minimal_no_espera(tmp_path):
     assert _commit(tmp_path, 'git commit -m "x"').returncode == 0
 
 
+def test_autonomous_no_espera(tmp_path):
+    """`autonomous` adds the acts that leave the repo to `minimal`; a local
+    commit still never waits."""
+    _repo_en_define(tmp_path, autonomy="autonomous")
+    assert _commit(tmp_path, 'git commit -m "x"').returncode == 0
+
+
 # ── The rules that passed on emptiness ───────────────────────────────────────
 #
 # The pattern measured in round 4: a rule whose parser extracts zero elements
@@ -1055,6 +1062,195 @@ def test_required_tests_ilegibles_no_es_un_pass(tmp_path):
         "a spec with unreadable promises vouched for the report: %r" % rows
 
 
+FIX_PLAN = ("# Fix-plan FIX-002\n\n## Solution — steps\n"
+            "1. Update the lockfile.\n2. Keep lint compatible.\n"
+            "## Tests\n"
+            "- [ ] **Regression test** — audit fails before and passes after.\n"
+            "- [ ] Invalid lockfile is rejected with an error.\n"
+            "## Rollback plan\n- Revert the commit.\n")
+
+
+def _fix_verdict(tmp_path, report, spec=FIX_PLAN):
+    rp = tmp_path / "verify-FIX-002.md"
+    rp.write_text(report, encoding="utf-8")
+    sp = tmp_path / "fix-FIX-002.md"
+    sp.write_text(spec, encoding="utf-8")
+    r = subprocess.run([sys.executable, os.path.join(ROOT, "ddw/scripts/validate_verify.py"),
+                        str(rp), "--tier", "FIX", "--spec", str(sp)],
+                       capture_output=True, text=True, cwd=str(tmp_path))
+    return r, [ln for ln in r.stdout.splitlines()
+               if "F-VER-02" in ln or "F-VER-06" in ln]
+
+
+def test_fix_plan_steps_and_descriptive_tests_are_verified(tmp_path):
+    report = ("- ✅ Step 1 — Update the lockfile.\n"
+              "- ✅ Step 2 — Keep lint compatible.\n"
+              "- ✅ Test 1 — Regression test — audit fails before and passes after.\n"
+              "- ✅ Test 2 — Invalid lockfile is rejected with an error.\n")
+    _, rows = _fix_verdict(tmp_path, report)
+    assert len(rows) == 2 and all("✅" in row for row in rows), rows
+
+
+def test_fix_plan_missing_or_failed_step_does_not_pass(tmp_path):
+    _, missing = _fix_verdict(tmp_path, "- ✅ Step 1 — Update the lockfile.\n")
+    assert any("❌ F-VER-02" in row and "Step 2" in row for row in missing), missing
+
+    _, failed = _fix_verdict(tmp_path, "- ✅ Step 1 — Update the lockfile.\n"
+                             "- ❌ Step 2 — Keep lint compatible.\n")
+    assert any("❌ F-VER-02" in row for row in failed), failed
+
+    _, empty = _fix_verdict(tmp_path, "- ✅ Step 1\n- ✅ Step 2\n")
+    assert any("❌ F-VER-02" in row for row in empty), empty
+
+
+def test_fix_plan_missing_failed_or_unidentified_test_does_not_pass(tmp_path):
+    _, missing = _fix_verdict(tmp_path, "- ✅ Test 1 — Regression test — audit fails before and passes after.\n")
+    assert any("❌ F-VER-06" in row and "Test 2" in row for row in missing), missing
+
+    _, failed = _fix_verdict(tmp_path, "- ✅ Test 1 — Regression test — audit fails before and passes after.\n"
+                             "- ❌ Test 2 — Invalid lockfile is rejected with an error.\n")
+    assert any("❌ F-VER-06" in row for row in failed), failed
+
+    _, generic = _fix_verdict(tmp_path, "- ✅ Test 1 passed\n- ✅ Test 2 passed\n")
+    assert any("❌ F-VER-06" in row for row in generic), generic
+
+
+def test_fix_plan_with_no_steps_or_tests_does_not_pass(tmp_path):
+    _, rows = _fix_verdict(tmp_path, "- ✅ Step 1\n- ✅ Test 1\n", "# Fix-plan FIX-002\n## Tests\n")
+    assert len(rows) == 2 and all("❌" in row for row in rows), rows
+
+
+def test_fix_plan_duplicate_step_numbers_do_not_count_as_separate_steps(tmp_path):
+    spec = FIX_PLAN.replace("2. Keep lint compatible.", "1. Keep lint compatible.")
+    _, rows = _fix_verdict(tmp_path, "- ✅ Step 1 — Update the lockfile.\n", spec)
+    assert any("❌ F-VER-02" in row for row in rows), rows
+
+
+def test_fix_plan_does_not_count_a_file_path_as_a_test(tmp_path):
+    for name in ("tests/fakes.py", "tests/fakes.js", "tests/fakes.test.tsx"):
+        spec = FIX_PLAN.replace("- [ ] Invalid lockfile is rejected with an error.",
+                                f"- [ ] `{name}`")
+        _, rows = _fix_verdict(tmp_path, "- ✅ Test 1 — Regression test — audit fails before and passes after.\n"
+                               f"- ✅ Test 2 — {name}\n", spec)
+        assert any("❌ F-VER-06" in row for row in rows), rows
+
+
+def test_fix_plan_duplicate_verdicts_cannot_hide_a_failure(tmp_path):
+    report = ("- ❌ Step 1 — not implemented\n"
+              "- ✅ Step 1 — done\n"
+              "- ✅ Step 2 — done\n"
+              "- ❌ Test 1 — not passing\n"
+              "- ✅ Test 1 — Regression test — audit fails before and passes after.\n"
+              "- ✅ Test 2 — Invalid lockfile is rejected with an error.\n")
+    _, rows = _fix_verdict(tmp_path, report)
+    assert len(rows) == 2 and all("❌" in row for row in rows), rows
+
+
+def test_fix_plan_spanish_verdicts_and_multiline_test_bullets(tmp_path):
+    spec = ("# Fix-plan FIX-002\n## Solution — steps\n"
+            "1. `package.json` y `package-lock.json`: elevar tooling\n"
+            "   y regenerar lockfile.\n2. `frontend/package.json`: mantener Next 15.\n"
+            "## Tests\n- [ ] **Regression test**: `npm audit` en raíz y\n"
+            "  frontend debe pasar después.\n"
+            "- [ ] Auditoría rechazada: comprobar lockfile baseline.\n"
+            "## Regression risk\n- n/a\n")
+    report = ("- ✅ Paso 1: `package.json` actualizado y auditado.\n"
+              "- ✅ Paso 2: `frontend/package.json` mantiene Next 15.\n"
+              "- ✅ Prueba 1 — Regression test: npm audit en raíz y — ambas pasan.\n"
+              "- ✅ Prueba 2 — Auditoría rechazada: comprobar lockfile baseline.\n")
+    _, rows = _fix_verdict(tmp_path, report, spec)
+    assert len(rows) == 2 and all("✅" in row for row in rows), rows
+
+
+def test_opencode_install_exposes_readonly_module_verifier(tmp_path):
+    r = subprocess.run([sys.executable, os.path.join(ROOT, "scripts/install_target.py"),
+                        "--self", ROOT, "--target", str(tmp_path), "--id", "opencode"],
+                       capture_output=True, text=True)
+    assert r.returncode == 0, r.stderr
+    agent = (tmp_path / ".opencode/agents/ddw-module-verifier.md").read_text()
+    frontmatter = agent.split("---", 2)[1]
+    assert 'mode: "subagent"' in frontmatter
+    assert "permissions:" in frontmatter and '- action: "edit"' in frontmatter
+    assert 'effect: "deny"' in frontmatter
+    assert '- action: "shell"' in frontmatter and 'effect: "ask"' in frontmatter
+    assert "permission:" not in frontmatter, "OpenCode V2 ignores legacy permission keys"
+
+
+def test_opencode_v2_plugin_blocks_a_write_from_idle(tmp_path):
+    shutil.copytree(os.path.join(ROOT, "ddw"), tmp_path / ".ddw")
+    js = r'''
+import assert from "node:assert/strict";
+import { pathToFileURL } from "node:url";
+import { join } from "node:path";
+const plugin = (await import(pathToFileURL(process.argv[1]))).default;
+assert.equal(plugin?.id, "ddw", "V2 did not load the DDW plugin");
+const hooks = {};
+const sessions = {};
+await plugin.setup({
+  location: { directory: process.argv[2] },
+  tool: { hook: async (name, fn) => { hooks[name] = fn; } },
+  session: { hook: async (name, fn) => { sessions[name] = fn; } },
+  event: { subscribe: async function* () {} },
+});
+assert.equal(typeof hooks["execute.before"], "function", "no V2 pre-write hook");
+assert.equal(typeof hooks["execute.after"], "function", "no V2 post-write hook");
+const context = { system: [] };
+sessions.context(context);
+assert.match(context.system[0]?.text || "", /CLASSIFY.*DEFINE.*PLAN.*CODE.*VERIFY.*CLOSEOUT/s);
+assert.equal(typeof sessions.prompt, "function", "V2 never counts the user's confirmation turn");
+await sessions.prompt({ prompt: { text: "I approve the proposed commit" } });
+assert.equal((await import("node:fs")).readFileSync(join(process.argv[2], ".ddw-sessions", "turn"), "utf8"), "1");
+await assert.rejects(
+  hooks["execute.before"]({ tool: "write", input: { filePath: join(process.argv[2], "app.txt"), content: "unsafe" } }),
+  /DDW blocked the write.*app\.txt/s,
+);
+await assert.rejects(
+  hooks["execute.before"]({ tool: "patch", input: { patchText: "*** Begin Patch\n*** Add File: app.txt\n+unsafe\n*** End Patch" } }),
+  /DDW blocked the write.*app\.txt/s,
+);
+await assert.rejects(
+  hooks["execute.before"]({ tool: "shell", input: { command: "git commit -m bypass" } }),
+  /DDW blocked the write/,
+);
+'''
+    r = subprocess.run(["node", "--input-type=module", "-e", js,
+                        os.path.join(ROOT, "adapters/opencode/plugin/ddw.js"), str(tmp_path)],
+                       capture_output=True, text=True)
+    assert r.returncode == 0, r.stderr
+
+
+def test_opencode_v2_bootstrap_distinguishes_dropin_from_plugin(tmp_path):
+    dropin = tmp_path / "dropin"
+    shutil.copytree(os.path.join(ROOT, "ddw"), dropin / ".ddw")
+    plugin_only = tmp_path / "plugin-only"
+    plugin_only.mkdir()
+    js = r'''
+import assert from "node:assert/strict";
+import { pathToFileURL } from "node:url";
+const plugin = (await import(pathToFileURL(process.argv[1]))).default;
+for (const [directory, isDropin] of [[process.argv[2], true], [process.argv[3], false]]) {
+  let context;
+  await plugin.setup({
+    location: { directory },
+    tool: { hook: async () => {} },
+    session: { hook: async (name, fn) => {
+      if (name === "context") { context = { system: [] }; fn(context); }
+    } },
+    event: { subscribe: async function* () {} },
+  });
+  const text = context.system[0]?.text || "";
+  assert.match(text, /CLASSIFY.*DEFINE.*PLAN.*CODE.*VERIFY.*CLOSEOUT/s);
+  assert.equal(text.includes("do NOT install DDW into this repo"), !isDropin);
+  if (isDropin) assert.match(text, /method is installed in this repo/);
+  else assert.match(text, /Never put DDW content in it/);
+}
+'''
+    r = subprocess.run(["node", "--input-type=module", "-e", js,
+                        os.path.join(ROOT, "adapters/opencode/plugin/ddw.js"),
+                        str(dropin), str(plugin_only)], capture_output=True, text=True)
+    assert r.returncode == 0, r.stderr
+
+
 # ── El gate del merge ────────────────────────────────────────────────────────
 #
 # The one act of the pipeline that leaves the repo and that nobody here can
@@ -1115,6 +1311,14 @@ def test_minimal_no_exime_al_merge(tmp_path):
     _repo_en_define(tmp_path, autonomy="minimal")
     assert _merge(tmp_path).returncode == 2, \
         "minimal exempted the act the prose says is never exempt"
+
+
+def test_autonomous_exime_al_merge(tmp_path):
+    """`autonomous` is the one mode that takes the merge button: a merge runs
+    with nobody having seen the proposal first."""
+    _repo_en_define(tmp_path, autonomy="autonomous")
+    assert _merge(tmp_path).returncode == 0, \
+        "autonomous still reserved the merge for a person"
 
 
 def test_un_merge_propuesto_en_el_mismo_turno_es_rechazado(tmp_path):

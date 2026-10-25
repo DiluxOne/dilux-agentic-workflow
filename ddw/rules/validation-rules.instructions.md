@@ -1,6 +1,6 @@
 ---
 applyTo: '**'
-version: 1.16.0
+version: 1.17.1
 ---
 
 # Validation Rules — Central Catalog
@@ -183,6 +183,12 @@ completeness principle (every design decision must be documented).
 | W-SPEC-02 | Large block | A block modifies more than 5 files or has more than 500 words of description. It may indicate it should be split. | Maintainability. Does not block, because some blocks (refactoring, infra) legitimately touch many files. |
 | W-SPEC-03 | No rollback (FEATURE) | For tier FEATURE: the spec includes no rollback or reverse-migration considerations. Does not apply if there are no schema changes or data migrations. | Good practice. Not always necessary for pure features with no migration. |
 
+### 2.7 Optional OpenSpec bridge
+
+| ID | Check | Precise description | Basis |
+|---|---|---|---|
+| F-OS-01 | Invalid opted-in OpenSpec change | **Only when `AGENTS.md` explicitly opts in under `## Specification framework` with `Spec format: OpenSpec`.** The DAW spec must link exactly one `openspec/changes/<slug>` change. `openspec validate <slug> --strict` must pass, and the DAW spec receipt must be bound to the hashes of every regular file in that linked change, so any byte change invalidates the receipt. For legacy projects without this explicit opt-in, the existing DAW spec validation and receipt behavior is unchanged; naming an OpenSpec change without opting in → FAIL. | OpenSpec strict validation makes the linked change structurally valid; receipt binding preserves the approved plan-to-change traceability and prevents a later unvalidated change from reusing the DAW spec gate. |
+
 ---
 
 ## 3. Threat Model Validation (`ddw-threat-modeling`)
@@ -306,11 +312,11 @@ To suppress a Medium finding as a false positive or an accepted risk:
 | ID | Check | Precise description | Basis |
 |---|---|---|---|
 | F-VER-01 | AC with no passing test | **Every AC in the PRD must have at least one test validating it, and that test must be passing.** If an AC has no test, or the test exists but fails → FAIL. | The AC is the contract with the user. Without a test validating it, there is no evidence it works. |
-| F-VER-02 | Spec task not implemented | **Every task/block in the spec, or step in the fix-plan, must be implemented.** If a whole block or a fix-plan step has no corresponding code → FAIL. | The spec is the approved plan. Partial implementation = an incomplete feature = a bug. |
+| F-VER-02 | Spec task not implemented | **Every task/block in the spec, or step in the fix-plan, must be implemented.** FEATURE verdicts name every `## Block N`; FIX verdicts name every numbered item under `## Solution — steps` as `Step N`/`Paso N` with a passing mark. A missing or failing item → FAIL. | The spec is the approved plan. Partial implementation = an incomplete feature = a bug. |
 | F-VER-03 | Test coverage below the floor | **Line, branch and function coverage must each be at or above the project's floor**, read from `AGENTS.md` §Testing. Where the project states none, `.ddw/rules/testing.instructions.md` supplies 80/80/80 as the default. If any is below → FAIL. | The floor belongs to the project, which is what F-TEST-05 says in the same catalog: a report that chooses its own floor passes itself, and a rule that hardcodes one calls a project with a 70% floor both PASS and FAIL depending on which of the two rules you read. Verify the numbers are met, not just that "there are tests". |
 | F-VER-04 | No sad-path tests | **Every endpoint or function accepting input must have at least one test with invalid input.** If there are only happy-path tests → FAIL. | The worst bugs live in edge cases and sad paths. Testing only the happy path tests only 20% of the real behavior. |
 | F-VER-05 | Lint/type checker fails | If the project has a linter or type checker configured and there are errors → FAIL. | Lint/type errors indicate code that can fail at runtime. You cannot verify code that does not compile or pass lint. |
-| F-VER-06 | Spec tests not implemented | **Every test listed in the spec must exist and pass.** If the spec says "test: creating a product with an empty name returns 400" and that test does not exist → FAIL. The names are read **only from the spec's `Required tests`**, and only names: a path is not a test. Reading the whole document counted `tests/fakes.py` — which holds no test — among the promises, and round 6 watched the FAIL be closed by adding the file names to the report, which is what the rule had misread. | The spec's tests are quality commitments the user approved. Not implementing them is breaching the spec. |
+| F-VER-06 | Spec tests not implemented | **Every test listed in the spec must exist and pass.** FEATURE reads only test names from `Required tests`: a file path is not a test. FIX reads each test bullet from `## Tests`/`## Pruebas` in order and requires `Test N`/`Prueba N` with a passing mark and the bullet's first-line description in the verdict; a path alone is not a test. This checks the report's completeness, not whether the tests really ran. Reading the whole document once counted `tests/fakes.py` — which holds no test — among promises. | The spec's tests are quality commitments the user approved. Not implementing them is breaching the spec. |
 
 ### WARNING rules
 

@@ -269,8 +269,8 @@ def build_next_state(old_state, to_phase, action, gates, tier, clear_gates=(),
     # lies by omission — and this is the only place that distinction can live,
     # because the header resets when the ticket closes.
     run_auto = new_state.get("autonomy") or old_state.get("autonomy")
-    if run_auto == "minimal":
-        entry["autonomy"] = "minimal"
+    if run_auto in ("minimal", "autonomous"):
+        entry["autonomy"] = run_auto
     history.append(entry)
     new_state["history"] = history
     return new_state
@@ -441,7 +441,7 @@ def main():
                          "the model remembering it.")
     ap.add_argument("--tracker", default=None,
                     help="The tracker ticket this run belongs to, when there is one.")
-    ap.add_argument("--autonomy", choices=("assisted", "minimal"), default=None,
+    ap.add_argument("--autonomy", choices=("assisted", "minimal", "autonomous"), default=None,
                     help="How much of the run waits for the user. Set in CLASSIFY, with the user "
                          "looking at the box; the hook refuses a change anywhere else. Absent "
                          "leaves whatever the state carries, and absent there means assisted.")
