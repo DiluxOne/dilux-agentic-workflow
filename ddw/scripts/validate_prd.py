@@ -226,6 +226,54 @@ def _loops_since_human(text):
                   text, re.IGNORECASE | re.MULTILINE)
     return int(m.group(1)) if m else None
 
+def _is_split_index(text):
+    return re.search(r"^\|\s*Status\s*\|\s*Split\s*\|", text, re.MULTILINE | re.IGNORECASE)
+
+
+def _split_assignments(text):
+    """The split index's table as {AC id: sub-ticket}, plus the ids claimed twice.
+
+    One reading of the table, shared by the index's own rules (F-PRD-10/11) and
+    by a part's F-PRD-05: two parsers of the same rows are two answers to which
+    criteria a part owns, and the seam between them is where #53 lived.
+    """
+    taken, dupes = {}, []
+    for row in re.findall(r"^\|.*$", text, re.MULTILINE):
+        cells = [c.strip() for c in row.strip().strip("|").split("|")]
+        sub = cells[0] if cells else ""
+        if not re.match(r"^[A-Z]+-\d+[a-z]$", sub):
+            continue
+        for ac in re.findall(r"AC-\d+", " ".join(cells)):
+            if ac in taken:
+                dupes.append(f"{ac} is in {taken[ac]} and {sub}")
+            taken[ac] = sub
+    return taken, dupes
+
+
+def _split_part(prd_path):
+    """Is this PRD one part of a split, and which AC ids does its index give it?
+
+    A part is named the way the index names its rows, `prd-<PARENT><letter>.md`.
+    Returns None for any other document, and otherwise `(sub, index, assigned)`:
+    `index` is the sibling `prd-<PARENT>.md` when it exists and is a split
+    index (else None), and `assigned` the AC numbers its row lists — an empty
+    set when the index has no row for this part.
+    """
+    m = re.match(r"^prd-(([A-Z]+-\d+)[a-z])\.md$", os.path.basename(prd_path))
+    if not m:
+        return None
+    sub, parent = m.group(1), m.group(2)
+    index = os.path.join(os.path.dirname(os.path.abspath(prd_path)), "prd-%s.md" % parent)
+    try:
+        index_text = open(index, encoding="utf-8").read()
+    except (OSError, UnicodeDecodeError):
+        return sub, None, None
+    if not _is_split_index(index_text):
+        return sub, None, None
+    taken, _ = _split_assignments(index_text)
+    return sub, index, {int(ac.split("-")[1]) for ac, s in taken.items() if s == sub}
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("prd")
@@ -257,22 +305,13 @@ def main():
     # the moment the split lands. So the one thing nobody could check afterwards
     # is whether the parts actually cover the whole — and nothing did. The index
     # now carries the mapping, and this is where it is counted.
-    if re.search(r"^\|\s*Status\s*\|\s*Split\s*\|", text, re.MULTILINE | re.IGNORECASE):
+    if _is_split_index(text):
         # The header is a table here, like every other field of the index, so it
         # is read as one — `_after_label` reads `label:` prose and found nothing.
         m = re.search(r"^\|\s*Acceptance criteria to cover\s*\|\s*(\d+)",
                       text, re.MULTILINE | re.IGNORECASE)
         total = int(m.group(1)) if m else 0
-        taken, dupes = {}, []
-        for row in re.findall(r"^\|.*$", text, re.MULTILINE):
-            cells = [c.strip() for c in row.strip().strip("|").split("|")]
-            sub = cells[0] if cells else ""
-            if not re.match(r"^[A-Z]+-\d+[a-z]$", sub):
-                continue
-            for ac in re.findall(r"AC-\d+", " ".join(cells)):
-                if ac in taken:
-                    dupes.append(f"{ac} is in {taken[ac]} and {sub}")
-                taken[ac] = sub
+        taken, dupes = _split_assignments(text)
         if not total:
             fail("F-PRD-10", "the index does not say how many acceptance criteria the parts have "
                              "to cover (`| Acceptance criteria to cover | N |`), so whether they "
@@ -488,6 +527,16 @@ def main():
                              "other shape are invisible to every rule here, and a battery that "
                              "measured nothing must not pass" % ", ".join(empty))
         else:
+            # A split's part counts its ACs differently, and only its ACs. The
+            # Split Protocol makes AC ids GLOBAL — the part assigned AC-09..AC-17
+            # writes AC-09..AC-17, and F-PRD-11 refuses the index when it does
+            # not — while this check counted every document from AC-01, so a
+            # part that obeyed one rule failed the other and no sub-ticket could
+            # pass `define` (#53). With its index on disk, the part's ACs must be
+            # exactly the ones its row lists: none dropped, none taken from
+            # another part. Without it, gapless from its own lowest id. FR and
+            # NFR ids stay local to each part, from 01, like any PRD's.
+            part = _split_part(args.prd)
             dup_msgs = []
             for prefix, items in (("FR", frs), ("NFR", nfrs), ("AC", acs)):
                 ids = [i for i, _ in items]
@@ -495,12 +544,34 @@ def main():
                 if dupes:
                     dup_msgs.append(f"duplicated {', '.join(dupes)}")
                 nums = sorted(int(i.split('-')[1]) for i in set(ids))
-                gaps = [f"{prefix}-{n:02d}" for n in range(1, nums[-1] + 1)
-                        if nums and n not in nums] if nums else []
+                if prefix == "AC" and part and part[1]:
+                    sub, index, assigned = part
+                    where = os.path.basename(index)
+                    if not assigned:
+                        dup_msgs.append(f"{where} is a split index with no row for {sub}, so it "
+                                        f"assigns this part no acceptance criteria to carry")
+                        continue
+                    lost = sorted(assigned - set(nums))
+                    alien = sorted(set(nums) - assigned)
+                    if lost:
+                        dup_msgs.append("missing %s, which %s assigns %s"
+                                        % (", ".join(f"AC-{n:02d}" for n in lost), where, sub))
+                    if alien:
+                        dup_msgs.append("%s not assigned to %s by %s — AC ids are global "
+                                        "across a split, and a part carries only its own"
+                                        % (", ".join(f"AC-{n:02d}" for n in alien), sub, where))
+                    continue
+                start = nums[0] if prefix == "AC" and part else 1
+                gaps = [f"{prefix}-{n:02d}" for n in range(start, nums[-1] + 1)
+                        if n not in nums] if nums else []
                 if gaps:
                     dup_msgs.append(f"missing {', '.join(gaps)}")
             if dup_msgs:
                 fail("F-PRD-05", "; ".join(dup_msgs))
+            elif part and part[1]:
+                ok("F-PRD-05", f"{len(frs)} FR, {len(nfrs)} NFR, {len(acs)} AC — unique, gapless, "
+                               f"and the ACs are exactly the ones {os.path.basename(part[1])} "
+                               f"assigns {part[0]}")
             else:
                 ok("F-PRD-05", f"{len(frs)} FR, {len(nfrs)} NFR, {len(acs)} AC — unique, gapless")
 

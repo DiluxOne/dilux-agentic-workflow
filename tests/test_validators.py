@@ -767,6 +767,114 @@ def test_un_indice_sin_partes_en_disco_no_es_juzgado_por_ellas(tmp_path):
         "an index was refused for parts that do not exist yet: " + "\n".join(refused)
 
 
+# ── A sub-PRD's own F-PRD-05 ────────────────────────────────────────────────
+#
+# F-PRD-11 holds a split's parts to the AC ids their index hands out, and
+# F-PRD-05 counted every document's ACs from AC-01: a part that took AC-09
+# could pass one rule or the other, never both, so no sub-ticket that followed
+# the protocol could get past `define` (#53).
+
+SUB_PRD = """# PRD {ticket}: part
+
+| Field | Value |
+|-------|-------|
+| PRD loops | 0 |
+| Loops since last human decision | 0 |
+
+## Context and Problem
+A part of a split.
+
+## Goals
+Deliver the part.
+
+## Functional Requirements
+- FR-01: The system must ingest the event.
+
+## Non-Functional Requirements
+- NFR-01: Responds in 2 s.
+
+## Acceptance Criteria
+{acs}
+
+## Out of Scope
+- Nothing else.
+
+## Dependencies
+None.
+"""
+
+
+def _sub_prd(tmp_path, ticket, ac_ids, index=None):
+    if index is not None:
+        (tmp_path / "prd-FEAT-001.md").write_text(index, encoding="utf-8")
+    acs = "\n".join("- %s (FR-01): WHEN the event arrives, THE system SHALL store it." % a
+                     for a in ac_ids)
+    return _validate(tmp_path, "validate_prd.py", "prd-%s.md" % ticket,
+                     SUB_PRD.format(ticket=ticket, acs=acs))
+
+
+def test_un_sub_prd_con_los_ids_globales_de_su_indice_pasa(tmp_path):
+    """#53, as reported: b takes AC-04 and AC-05 and writes them so."""
+    r, refused = _sub_prd(tmp_path, "FEAT-001b", ["AC-04", "AC-05"], INDICE)
+    assert r.returncode == 0 and not _refuses(refused, "F-PRD-05"), \
+        "a sub-PRD carrying exactly the ids its index assigns it was refused:\n" + r.stdout
+
+
+def test_un_sub_prd_sin_indice_en_disco_cuenta_desde_su_menor_id(tmp_path):
+    """The repro in #53: prd-T-001b.md alone, its one AC is AC-09."""
+    r, refused = _sub_prd(tmp_path, "T-001b", ["AC-09"])
+    assert r.returncode == 0 and not _refuses(refused, "F-PRD-05"), \
+        "a sub-PRD keeping its global AC ids was refused for missing AC-01..AC-08:\n" + r.stdout
+
+
+def test_un_sub_prd_sin_indice_con_un_hueco_es_rechazado(tmp_path):
+    """Counting from its lowest id is not counting nothing: AC-10 is lost."""
+    _, refused = _sub_prd(tmp_path, "T-001b", ["AC-09", "AC-11"])
+    assert any("F-PRD-05" in ln and "AC-10" in ln for ln in refused), \
+        "a sub-PRD that dropped AC-10 between AC-09 and AC-11 passed: " + "\n".join(refused)
+
+
+def test_un_sub_prd_que_pierde_un_criterio_de_su_indice_es_rechazado(tmp_path):
+    """b is assigned AC-04 and AC-05. Writing only AC-05 is gapless from its
+    own lowest id, so only the index can say AC-04 went missing."""
+    _, refused = _sub_prd(tmp_path, "FEAT-001b", ["AC-05"], INDICE)
+    assert any("F-PRD-05" in ln and "AC-04" in ln for ln in refused), \
+        "a sub-PRD that dropped an AC its index assigns it passed: " + "\n".join(refused)
+
+
+def test_un_sub_prd_que_toma_un_criterio_ajeno_es_rechazado(tmp_path):
+    """AC-06 is c's. b writing it too is one criterion with two owners."""
+    _, refused = _sub_prd(tmp_path, "FEAT-001b", ["AC-04", "AC-05", "AC-06"], INDICE)
+    assert any("F-PRD-05" in ln and "AC-06" in ln for ln in refused), \
+        "a sub-PRD carrying an AC its index gives to another part passed: " + "\n".join(refused)
+
+
+def test_un_sub_prd_que_su_indice_no_lista_es_rechazado(tmp_path):
+    """A split index that has no row for this part assigns it nothing, so
+    whatever it carries is criteria nobody counted."""
+    _, refused = _sub_prd(tmp_path, "FEAT-001d", ["AC-07"], INDICE)
+    assert any("F-PRD-05" in ln and "no row for FEAT-001d" in ln for ln in refused), \
+        "a sub-PRD its split index never lists passed: " + "\n".join(refused)
+
+
+def test_un_prd_comun_sigue_contando_desde_ac_01(tmp_path):
+    """The fix is for split parts only. A plain PRD starting at AC-02 has
+    lost AC-01, exactly as before."""
+    _, refused = _sub_prd(tmp_path, "FEAT-002", ["AC-02", "AC-03"])
+    assert any("F-PRD-05" in ln and "AC-01" in ln for ln in refused), \
+        "a plain PRD whose ACs start at AC-02 passed: " + "\n".join(refused)
+
+
+def test_un_sub_prd_cuenta_sus_fr_desde_fr_01(tmp_path):
+    """FR ids stay local to each part: only the ACs are global."""
+    (tmp_path / "prd-FEAT-001.md").write_text(INDICE, encoding="utf-8")
+    acs = "- AC-04 (FR-02): WHEN a, THE system SHALL b.\n- AC-05 (FR-02): WHEN c, THE system SHALL d."
+    body = SUB_PRD.format(ticket="FEAT-001b", acs=acs).replace("- FR-01:", "- FR-02:")
+    _, refused = _validate(tmp_path, "validate_prd.py", "prd-FEAT-001b.md", body)
+    assert any("F-PRD-05" in ln and "FR-01" in ln for ln in refused), \
+        "a sub-PRD whose FRs start at FR-02 passed: " + "\n".join(refused)
+
+
 def test_un_sub_prd_mas_grande_que_el_umbral_avisa(tmp_path):
     """W-PRD-06. The split that shrank nothing: a warning, never a block —
     keeping the whole ticket is the user's decision, but the number is not

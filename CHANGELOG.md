@@ -19,6 +19,29 @@ move at different speeds. So the promise is specific:
 
 ---
 
+## [0.57.2] - 2026-10-28
+
+### Fixed — a split's part can pass F-PRD-05 with the AC ids its index gives it (#53)
+
+- **F-PRD-05 counted every PRD's ACs from AC-01**, while the Split Protocol
+  makes AC ids global and F-PRD-11 refuses an index whose parts restart at
+  AC-01. A part that took AC-09 always failed one of the two rules,
+  so no sub-ticket that followed the protocol could get past `define`.
+  Reported, with the design adopted here, by @MussiDev.
+- **A part (`prd-{TICKET}a.md`) with its index on disk** must carry exactly
+  the ACs the index's row assigns it: none missing, none another part's.
+  An index with no row for the part is refused too. **Without the index**,
+  the part's ACs are gapless from its own lowest id.
+- **FR and NFR ids stay local** to each part and count from 01, and a plain
+  PRD keeps its ACs from AC-01. Nothing about either was loosened.
+- `define.instructions.md` 2.12.1 and `validation-rules.instructions.md`
+  1.16.1 say so.
+- Seven faults: a part counted from AC-01 again, a plain PRD counted from
+  its lowest id, a part's FRs counted from their lowest id, a part no longer
+  held to its index, a part dropping an assigned AC, a part carrying another
+  part's AC, and an index without the part's row passing unnamed.
+- Measured: 671 install checks · 792 mutations · 313 pytest.
+
 ## [0.57.1] - 2026-10-11
 
 ### Changed — a new home and a new name: DAW — Dilux Agentic Workflow

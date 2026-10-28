@@ -1,6 +1,6 @@
 ---
 applyTo: '**'
-version: 2.12.0
+version: 2.12.1
 ---
 
 # Phase 1: DEFINE (Requirements Definition)
@@ -376,7 +376,8 @@ that takes AC-09..AC-17 writes its criteria as AC-09..AC-17; it does NOT restart
 Measured on a live split: the index said "b takes AC-09..AC-17", the sub-PRD numbered them
 AC-01..AC-09, and every cross-reference between the two documents had two possible answers.
 `validate_prd.py` refuses an index whose on-disk parts never name the criteria it assigns them
-(F-PRD-11). FR ids stay local to each sub-PRD — nothing cross-references those between documents.
+(F-PRD-11), and refuses a sub-PRD whose ACs are not exactly the ones its index assigns it
+(F-PRD-05). FR ids stay local to each sub-PRD — nothing cross-references those between documents.
 
 **3. Validate ALL the sub-PRDs:**
 
