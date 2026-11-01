@@ -1,0 +1,54 @@
+name: Release
+
+# Releases this plugin for coding agents through the shared workflows in
+# DiluxOne/.github (#552): the release ends at the GitHub release (the tag
+# and the notes, from CHANGELOG.md), and the `publish` job, on that
+# release's publishing, opens a pull request on the organisation's catalog,
+# diluxone-plugins-ai, that brings this plugin's entries up to it
+# (plugin-publish-ai.yml). On every push to main the workflow computes the
+# next version from the type:* labels of what merged. A release is a
+# person's decision (DiluxOne/.github#82): a maintainer opens the issue
+# "Release X.Y.Z" (the Release form) and accepts it, which opens the release
+# pull request (every tool's manifest at X.Y.Z, the changelog.d fragments
+# written into CHANGELOG.md). Once it merges, this workflow checks that a
+# person accepted that issue (the `issues: read` below), then tags and
+# creates the release. The environment `release` holds the release App's
+# key (DILUX_RELEASE_PRIVATE_KEY, with the variable DILUX_RELEASE_CLIENT_ID);
+# `secrets: inherit` hands it over, which is why this runs only on main and
+# X.Y.Z tags.
+
+on:
+  push:
+    branches: [main]
+    tags: ['[0-9]+.[0-9]+.[0-9]+']
+  # The release, published: the catalog follows it.
+  release:
+    types: [published]
+  # Bring the catalog to a release again by hand (after a failure), by its tag.
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: The release to bring the catalog to again (X.Y.Z).
+        required: true
+
+permissions:
+  contents: read
+  pull-requests: read # the labels of what merged decide the version
+  issues: read # the release issue a person accepted, the approval
+  actions: read # the environment's protection rules
+
+jobs:
+  release:
+    if: github.event_name == 'push'
+    uses: DiluxOne/.github/.github/workflows/plugin-release-ai.yml@v7
+    with:
+      dry-run: true # rehearse first: everything but the tag and the release
+    secrets: inherit
+
+  publish:
+    if: github.event_name == 'release' || github.event_name == 'workflow_dispatch'
+    uses: DiluxOne/.github/.github/workflows/plugin-publish-ai.yml@v7
+    with:
+      tag: ${{ inputs.tag || '' }}
+    secrets:
+      DILUX_BOT_PRIVATE_KEY: ${{ secrets.DILUX_BOT_PRIVATE_KEY }}
