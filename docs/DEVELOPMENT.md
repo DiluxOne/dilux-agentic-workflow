@@ -9,8 +9,10 @@ DAW separates **the method** from **the wiring**:
 - `adapters/<tool>/` is the wiring — hooks, skills, agents and settings for one specific harness.
   `install.sh` copies the one you pick.
 
-**Plugin mode.** `.claude-plugin/plugin.json` declares the packaging,
-`.claude-plugin/marketplace.json` is what makes it installable at all, and
+**Plugin mode.** `.claude-plugin/plugin.json` declares the packaging, the
+organisation's catalog (DiluxOne/diluxone-plugins-ai) is what makes it
+installable at all, listing it from this repository, which is no marketplace of
+its own, and
 `adapters/claude/plugin-hooks.json` carries the same five hooks resolved from the
 plugin root rather than the project.
 

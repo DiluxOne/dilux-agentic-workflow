@@ -1776,8 +1776,10 @@ MUTATIONS = [
           "")),
     ("another tool's hook file comes back to the path Claude scans on sight",
      copy_to("adapters/gemini/extension-hooks.json", "hooks/hooks.json")),
-    ("the marketplace that makes the plugin installable disappears",
-     delete(".claude-plugin/marketplace.json")),
+    ("the repository becomes a marketplace of its own again, beside the catalog",
+     copy_to(".claude-plugin/plugin.json", ".claude-plugin/marketplace.json")),
+    ("the installer goes back to installing the plugin from somewhere other than the catalog",
+     edit("install.sh", 'CATALOG="diluxone-plugins-ai"', 'CATALOG="dilux"')),
     # Cursor and Codex find components by the same default scan Claude uses, so
     # what breaks them is a path that is not there — never a missing key.
     ("a non-Claude plugin manifest names a component path this repo does not have",
@@ -1796,10 +1798,6 @@ MUTATIONS = [
      json_edit(".claude-plugin/plugin.json",
                lambda d: d.update({"description": d["description"] +
                                    " Plugin packaging is still in progress — install with install.sh for now."}))),
-    ("the marketplace entry picks up the same redirect",
-     json_edit(".claude-plugin/marketplace.json",
-               lambda d: d["plugins"][0].update({"description": d["plugins"][0]["description"] +
-                                                 " Use the installer instead."}))),
 
     # ── The method, found from wherever it lives ─────────────────────────────
     ("session-start goes back to looking for the method only in the repo",
@@ -2913,10 +2911,6 @@ MUTATIONS = [
      edit("install.sh",
           'if [ -f "$TARGET/AGENTS.md" ]; then',
           'if false; then')),
-    ("the marketplace declares the owner under another field name and the schema rejects it",
-     edit(".claude-plugin/marketplace.json",
-          '  "owner": {',
-          '  "author": {')),
     ("the installer stops recognising its own files: every second run reports them "
      "as the user's collision",
      edit("scripts/install_target.py",

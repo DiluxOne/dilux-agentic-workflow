@@ -40,8 +40,9 @@ bash install.sh . --mode plugin --target claude,copilot,opencode
 It calls each tool's own plugin CLI rather than writing that tool's cache layout
 itself, and for Copilot it also wires the user-level hooks that the plugin
 manifest cannot carry — the step that, skipped, leaves an install looking alive
-and enforcing nothing. The marketplace it registers is the working copy you ran
-it from, so what lands is what is in front of you.
+and enforcing nothing. The marketplace it registers is the organisation's catalog,
+`DiluxOne/diluxone-plugins-ai`, so what lands is the version released there; a
+change not released yet is tried with `--mode dropin`.
 
 Nothing here needs administrator rights on any platform: every path written is
 under `$HOME` or inside the repo you named. Run it before you open the tool and
@@ -62,9 +63,14 @@ The manual equivalents are below, and are what the installer runs.
 ### Claude Code
 
 ```
-/plugin marketplace add DiluxOne/dilux-agentic-workflow
-/plugin install daw@dilux --scope user
+/plugin marketplace add DiluxOne/diluxone-plugins-ai
+/plugin install daw@diluxone-plugins-ai --scope user
 ```
+
+DAW is published in the organisation's catalog, `diluxone-plugins-ai`, from this repository; this
+repository is not a marketplace of its own. **Added the `dilux` marketplace before?** Remove it
+first, `/plugin marketplace remove dilux` (which uninstalls what came from it), then add the
+catalog as above.
 
 `--scope user` installs the method to your profile, once: every repo you open has it, and each repo
 decides its own behavior from its own context files — a `## Repo family` section makes it part of a

@@ -28,9 +28,12 @@ pipeline's state.
 
 | Tool | How |
 |---|---|
-| **Claude Code** | `/plugin marketplace add DiluxOne/dilux-agentic-workflow`, then `/plugin install daw@dilux --scope project` |
+| **Claude Code** | `/plugin marketplace add DiluxOne/diluxone-plugins-ai`, then `/plugin install daw@diluxone-plugins-ai --scope project` |
 | **Copilot CLI** | [`.github/INSTALL.md`](.github/INSTALL.md) — written as steps to hand to your agent |
 | **OpenCode** | [`.opencode/INSTALL.md`](.opencode/INSTALL.md) — same, and it registers the plugin in `opencode.json` |
+
+**Added the `dilux` marketplace before?** DAW is no longer there: remove it (`/plugin marketplace
+remove dilux`, `copilot plugin marketplace remove dilux`), then add `diluxone-plugins-ai` as above.
 
 Those two need their own steps for a reason worth knowing before you start: **Copilot reads the
 plugin manifest for its skills and ignores the hooks in it**, so the gates ride user-level hooks
@@ -46,6 +49,11 @@ instead — install the skills and stop, and it looks alive while enforcing noth
 > ```
 >
 > See [`docs/INSTALL.md`](docs/INSTALL.md) for what it does and how to pin what it fetches.
+>
+> The catalog lists DAW for them too (`codex plugin marketplace add DiluxOne/diluxone-plugins-ai`
+> for Codex; Gemini installs it with `gemini extensions install
+> https://github.com/DiluxOne/dilux-agentic-workflow`, Cursor from a clone in
+> `~/.cursor/plugins/local/daw`), but on those three that path has not been driven end to end yet.
 
 Copying the method in is also what you want on **any** of the six once you need to **change** how
 the method works, rather than only use it. Both ways, and what each one costs, are in

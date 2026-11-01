@@ -9,9 +9,14 @@
 Run, in the user's shell:
 
 ```bash
-copilot plugin marketplace add DiluxOne/dilux-agentic-workflow
-copilot plugin install daw@dilux
+copilot plugin marketplace add DiluxOne/diluxone-plugins-ai
+copilot plugin install daw@diluxone-plugins-ai
 ```
+
+If the user added the `dilux` marketplace before, remove it first
+(`copilot plugin marketplace remove diluxone-plugins-ai   # only if nothing else of it is installed`): DAW is no longer published there,
+and the organisation's catalog, `diluxone-plugins-ai`, is the one place it is.
+Then re-run step 2, which also drops the hooks the old name wired.
 
 Copilot reads the Claude-format manifest and installs the 17 skills. It does
 **not** read the hooks manifest — that is step 2, and without it the install
@@ -84,8 +89,9 @@ phase artifacts.
 
 What was driven live on Copilot CLI 1.0.75, and what it means:
 
-- The marketplace/install commands work against this repository directly — no
-  separate marketplace repo needed, private works through your GitHub login.
+- DAW is published in the organisation's catalog, DiluxOne/diluxone-plugins-ai,
+  which lists it from this repository; Copilot reads the catalog's Claude-format
+  `marketplace.json`. This repository is not a marketplace of its own.
 - Plugin skills load (17) and get used; the Claude-format hooks manifest is
   ignored, which is why the gates ride user-level hooks instead.
 - With the hooks wired, a forged `.daw-state.json` was detected live: the model

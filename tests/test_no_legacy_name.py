@@ -46,5 +46,21 @@ def test_and_the_changelog_keeps_it_in_its_history_only():
 
 @pytest.mark.xfail(strict=True, reason="behavioral.yml is renamed by a maintainer (#65)")
 def test_the_workflows_say_the_new_name():
+    tracked()
     out = git("grep", "-I", "-l", "-i", "-E", FORMER, "--", *sorted(PENDING))
     assert not out.stdout.strip(), out.stdout
+
+
+def test_no_marketplace_of_its_own():
+    # C8: DAW is published in the organisation's catalog, and only there.
+    assert not os.path.exists(os.path.join(ROOT, ".claude-plugin", "marketplace.json"))
+    files = tracked()
+    assert not [p for p in files if p.endswith("marketplace.json")], "a marketplace of its own"
+
+
+def test_the_readme_installs_it_from_the_catalog():
+    text = open(os.path.join(ROOT, "README.md"), encoding="utf-8").read()
+    install = text.split("## Install", 1)[1].split("\n## ", 1)[0]
+    assert "/plugin marketplace add DiluxOne/diluxone-plugins-ai" in install
+    assert "/plugin install daw@diluxone-plugins-ai" in install
+    assert "@dilux " not in install and "@dilux`" not in install

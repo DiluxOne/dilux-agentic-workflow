@@ -30,7 +30,7 @@ set -uo pipefail
 # a knob anyone could turn from outside the file. `docs/AI-POLICY.md` and
 # `CONTRIBUTING.md` both name this variable as the thing not to soften; it was
 # softenable without editing the file they were talking about.
-EXPECT_CHECKS=672
+EXPECT_CHECKS=671
 EXPECT_SKILLS=20
 EXPECT_AGENTS=5
 EXPECT_RULES=14
@@ -40,7 +40,7 @@ EXPECT_ADAPTERS=6
 # `--check-anchors`, `--cover` and every check in this file green, and the
 # published percentage went on being a percentage of a smaller list. The same
 # reason `EXPECT_CHECKS` exists, one file over.
-EXPECT_MUTATIONS=785
+EXPECT_MUTATIONS=784
 
 SELF="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # EXPORTED, because the Python blocks below anchor their own temporary
@@ -380,20 +380,22 @@ if missing:
     sys.exit(1)
 PYDIA
 
-# A plugin manifest on its own cannot be installed: Claude Code adds plugins
-# through a MARKETPLACE, and without .claude-plugin/marketplace.json the only
-# thing `/plugin marketplace add` can say is that there is nothing there. The
-# repo is its own marketplace, with one plugin whose source is the root.
-python3 - "$SELF" <<'PYMKT' && ok "the repo is a marketplace, so its plugin can actually be added" || bad "plugin.json exists but nothing can install it — /plugin marketplace add needs marketplace.json"
-import json, os, sys
+# A plugin manifest on its own cannot be installed: Claude Code and Copilot add
+# plugins through a MARKETPLACE. This repository is not one: DAW is published in
+# the organisation's catalog, DiluxOne/diluxone-plugins-ai, which lists it from
+# here (`source: github`). A marketplace.json back here is a second place to
+# install from, and the two drift; every install route has to name the catalog.
+python3 - "$SELF" <<'PYMKT' && ok "the repo is no marketplace of its own, and every plugin install names the catalog" || bad "DAW installs from a second place, or a route does not name diluxone-plugins-ai"
+import os, sys
 root = sys.argv[1]
-m = json.load(open(os.path.join(root, ".claude-plugin", "marketplace.json"), encoding="utf-8"))
-assert m.get("name") and m.get("owner"), "marketplace.json needs a name and an owner"
-names = [p["name"] for p in m["plugins"]]
-assert "daw" in names, f"marketplace lists {names}, not daw"
-src = next(p["source"] for p in m["plugins"] if p["name"] == "daw")
-assert os.path.exists(os.path.join(root, src, ".claude-plugin", "plugin.json")), \
-    f"the marketplace points at {src!r}, where there is no plugin manifest"
+assert not os.path.exists(os.path.join(root, ".claude-plugin", "marketplace.json")), \
+    ".claude-plugin/marketplace.json is back: a marketplace of its own beside the catalog"
+for rel, want in (("README.md", "/plugin install daw@diluxone-plugins-ai"),
+                  ("docs/INSTALL.md", "/plugin install daw@diluxone-plugins-ai"),
+                  (".github/INSTALL.md", "copilot plugin install daw@diluxone-plugins-ai"),
+                  ("install.sh", 'CATALOG="diluxone-plugins-ai"')):
+    text = open(os.path.join(root, rel), encoding="utf-8").read()
+    assert want in text, f"{rel} does not install from the catalog ({want!r})"
 PYMKT
 
 # Claude Code ships the authority on this schema, so use it rather than
@@ -405,18 +407,12 @@ PYMKT
 if command -v claude >/dev/null 2>&1; then
   PV="$WORK/plugin-validate"; rm -rf "$PV"; mkdir -p "$PV"
   cp -R "$SELF/.claude-plugin" "$SELF/daw" "$SELF/adapters" "$PV/" 2>/dev/null
-  rm -f "$PV/.claude-plugin/marketplace.json"    # else it validates the marketplace instead
   claude plugin validate "$PV" --strict >/dev/null 2>&1 \
     && ok "the plugin manifest passes Claude Code's own validator (--strict)" \
     || { bad "plugin.json fails the tool's own schema — the plugin will not install"
          claude plugin validate "$PV" --strict 2>&1 | sed 's/^/      /' | head -8; }
-  claude plugin validate "$SELF" --strict >/dev/null 2>&1 \
-    && ok "and so does the marketplace that makes it installable" \
-    || { bad "marketplace.json fails validation — /plugin marketplace add will refuse it"
-         claude plugin validate "$SELF" --strict 2>&1 | sed 's/^/      /' | head -8; }
 else
   skip "claude CLI not on PATH — the plugin manifests were not validated against the real schema"
-  skip "claude CLI not on PATH — the marketplace was not validated either"
 fi
 
 python3 - "$SELF" <<'PYLAYOUT' && ok "the plugin's components sit where the tool discovers them" || bad "plugin layout — see above"
@@ -5438,7 +5434,7 @@ import json, os, sys
 root = sys.argv[1]
 REDIRECTS = ("install.sh", "install with", "for now", "in progress", "not yet",
              "use the installer")
-manifests = [".claude-plugin/plugin.json", ".claude-plugin/marketplace.json",
+manifests = [".claude-plugin/plugin.json",
              ".codex-plugin/plugin.json", ".cursor-plugin/plugin.json",
              "gemini-extension.json"]
 found, seen = [], 0

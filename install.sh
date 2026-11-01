@@ -441,6 +441,7 @@ if [ "$MODE" = "plugin" ]; then
   echo "  standing in it."
   echo
   PLUGIN_FAILED=""
+  CATALOG="diluxone-plugins-ai"
   for t in $TARGETS; do
     case "$PLUGIN_CAPABLE" in
       *" $t "*) ;;
@@ -461,17 +462,19 @@ if [ "$MODE" = "plugin" ]; then
           echo "    Install the CLI first, or use --mode dropin."
           PLUGIN_FAILED="yes"; continue
         fi
-        # The marketplace is this working copy, so what gets installed is what is
-        # in front of you — including changes not pushed anywhere yet.
-        "$t" plugin marketplace add "$SELF" >/dev/null 2>&1 \
-          || "$t" plugin marketplace update dilux >/dev/null 2>&1 || true
+        # The organisation's catalog, where DAW is published: this repository
+        # is not a marketplace of its own, so what installs is the released
+        # version the catalog lists. A change not released yet is tried with
+        # --mode dropin, or by pointing the tool at this working copy by hand.
+        "$t" plugin marketplace add "DiluxOne/$CATALOG" >/dev/null 2>&1 \
+          || "$t" plugin marketplace update "$CATALOG" >/dev/null 2>&1 || true
         if [ "$t" = "claude" ]; then
-          claude plugin install daw@dilux --scope user \
-            && echo "  ✓ installed  daw@dilux (scope: user — your whole profile; each repo behaves per its own context files)" \
+          claude plugin install "daw@$CATALOG" --scope user \
+            && echo "  ✓ installed  daw@$CATALOG (scope: user — your whole profile; each repo behaves per its own context files)" \
             || { echo "  ⚠ claude: the plugin install did not complete."; PLUGIN_FAILED="yes"; }
         else
-          copilot plugin install daw@dilux \
-            && echo "  ✓ installed  daw@dilux (the 17 skills)" \
+          copilot plugin install "daw@$CATALOG" \
+            && echo "  ✓ installed  daw@$CATALOG (the 17 skills)" \
             || { echo "  ⚠ copilot: the plugin install did not complete."; PLUGIN_FAILED="yes"; }
           copilot_hooks "$SELF"
         fi ;;
