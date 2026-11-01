@@ -6,8 +6,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"$(git rev-parse --show-toplevel)/.codex/hooks/ddw/session-start.sh\"",
-            "statusMessage": "DDW: booting the pipeline",
+            "command": "bash \"$(git rev-parse --show-toplevel)/.codex/hooks/daw/session-start.sh\"",
+            "statusMessage": "DAW: booting the pipeline",
             "timeout": 10
           }
         ]
@@ -19,8 +19,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"$(git rev-parse --show-toplevel)/.codex/hooks/ddw/pre-tool-use.sh\"",
-            "statusMessage": "DDW: validating the transition",
+            "command": "bash \"$(git rev-parse --show-toplevel)/.codex/hooks/daw/pre-tool-use.sh\"",
+            "statusMessage": "DAW: validating the transition",
             "timeout": 15
           }
         ]
@@ -32,7 +32,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"$(git rev-parse --show-toplevel)/.codex/hooks/ddw/post-write.sh\"",
+            "command": "bash \"$(git rev-parse --show-toplevel)/.codex/hooks/daw/post-write.sh\"",
             "timeout": 15
           }
         ]
@@ -43,7 +43,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"$(git rev-parse --show-toplevel)/.codex/hooks/ddw/pre-compact.sh\"",
+            "command": "bash \"$(git rev-parse --show-toplevel)/.codex/hooks/daw/pre-compact.sh\"",
             "timeout": 10
           }
         ]

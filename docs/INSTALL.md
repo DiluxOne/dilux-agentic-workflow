@@ -4,14 +4,14 @@ Two ways in, and the difference is **where the method lives**.
 
 | | Plugin | Drop-in |
 |---|---|---|
-| The method sits | outside your repo, in the tool | inside your repo, in `.ddw/` |
-| Your repo gets | your `AGENTS.md`, the artifacts, the state file | that, plus `.ddw/` and a wiring directory |
+| The method sits | outside your repo, in the tool | inside your repo, in `.daw/` |
+| Your repo gets | your `AGENTS.md`, the artifacts, the state file | that, plus `.daw/` and a wiring directory |
 | Upgrading | the tool's plugin update | re-run `install.sh` |
 | Editing the method | not until you eject | open the file and change it |
 | Your teammates | install the plugin too | get it on clone |
 
 **Start with the plugin.** Drop-in is the right answer once you want to change how the method
-works — and `/ddw-eject` walks you through it when that day comes, after which plugin updates stop
+works — and `/daw-eject` walks you through it when that day comes, after which plugin updates stop
 reaching that repo. That is the trade.
 
 The eject itself is a command **you** run, not something the agent does for you:
@@ -20,9 +20,9 @@ The eject itself is a command **you** run, not something the agent does for you:
 bash "<plugin root>/install.sh" . --method-only
 ```
 
-Not a limitation of the skill — a consequence of the rule underneath it. Every write into `.ddw/` is
+Not a limitation of the skill — a consequence of the rule underneath it. Every write into `.daw/` is
 refused in every phase, because that seal is what stops a pipeline editing the rules that stop it,
-and it cannot tell installing the method apart from disarming it: a fresh `.ddw/` with weaker rules
+and it cannot tell installing the method apart from disarming it: a fresh `.daw/` with weaker rules
 is the same write. So ejecting is what installing and uninstalling already are — something done from
 outside the ticket, with the hooks looking on. `--method-only` copies the method, records it in the
 manifest so the drift check can see it change afterwards, and touches no wiring.
@@ -63,12 +63,12 @@ The manual equivalents are below, and are what the installer runs.
 
 ```
 /plugin marketplace add DiluxOne/dilux-agentic-workflow
-/plugin install ddw@dilux --scope user
+/plugin install daw@dilux --scope user
 ```
 
 `--scope user` installs the method to your profile, once: every repo you open has it, and each repo
 decides its own behavior from its own context files — a `## Repo family` section makes it part of a
-family, no section leaves it standalone, and `claude plugin disable ddw` standing in a repo switches
+family, no section leaves it standalone, and `claude plugin disable daw` standing in a repo switches
 it off there. `--scope project` (recorded in the repo's `.claude/settings.json`, so teammates get it
 on clone) and `--scope local` remain the tool's own options for teams that want per-repo activation.
 
@@ -97,7 +97,7 @@ Copilot and OpenCode all register in your profile. (If you choose Claude's `--sc
 yourself, the activation lands untracked in the repo's `.claude/settings.json`; commit it when you
 want your teammates to have it.)
 
-**The repo always wins.** Every hook looks for `.ddw/` in the project first and the plugin second, so
+**The repo always wins.** Every hook looks for `.daw/` in the project first and the plugin second, so
 a repo that wants its own version just has one.
 
 **No `AGENTS.md` is created either**, and that file is where DAW reads your stack. Under a drop-in
@@ -119,7 +119,7 @@ The installer copies the method out of its own tree, so pasted from a URL it has
 fetches one into a temporary directory, runs itself from there and removes it on the way out. It
 still asks its questions — every read goes to your terminal, not to the pipe it arrived down.
 
-`DDW_REF` picks what gets fetched (a branch or a tag; `main` by default). If you already have the
+`DAW_REF` picks what gets fetched (a branch or a tag; `main` by default). If you already have the
 repository, run the same script out of it and nothing is downloaded:
 
 ```bash
@@ -137,7 +137,7 @@ Installing **is** activating — there is no separate enable step.
 **If the repo is git-tracked, a fresh install asks — before writing a byte —
 where the installation lands:**
 
-1. **A new setup branch** (`ddw-setup-` + 6 random hex, recommended): created
+1. **A new setup branch** (`daw-setup-` + 6 random hex, recommended): created
    on the spot, installed and committed there, your branches untouched. After
    the commit it asks whether to push the branch and open a pull request — not
    a draft one, because it has to be merged before the first ticket; say no and
@@ -157,7 +157,7 @@ A repo with no commits yet skips the branch question (there is no base to
 branch from) and offers the installation as the repository's first commit.
 Updates skip it too — a refresh is committed where the branch already lives.
 Without a terminal the installer asks nothing and touches git not at all; set
-`DDW_GIT_FLOW=setup|current|none` (and `DDW_GIT_PUSH=y|n`) to answer the
+`DAW_GIT_FLOW=setup|current|none` (and `DAW_GIT_PUSH=y|n`) to answer the
 questions from a script. Not a git repository at all? One warning, dropin
 only: the pipeline branches, commits and opens PRs, so `git init` before the
 first ticket.
@@ -165,7 +165,7 @@ first ticket.
 ### What lands in your repo
 
 ```
-.ddw/                      THE METHOD — identical for every tool
+.daw/                      THE METHOD — identical for every tool
 ├── orchestrator.md          the state machine and the phase router
 ├── rules/                   per-phase instructions + transition-graph.json
 └── scripts/                 the transition validator and the shared hook gate
@@ -176,11 +176,11 @@ first ticket.
 └── hooks/                   the enforcement scripts
 
 AGENTS.md                  your project's context — you fill this in
-docs/ddw/                  everything the pipeline produces, committed
-.ddw-state.json            the pipeline's memory (gitignored: it is yours)
+docs/daw/                  everything the pipeline produces, committed
+.daw-state.json            the pipeline's memory (gitignored: it is yours)
 ```
 
-That split is the point. **`.ddw/` is byte-identical across tools.** Supporting a new one means
+That split is the point. **`.daw/` is byte-identical across tools.** Supporting a new one means
 writing a recipe that says where that tool looks for things — never translating the framework. See
 [`adapters/adapter.schema.md`](../adapters/adapter.schema.md).
 
@@ -188,11 +188,11 @@ writing a recipe that says where that tool looks for things — never translatin
 
 Pull, re-run the same command. The installer is idempotent, replaces DAW's own files, and **never
 overwrites something you made yours**: if one of your skills shares a name with one of DAW's, it says
-so and leaves yours alone. Your state, your artifacts under `docs/ddw/` and your stack are untouched.
+so and leaves yours alone. Your state, your artifacts under `docs/daw/` and your stack are untouched.
 
 Two things decide what "yours" means:
 
-- **The activation block.** DAW writes a block delimited by `<!-- BEGIN DDW -->` / `<!-- END DDW -->`
+- **The activation block.** DAW writes a block delimited by `<!-- BEGIN DAW -->` / `<!-- END DAW -->`
   into your tool's context file and refreshes it on every upgrade — that block is what loads the
   orchestrator, so a stale one would quietly run an old method. **Only what is between the markers is
   touched.** Anything you wrote outside it is not read, moved or reformatted.

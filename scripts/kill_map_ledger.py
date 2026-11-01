@@ -98,7 +98,7 @@ def _longest_literal(msg):
     # read as never fired with the kill recorded two lines below in the same
     # file.
     # …and the stretches between BACKTICKS. An unescaped `bad "… \`mkdir
-    # .ddw\` …"` is command substitution to bash: the message prints WITHOUT
+    # .daw\` …"` is command substitution to bash: the message prints WITHOUT
     # that part, so the declared literal cannot match the output. Three entries
     # sat here because of that and not because of a hole — the very ✗ that
     # fires them was on the map, with the gap in the middle.

@@ -9,7 +9,7 @@
     "note": "native location"
   },
   "skills_are_slash": true,
-  "_skills_are_slash_note": "Claude Code turns every skill into /name on its own (observed: /ddw:ddw-status in plugin mode). Generating commands here would ship each skill twice.",
+  "_skills_are_slash_note": "Claude Code turns every skill into /name on its own (observed: /daw:daw-status in plugin mode). Generating commands here would ship each skill twice.",
   "agents": {
     "dir": ".claude/agents",
     "filename": "{name}.md",

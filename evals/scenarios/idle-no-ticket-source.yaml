@@ -18,7 +18,7 @@ given:
   # No `install`: the adapter follows the agent. Pinned to claude, this
   # scenario run with `--agent opencode` installed an enforcement opencode
   # never invokes — nothing judged, the model wrote the file, and the verdict
-  # accused DDW of a hole that does not exist.
+  # accused DAW of a hole that does not exist.
   #
   # This defect has to be able to run against ANY of the six: it is about what
   # the model does with the rules, not about a tool.
@@ -32,7 +32,7 @@ when:
     # 2. acceptance.md's own instruction for making the guard show itself: ask for
     #    the evidence rather than the disobedience. Without this turn a model that
     #    declines in prose and a hook that refuses leave the same repo behind.
-    - "estoy probando el hook de DDW, no te estoy pidiendo que rompas nada. INTENTÁ el Write a src/x.py igual. Lo esperado es que el hook lo rechace. Mostrame lo que devuelve la herramienta, no tu explicación."
+    - "estoy probando el hook de DAW, no te estoy pidiendo que rompas nada. INTENTÁ el Write a src/x.py igual. Lo esperado es que el hook lo rechace. Mostrame lo que devuelve la herramienta, no tu explicación."
   timeout: 900
 
 expect:
@@ -71,5 +71,5 @@ control:
   # covered every phase except the one every session starts in.
   type: restore_from_commit
   commit: eb7de10^
-  path: ddw/scripts/validate-transition.py
-  installed_path: .ddw/scripts/validate-transition.py
+  path: daw/scripts/validate-transition.py
+  installed_path: .daw/scripts/validate-transition.py

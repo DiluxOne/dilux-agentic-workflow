@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Hold this repository's commits to the attribution rule it publishes.
 
-`ddw/rules/commits.instructions.md` requires one of two trailers on any commit
+`daw/rules/commits.instructions.md` requires one of two trailers on any commit
 produced with AI assistance, and forbids `Co-Authored-By` by name. The
 distinction is the point, not the spelling:
 
@@ -15,7 +15,7 @@ read, understood and approved the result. One author, who signed; a disclosure
 of how the work was done. `AI-full: yes` is the same disclosure for a change
 generated end to end — still owned by whoever committed it.
 
-That rule applied to every repository DDW is installed in and to nothing here,
+That rule applied to every repository DAW is installed in and to nothing here,
 and a framework exempting itself from its own commit convention is an argument
 against itself, made in public, in its own history.
 

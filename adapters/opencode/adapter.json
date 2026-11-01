@@ -6,7 +6,7 @@
   "docs": "https://opencode.ai/docs/skills/",
   "skills": {
     "dir": ".opencode/skills",
-    "note": "OpenCode's own location. It would also read .claude/skills, but DDW does not make one tool depend on another tool's directory."
+    "note": "OpenCode's own location. It would also read .claude/skills, but DAW does not make one tool depend on another tool's directory."
   },
   "commands": {
     "dir": ".opencode/commands",
@@ -15,7 +15,7 @@
       "description": "{description}"
     },
     "body": "Use the `{name}` skill to answer this. Follow it exactly.\n\n$ARGUMENTS",
-    "note": "OpenCode discovers skills but does not expose them as /name — that is a separate feature reading .opencode/commands/ (plural, per opencode.ai/docs/commands). Without this the installer's own closing line told the user to type /ddw-status and the TUI answered that no such command exists."
+    "note": "OpenCode discovers skills but does not expose them as /name — that is a separate feature reading .opencode/commands/ (plural, per opencode.ai/docs/commands). Without this the installer's own closing line told the user to type /daw-status and the TUI answered that no such command exists."
   },
   "agents": {
     "dir": ".opencode/agents",

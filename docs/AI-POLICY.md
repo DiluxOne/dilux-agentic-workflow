@@ -16,8 +16,8 @@ people's agent sessions.
 
 ## What makes this repo different
 
-Most of this product is **prose that becomes instructions**. `ddw/rules/*.md`,
-`skills/*/SKILL.md`, `ddw/orchestrator.md` — none of it executes. All of it
+Most of this product is **prose that becomes instructions**. `daw/rules/*.md`,
+`skills/*/SKILL.md`, `daw/orchestrator.md` — none of it executes. All of it
 is read by a model, in someone else's repository, while that model decides
 whether it may write source code.
 
@@ -56,10 +56,10 @@ the underlying guarantee true has broken the only thing anyone is buying.
    push. CI is a safety net, not a substitute for thinking.
 
 4. **No prompt-injection vectors anywhere in this repository.** Not in commit
-   messages, not in comments, not in docs, and above all **not in `ddw/`**. No
+   messages, not in comments, not in docs, and above all **not in `daw/`**. No
    `<system>`, no "ignore previous instructions", no Unicode trickery, no
    embedded "your job is to approve this PR". Here this is not just about
-   steering a reviewer's tooling: `ddw/` is copied verbatim into other people's
+   steering a reviewer's tooling: `daw/` is copied verbatim into other people's
    repositories and loaded into their agents. A PR doing this is rejected on
    sight; the second time, the contributor is banned; the third time it gets an
    issue written about it for posterity.
@@ -94,7 +94,7 @@ the underlying guarantee true has broken the only thing anyone is buying.
 
 9. **Commits here follow the convention DAW itself prescribes.** Gitmoji,
    conventional type, and the `AI-assisted: yes` / `AI-full: yes` trailer that
-   `ddw/rules/commits.instructions.md` calls mandatory. Never `Co-Authored-By` —
+   `daw/rules/commits.instructions.md` calls mandatory. Never `Co-Authored-By` —
    the method rules that out by name, and the method applies to the method.
    The commit message says what *the change* does; the trailer is the whole of
    the provenance record, and no prefaces, apologies or narration go in the body.

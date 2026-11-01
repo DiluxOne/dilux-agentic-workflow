@@ -5,7 +5,7 @@ regression:
   changelog: "0.18.0 round three — The fix-plan template could not pass the gate it is written for"
   commit: 7dc4369
   what_happened: >
-    A plan written exactly as `ddw-create-spec` teaches was refused by F-SPEC-10
+    A plan written exactly as `daw-create-spec` teaches was refused by F-SPEC-10
     for its layout: the template put error handling in prose, and the validator
     counts errors as a list, because F-SPEC-16 pairs each one with the test that
     names it. The reader is told "your plan is incomplete" about a plan written
@@ -18,11 +18,11 @@ given:
   state: null
 
 when:
-  instruction: skills/ddw-create-spec/SKILL.md
+  instruction: skills/daw-create-spec/SKILL.md
   # Pull the worked document straight out of the skill the model is told to load.
   extract_between: '###\s+The fix-plan, in the shape the validator reads.*?```markdown\n(.*?)\n```'
   ticket: FIX-001
-  write_to: docs/ddw/specs/fix-plan-FIX-001.md
+  write_to: docs/daw/specs/fix-plan-FIX-001.md
   validator: validate_spec.py
   validator_args: ["${ARTIFACT}", "--tier", "FIX"]
 
@@ -41,7 +41,7 @@ expect:
 # is nowhere to extract it from.
 control:
   type: substitute
-  path: skills/ddw-create-spec/SKILL.md
+  path: skills/daw-create-spec/SKILL.md
   old: |-
     ### The fix-plan, in the shape the validator reads
   new: |-

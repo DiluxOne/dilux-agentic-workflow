@@ -17,7 +17,7 @@ here why there is not one.
 
 - [ ] `check_boot_reads_every_state_field[0]`
       **Shape guard, and the shape is a whole table.** It fires when
-      `ddw/rules/state.instructions.md` exists and NOT ONE field can be read
+      `daw/rules/state.instructions.md` exists and NOT ONE field can be read
       out of it — the table stopped having the `| \`field\` | …` shape — and
       that is all of its rows at once, not one line. A one-edit fault cannot
       express it, and one that rewrites the whole table measures the fault,
@@ -30,7 +30,7 @@ here why there is not one.
       covered by the previous site, which does have a fault.
 - [ ] `check_autonomy_prose_matches_the_hook[0]`
       **Defensive branch about the instrument, not the product.** It fires if
-      `ddw/scripts/validate-transition.py` cannot be imported, which is the
+      `daw/scripts/validate-transition.py` cannot be imported, which is the
       condition under which no linter check measures anything and the whole
       suite is already red for a hundred other reasons. A fault provoking it
       measures the fault.
@@ -43,7 +43,7 @@ here why there is not one.
       `test_dos_flechas_en_un_turno_son_rechazadas`. What is left without a
       fault is the linter's WARNING, not the behaviour.
 - [ ] `check_autonomy_prose_matches_the_hook[2]`
-      **Shape guard.** It fires when `ddw/orchestrator.md` has no
+      **Shape guard.** It fires when `daw/orchestrator.md` has no
       `## Autonomy` section at all — deleting the whole section, not one line.
       A one-edit fault cannot express it, and one that deletes it measures the
       fault.

@@ -10,7 +10,7 @@ broken silently, make a scenario pass for the wrong reason.
 The three tested here arrived together and for the same reason: without them,
 a whole family of scenarios could be written but not judged.
 
-  · `given.files` — seeding the tree. Before, only `.ddw-state.json` could be
+  · `given.files` — seeding the tree. Before, only `.daw-state.json` could be
     written, so every scenario about a source file that already exists started
     from the fixture's empty repo — that is, measuring something else.
   · `expect.file_matches` — asserting on the CONTENT. `files_present` cannot
@@ -38,7 +38,7 @@ def _load(name, rel):
     return mod
 
 
-runner = _load("ddw_eval_runner", "evals/runner.py")
+runner = _load("daw_eval_runner", "evals/runner.py")
 
 
 @pytest.fixture()
@@ -61,12 +61,12 @@ def repo(tmp_path):
 
 def test_seed_files_writes_and_commits(repo):
     n = runner.seed_files(repo, {"src/account.py": "def delete(): ...\n",
-                                 "docs/ddw/prd/prd-T-1.md": "# PRD\n"})
+                                 "docs/daw/prd/prd-T-1.md": "# PRD\n"})
     assert n == 2
     assert (repo / "src" / "account.py").read_text() == "def delete(): ...\n"
     tracked = subprocess.run(["git", "ls-files"], cwd=repo,
                              capture_output=True, text=True).stdout.split()
-    assert "src/account.py" in tracked and "docs/ddw/prd/prd-T-1.md" in tracked
+    assert "src/account.py" in tracked and "docs/daw/prd/prd-T-1.md" in tracked
     # And the tree ends up clean: a seeded, uncommitted source file is
     # uncommitted work the scenario did not ask for, and rules get measured on that.
     dirty = subprocess.run(["git", "status", "--porcelain"], cwd=repo,
@@ -88,11 +88,11 @@ def test_seed_files_commits_what_the_install_ignores(repo):
     # paused tickets, the session markers, the journal — is part of what a
     # scenario needs to seed. Without `-f` the commit finds nothing, and the
     # fixture silently ends up different from what the scenario says.
-    (repo / ".gitignore").write_text(".ddw-paused/\n")
-    runner.seed_files(repo, {".ddw-paused/T-2.json": '{"ticket": "T-2"}\n'})
+    (repo / ".gitignore").write_text(".daw-paused/\n")
+    runner.seed_files(repo, {".daw-paused/T-2.json": '{"ticket": "T-2"}\n'})
     tracked = subprocess.run(["git", "ls-files"], cwd=repo,
                              capture_output=True, text=True).stdout.split()
-    assert ".ddw-paused/T-2.json" in tracked
+    assert ".daw-paused/T-2.json" in tracked
 
 
 def test_seed_files_does_not_write_outside_the_fixture(repo):
@@ -107,7 +107,7 @@ def test_seed_files_does_not_write_outside_the_fixture(repo):
 
 def test_seed_files_refuses_the_state_file(repo):
     with pytest.raises(RuntimeError, match="given.state"):
-        runner.seed_files(repo, {".ddw-state.json": "{}"})
+        runner.seed_files(repo, {".daw-state.json": "{}"})
 
 
 # ── expect.file_matches: the content, not the existence ──────────────────────
@@ -418,14 +418,14 @@ def test_copilot_without_a_resume_id_is_an_error_not_a_pass():
 def test_the_copilot_tap_wraps_the_repo_hooks(tmp_path):
     """The user-level wiring runs THE REPO'S script by relative path, so
     wrapping the repo's copy is the only thing there is to wrap."""
-    hooks = tmp_path / ".github" / "hooks" / "ddw"
+    hooks = tmp_path / ".github" / "hooks" / "daw"
     hooks.mkdir(parents=True)
     for name in ("pre-tool-use.sh", "post-write.sh", "pre-compact.sh"):
         (hooks / name).write_text("#!/usr/bin/env bash\nexit 0\n")
     assert runner._tap_copilot(tmp_path) == 2
     for name in ("pre-tool-use.sh", "post-write.sh"):
         assert (hooks / (name[:-3] + ".real.sh")).exists()
-        assert "DDW_EVAL_PAYLOAD" in (hooks / name).read_text()
+        assert "DAW_EVAL_PAYLOAD" in (hooks / name).read_text()
     # pre-compact is not a verdict: wrapping it would put an "allowed" in the
     # log for a write that never existed.
     assert not (hooks / "pre-compact.real.sh").exists()
@@ -479,12 +479,12 @@ def _fake_install(runner_mod, monkeypatch, calls, wire_hooks=True):
         calls.append({"cmd": cmd, "env": env})
         if any("install.sh" in str(c) for c in cmd):
             repo = pathlib.Path(cmd[2])
-            (repo / ".ddw" / "scripts").mkdir(parents=True, exist_ok=True)
-            (repo / ".ddw" / "scripts" / "hook-gate.py").write_text("x")
+            (repo / ".daw" / "scripts").mkdir(parents=True, exist_ok=True)
+            (repo / ".daw" / "scripts" / "hook-gate.py").write_text("x")
             if wire_hooks and env and env.get("HOME"):
                 d = pathlib.Path(env["HOME"]) / ".copilot" / "hooks"
                 d.mkdir(parents=True, exist_ok=True)
-                (d / "ddw.json").write_text("{}")
+                (d / "daw.json").write_text("{}")
             return subprocess.CompletedProcess(cmd, 0, "", "")
         return real_sh(cmd, cwd=cwd, env=env, timeout=timeout, stdin=stdin)
 
@@ -529,7 +529,7 @@ def test_the_verdict_tap_covers_copilot(tmp_path, monkeypatch):
     """`_tap_copilot` can be perfect and called by nobody."""
     monkeypatch.setattr(runner, "_tap_claude", lambda repo: 0)
     monkeypatch.setattr(runner, "_tap_opencode", lambda repo: 0)
-    hooks = tmp_path / ".github" / "hooks" / "ddw"
+    hooks = tmp_path / ".github" / "hooks" / "daw"
     hooks.mkdir(parents=True)
     for name in ("pre-tool-use.sh", "post-write.sh"):
         (hooks / name).write_text("#!/usr/bin/env bash\nexit 0\n")

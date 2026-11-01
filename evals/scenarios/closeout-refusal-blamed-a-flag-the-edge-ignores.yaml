@@ -75,8 +75,8 @@ expect:
 # reader.
 control:
   type: substitute
-  path: ddw/scripts/transition.py
-  installed_path: .ddw/scripts/transition.py
+  path: daw/scripts/transition.py
+  installed_path: .daw/scripts/transition.py
 #
 # Written as a quoted scalar and not as a `|-` block: a YAML block swallows the
 # indentation of its first line, and these four lines live twenty spaces deep

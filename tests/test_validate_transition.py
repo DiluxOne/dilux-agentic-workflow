@@ -39,8 +39,8 @@ def _load(name, rel):
     return mod
 
 
-vt = _load("vt", "ddw/scripts/validate-transition.py")
-GRAPH = json.load(open(os.path.join(ROOT, "ddw/rules/transition-graph.json"), encoding="utf-8"))
+vt = _load("vt", "daw/scripts/validate-transition.py")
+GRAPH = json.load(open(os.path.join(ROOT, "daw/rules/transition-graph.json"), encoding="utf-8"))
 
 
 @pytest.fixture()
@@ -88,7 +88,7 @@ def test_the_phases_that_write_code_can_write_code(repo, phase):
     assert vt.source_write_denied(os.path.join(repo, "src/app.py"), repo, phase) is None
 
 
-@pytest.mark.parametrize("rel", ["docs/ddw/prd/prd-T-1.md", "AGENTS.md", "CHANGELOG.md",
+@pytest.mark.parametrize("rel", ["docs/daw/prd/prd-T-1.md", "AGENTS.md", "CHANGELOG.md",
                                  ".claude/settings.json", ".gitignore"])
 def test_a_repository_at_rest_still_writes_what_it_needs(repo, rel):
     assert vt.source_write_denied(os.path.join(repo, rel), repo, "IDLE") is None
@@ -115,12 +115,12 @@ def test_the_refusal_at_idle_does_not_hand_over_the_way_around_itself(repo):
         "the refusal does not say whose decision it is: " + why
 
 
-# ── DDW's own machinery, unwritable in every phase ───────────────────────────
+# ── DAW's own machinery, unwritable in every phase ───────────────────────────
 
-@pytest.mark.parametrize("rel", [".ddw/rules/transition-graph.json",
-                                 ".ddw/scripts/validate-transition.py",
-                                 ".ddw-sessions/forged",
-                                 ".ddw-installed.json"])
+@pytest.mark.parametrize("rel", [".daw/rules/transition-graph.json",
+                                 ".daw/scripts/validate-transition.py",
+                                 ".daw-sessions/forged",
+                                 ".daw-installed.json"])
 def test_the_method_is_sealed(repo, rel):
     assert vt.enforcement_write_denied(os.path.join(repo, rel), repo)
 
@@ -128,19 +128,19 @@ def test_the_method_is_sealed(repo, rel):
 def test_the_plugin_root_is_sealed_not_only_the_method(tmp_path):
     """What the tool EXECUTES lives beside the method, not inside it."""
     plugin = tmp_path / "plugin"
-    (plugin / "ddw").mkdir(parents=True)
+    (plugin / "daw").mkdir(parents=True)
     (plugin / "adapters" / "claude" / "hooks").mkdir(parents=True)
     repo = tmp_path / "repo"
     repo.mkdir()
     hook = str(plugin / "adapters/claude/hooks/validate-state-transition.sh")
-    assert vt._method_write_denied(hook, str(plugin / "ddw"), str(repo)), \
+    assert vt._method_write_denied(hook, str(plugin / "daw"), str(repo)), \
         "the hook that runs the gate is writable under a plugin install"
 
 
 def test_a_dropin_install_does_not_seal_the_project(tmp_path):
     repo = tmp_path / "repo"
-    (repo / ".ddw").mkdir(parents=True)
-    assert vt._method_write_denied(str(repo / "src/app.py"), str(repo / ".ddw"), str(repo)) is None
+    (repo / ".daw").mkdir(parents=True)
+    assert vt._method_write_denied(str(repo / "src/app.py"), str(repo / ".daw"), str(repo)) is None
 
 
 # ── FREE is the one tier the user has to ask for ─────────────────────────────
@@ -291,7 +291,7 @@ def _repo_at(tmp_path, phase="CODE", tier="FEATURE", ticket="T-1", gates=None, h
     h = history if history is not None else [
         entry("IDLE", "CLASSIFY", tier=tier, ticket=ticket),
         entry("CLASSIFY", "DEFINE", tier=tier, ticket=ticket)]
-    (repo / ".ddw-state.json").write_text(json.dumps(
+    (repo / ".daw-state.json").write_text(json.dumps(
         state(phase, tier, ticket, gates or {"define": True, "spec": True, "threat": True}, h)))
     return str(repo)
 
@@ -304,8 +304,8 @@ def _pre(repo, path, content="x", tool="Write"):
     reads half the refusals as approvals. The hook handles both; so does this.
     """
     try:
-        return vt.decide_pre(os.path.join(repo, ".ddw-state.json"),
-                             os.path.join(ROOT, "ddw/rules/transition-graph.json"),
+        return vt.decide_pre(os.path.join(repo, ".daw-state.json"),
+                             os.path.join(ROOT, "daw/rules/transition-graph.json"),
                              tool, {"file_path": path, "content": content}, [path], repo=repo)
     except vt.Block as exc:
         return str(exc)
@@ -314,35 +314,35 @@ def _pre(repo, path, content="x", tool="Write"):
 def test_a_write_to_the_state_is_judged_not_waved_through(tmp_path):
     repo = _repo_at(tmp_path)
     forged = json.dumps(state("CLOSEOUT", "FEATURE", "T-1", {"tests": True, "sast": True}))
-    why = _pre(repo, os.path.join(repo, ".ddw-state.json"), forged)
+    why = _pre(repo, os.path.join(repo, ".daw-state.json"), forged)
     assert why, "a state rewritten to a later phase was allowed"
 
 
 def test_every_path_in_an_event_is_judged_not_only_the_first(tmp_path):
     repo = _repo_at(tmp_path, phase="DEFINE")
-    decoy = os.path.join(repo, "docs/ddw/prd/prd-T-1.md")
+    decoy = os.path.join(repo, "docs/daw/prd/prd-T-1.md")
     real = os.path.join(repo, "src/app.py")
-    why = vt.decide_pre(os.path.join(repo, ".ddw-state.json"),
-                        os.path.join(ROOT, "ddw/rules/transition-graph.json"),
+    why = vt.decide_pre(os.path.join(repo, ".daw-state.json"),
+                        os.path.join(ROOT, "daw/rules/transition-graph.json"),
                         "Write", {"file_path": decoy, "content": "x"}, [decoy, real], repo=repo)
     assert why, "a harmless path next to a refused one bought the write"
 
 
 def test_a_path_reaching_a_sealed_file_through_a_symlink_is_refused(tmp_path):
     repo = _repo_at(tmp_path)
-    (tmp_path / "r" / ".ddw").mkdir(exist_ok=True)
-    (tmp_path / "r" / ".ddw" / "rules").mkdir(exist_ok=True)
-    (tmp_path / "r" / ".ddw" / "rules" / "graph.json").write_text("{}")
+    (tmp_path / "r" / ".daw").mkdir(exist_ok=True)
+    (tmp_path / "r" / ".daw" / "rules").mkdir(exist_ok=True)
+    (tmp_path / "r" / ".daw" / "rules" / "graph.json").write_text("{}")
     link = tmp_path / "r" / "docs"
     link.mkdir(exist_ok=True)
-    (link / "passthru.json").symlink_to(tmp_path / "r" / ".ddw" / "rules" / "graph.json")
+    (link / "passthru.json").symlink_to(tmp_path / "r" / ".daw" / "rules" / "graph.json")
     why = _pre(repo, str(link / "passthru.json"))
     assert why, "a sealed file reached under an unsealed name was allowed"
 
 
 def test_an_unreadable_state_is_not_read_as_a_fresh_idle(tmp_path):
     repo = _repo_at(tmp_path)
-    (tmp_path / "r" / ".ddw-state.json").write_text("{ not json")
+    (tmp_path / "r" / ".daw-state.json").write_text("{ not json")
     why = _pre(repo, os.path.join(repo, "src/app.py"))
     assert why, "a corrupt state was treated as IDLE and the write went through"
 
@@ -350,8 +350,8 @@ def test_an_unreadable_state_is_not_read_as_a_fresh_idle(tmp_path):
 def test_a_read_is_not_judged_as_a_write(tmp_path):
     repo = _repo_at(tmp_path, phase="DEFINE")
     target = os.path.join(repo, "src/app.py")
-    assert vt.decide_pre(os.path.join(repo, ".ddw-state.json"),
-                         os.path.join(ROOT, "ddw/rules/transition-graph.json"),
+    assert vt.decide_pre(os.path.join(repo, ".daw-state.json"),
+                         os.path.join(ROOT, "daw/rules/transition-graph.json"),
                          "Read", {"file_path": target}, [target],
                          repo=repo, raw_tool="Read") is None
 
@@ -362,24 +362,24 @@ def test_the_agent_may_read_the_method_it_is_held_to(tmp_path):
     `decide_pre` has two guards and a single "is this a write?" question. The
     method guard was hoisted to the top of the function to close the plugin
     hole and landed IN FRONT of that question, so any tool naming a path under
-    `.ddw/` — a `view` included — got refused. In Claude it does not show: the
+    `.daw/` — a `view` included — got refused. In Claude it does not show: the
     hook's matcher sends only Edit|Write. In Copilot preToolUse has no matcher
     and receives them all.
 
-    Measured live: the sessionStart hook injects "read `.ddw/orchestrator.md`
-    now and run its Boot Sequence" and the next tool came back with "DDW
-    blocked this write: orchestrator.md is part of DDW itself". The agent
+    Measured live: the sessionStart hook injects "read `.daw/orchestrator.md`
+    now and run its Boot Sequence" and the next tool came back with "DAW
+    blocked this write: orchestrator.md is part of DAW itself". The agent
     could not load the state machine it was being held to, and the whole run
-    looked like DDW not installed — with the refusals written in DDW's words.
+    looked like DAW not installed — with the refusals written in DAW's words.
     """
     repo = _repo_at(tmp_path, phase="IDLE", gates={})
-    method = os.path.join(repo, ".ddw")
+    method = os.path.join(repo, ".daw")
     os.makedirs(method, exist_ok=True)
     orch = os.path.join(method, "orchestrator.md")
     with open(orch, "w", encoding="utf-8") as fh:
         fh.write("# el orquestador\n")
-    graph = os.path.join(ROOT, "ddw/rules/transition-graph.json")
-    state_path = os.path.join(repo, ".ddw-state.json")
+    graph = os.path.join(ROOT, "daw/rules/transition-graph.json")
+    state_path = os.path.join(repo, ".daw-state.json")
 
     leer = vt.decide_pre(state_path, graph, "Edit", {"path": orch}, [orch],
                          repo=repo, raw_tool="view", method=method)
@@ -390,7 +390,7 @@ def test_the_agent_may_read_the_method_it_is_held_to(tmp_path):
     # above is matched by substring and an abbreviation matches nothing.
     # Copilot calls ripgrep that way, and measured live one release after the
     # reads were let through: `view` of the orchestrator passed and `rg` on
-    # the same file came back "DDW blocked this write". The agent recovered
+    # the same file came back "DAW blocked this write". The agent recovered
     # via `bash grep`, which is the part to read twice — the refusal did not
     # stop the read, it moved it to the one door PreToolUse cannot see.
     assert vt.decide_pre(state_path, graph, "Edit", {"path": orch}, [orch],
@@ -420,7 +420,7 @@ def test_the_agent_may_read_the_method_it_is_held_to(tmp_path):
 def test_la_spec_no_se_reescribe_con_su_compuerta_en_pie(tmp_path):
     repo = _repo_at(tmp_path, phase="CODE", ticket="T-1",
                     gates={"define": True, "spec": True, "threat": True})
-    why = _pre(repo, os.path.join(repo, "docs/ddw/specs/spec-T-1.md"), "corregida a mano")
+    why = _pre(repo, os.path.join(repo, "docs/daw/specs/spec-T-1.md"), "corregida a mano")
     assert why and "PLAN" in why, \
         "the approved spec was rewritten from CODE without re-earning the gate: %r" % why
 
@@ -430,7 +430,7 @@ def test_el_modelo_de_amenazas_tambien_esta_sellado(tmp_path):
     sealing only one leaves the other rewritable under its own gate."""
     repo = _repo_at(tmp_path, phase="CODE", ticket="T-1",
                     gates={"define": True, "spec": True, "threat": True})
-    why = _pre(repo, os.path.join(repo, "docs/ddw/security/threat-T-1.md"), "x")
+    why = _pre(repo, os.path.join(repo, "docs/daw/security/threat-T-1.md"), "x")
     assert why, "the approved threat model was rewritten from CODE"
 
 
@@ -440,7 +440,7 @@ def test_en_PLAN_la_spec_se_escribe_porque_su_compuerta_no_esta_ganada(tmp_path)
     gate precisely so it can be corrected. A seal that also bites here fixes
     nothing — it leaves the ticket dead."""
     repo = _repo_at(tmp_path, phase="PLAN", ticket="T-1", gates={"define": True})
-    assert _pre(repo, os.path.join(repo, "docs/ddw/specs/spec-T-1.md"), "x") is None, \
+    assert _pre(repo, os.path.join(repo, "docs/daw/specs/spec-T-1.md"), "x") is None, \
         "the spec cannot be written in the phase that writes it"
 
 
@@ -450,7 +450,7 @@ def test_la_spec_de_otro_ticket_no_es_este_sello(tmp_path):
     the split's closeout, which edits the parent's index."""
     repo = _repo_at(tmp_path, phase="CODE", ticket="T-1",
                     gates={"define": True, "spec": True, "threat": True})
-    assert _pre(repo, os.path.join(repo, "docs/ddw/specs/spec-T-2.md"), "x") is None, \
+    assert _pre(repo, os.path.join(repo, "docs/daw/specs/spec-T-2.md"), "x") is None, \
         "the active ticket's seal reached another ticket's document"
 
 
@@ -465,14 +465,14 @@ def test_a_path_outside_the_repo_does_not_excuse_the_ones_inside(tmp_path):
 
     A corrupt state refuses every write, and the recovery it prescribes is to
     write the corrected state to a scratch path OUTSIDE the repo — so an event
-    naming nothing inside is not DDW's to judge. Read as "any path outside", one
+    naming nothing inside is not DAW's to judge. Read as "any path outside", one
     scratch path in the same event buys the write next to it, and the corrupt
     state that must stay refused until a human restores it becomes writable by
     naming `/tmp/anything` alongside it.
     """
     repo = _repo_at(tmp_path)
-    (tmp_path / "r" / ".ddw" / "rules").mkdir(parents=True, exist_ok=True)
-    (tmp_path / "r" / ".ddw" / "rules" / "graph.json").write_text("{}")
+    (tmp_path / "r" / ".daw" / "rules").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "r" / ".daw" / "rules" / "graph.json").write_text("{}")
     # Two paths, neither of which NAMES anything in the repository: one genuinely
     # outside, one a scratch name that resolves back inside to the method's own
     # graph. Every name is outside; not every file is. Asked as "is any of this
@@ -481,12 +481,12 @@ def test_a_path_outside_the_repo_does_not_excuse_the_ones_inside(tmp_path):
     scratch = tmp_path / "scratch"
     scratch.mkdir()
     (scratch / "notes.txt").write_text("x")
-    (scratch / "passthru.json").symlink_to(tmp_path / "r" / ".ddw" / "rules" / "graph.json")
+    (scratch / "passthru.json").symlink_to(tmp_path / "r" / ".daw" / "rules" / "graph.json")
     paths = [str(scratch / "notes.txt"), str(scratch / "passthru.json")]
     why = None
     try:
-        why = vt.decide_pre(os.path.join(repo, ".ddw-state.json"),
-                            os.path.join(ROOT, "ddw/rules/transition-graph.json"),
+        why = vt.decide_pre(os.path.join(repo, ".daw-state.json"),
+                            os.path.join(ROOT, "daw/rules/transition-graph.json"),
                             "Write", {"file_path": paths[0], "content": "{}"},
                             paths, repo=repo)
     except vt.Block as exc:
@@ -494,17 +494,17 @@ def test_a_path_outside_the_repo_does_not_excuse_the_ones_inside(tmp_path):
     assert why, "a path outside the repo answered for one beside it that reaches the method"
 
 
-def test_a_file_the_manifest_says_ddw_installed_is_not_writable(tmp_path):
+def test_a_file_the_manifest_says_daw_installed_is_not_writable(tmp_path):
     """The manifest is the only thing that knows which file in a shared
-    directory is DDW's. The prefixes and wiring directories above it cover the
+    directory is DAW's. The prefixes and wiring directories above it cover the
     hooks; what is left to this branch is everything else the installer wrote —
     the skills, agents and commands that carry the rules themselves."""
     repo = _repo_at(tmp_path)
-    installed = ".claude/skills/ddw-commit/SKILL.md"
-    with open(os.path.join(repo, ".ddw-installed.json"), "w", encoding="utf-8") as fh:
+    installed = ".claude/skills/daw-commit/SKILL.md"
+    with open(os.path.join(repo, ".daw-installed.json"), "w", encoding="utf-8") as fh:
         json.dump({"claude:" + installed: "0" * 64}, fh)
     assert vt.enforcement_write_denied(os.path.join(repo, installed), repo), \
-        "a file the manifest records as DDW's own was writable"
+        "a file the manifest records as DAW's own was writable"
     assert vt.enforcement_write_denied(
         os.path.join(repo, ".claude/skills/mine/SKILL.md"), repo) is None, \
         "a skill the manifest does not name was refused — the manifest is what makes this precise"
@@ -517,7 +517,7 @@ def test_one_undecodable_byte_in_the_journal_is_a_refusal_not_a_traceback(tmp_pa
     repository, permanently, while naming a state file with nothing wrong in
     it."""
     repo = _repo_at(tmp_path)
-    with open(os.path.join(repo, ".ddw-journal.jsonl"), "wb") as fh:
+    with open(os.path.join(repo, ".daw-journal.jsonl"), "wb") as fh:
         fh.write(b'{"from": "IDLE", "to": "CLASSIFY"}\n\xff\xfe not utf-8\n')
     why = _pre(repo, os.path.join(repo, "src/app.py"))
     assert why, "a journal with an undecodable byte was read as an empty journal"
@@ -529,8 +529,8 @@ def test_one_undecodable_byte_in_the_journal_is_a_refusal_not_a_traceback(tmp_pa
     # where reading the file as text — rather than as bytes decoded a line at a
     # time — comes back out of the hook as a traceback instead of a sentence.
     try:
-        vt.decide_post(os.path.join(repo, ".ddw-state.json"),
-                       os.path.join(ROOT, "ddw/rules/transition-graph.json"))
+        vt.decide_post(os.path.join(repo, ".daw-state.json"),
+                       os.path.join(ROOT, "daw/rules/transition-graph.json"))
     except vt.Block:
         pass                                  # a refusal is an answer; a traceback is not
     except UnicodeDecodeError as exc:         # noqa: F841 — the failure being asserted against
@@ -548,7 +548,7 @@ def test_one_undecodable_byte_in_the_journal_is_a_refusal_not_a_traceback(tmp_pa
 # never executes once. All three are enforcement rules, not error branches.
 
 def _journal(repo, records):
-    with open(os.path.join(repo, ".ddw-journal.jsonl"), "w", encoding="utf-8") as fh:
+    with open(os.path.join(repo, ".daw-journal.jsonl"), "w", encoding="utf-8") as fh:
         for rec in records:
             fh.write(json.dumps(rec) + "\n")
 
@@ -585,8 +585,8 @@ def test_a_repo_upgraded_mid_ticket_has_to_re_earn_its_receipts(tmp_path):
     permissive than one that has it — the reverse of what the rest of the file
     promises. The cost is re-running the validators, a minute."""
     repo = _repo_at(tmp_path)
-    os.remove(os.path.join(repo, ".ddw-journal.jsonl")) if os.path.exists(
-        os.path.join(repo, ".ddw-journal.jsonl")) else None
+    os.remove(os.path.join(repo, ".daw-journal.jsonl")) if os.path.exists(
+        os.path.join(repo, ".daw-journal.jsonl")) else None
     assert vt._receipt_witnesses(repo) == set(), \
         "a repo with history and no journal takes whatever receipts it finds on disk as good"
 
@@ -595,7 +595,7 @@ def test_a_repo_upgraded_mid_ticket_has_to_re_earn_its_receipts(tmp_path):
     # fresh install.
     fresh = tmp_path / "fresh"
     fresh.mkdir()
-    with open(fresh / ".ddw-state.json", "w", encoding="utf-8") as fh:
+    with open(fresh / ".daw-state.json", "w", encoding="utf-8") as fh:
         json.dump(state("IDLE"), fh)
     assert vt._receipt_witnesses(str(fresh)) is None, \
         "a freshly installed repo has to re-earn receipts it never earned"
@@ -610,8 +610,8 @@ def test_the_refusal_for_a_phase_without_its_entry_names_the_tool_that_can_fix_i
     live the model loops. The refusal is the same; what changes is whether it
     can be acted on."""
     repo = _repo_at(tmp_path, phase="PLAN")
-    target = os.path.join(repo, ".ddw-state.json")
-    graph = os.path.join(ROOT, "ddw/rules/transition-graph.json")
+    target = os.path.join(repo, ".daw-state.json")
+    graph = os.path.join(ROOT, "daw/rules/transition-graph.json")
     if tool == "Edit":
         # A real Edit: only the header, which is all an Edit reaches.
         payload = {"file_path": target, "old_string": '"phase": "PLAN"',
@@ -654,8 +654,8 @@ def test_a_notebook_write_carries_a_path_the_guards_can_see(tmp_path):
     paths = [payload.get(k) for k in vt.PATH_KEYS]
     why = None
     try:
-        why = vt.decide_pre(os.path.join(repo, ".ddw-state.json"),
-                            os.path.join(ROOT, "ddw/rules/transition-graph.json"),
+        why = vt.decide_pre(os.path.join(repo, ".daw-state.json"),
+                            os.path.join(ROOT, "daw/rules/transition-graph.json"),
                             "NotebookEdit", payload, paths, repo=repo)
     except vt.Block as exc:
         why = str(exc)
@@ -663,7 +663,7 @@ def test_a_notebook_write_carries_a_path_the_guards_can_see(tmp_path):
     assert "source" in why.lower(), f"the refusal does not say what was refused: {why[:160]}"
 
 
-@pytest.mark.parametrize("rel", ["src/docs/app.py", "lib/docs/ddw/helper.py"])
+@pytest.mark.parametrize("rel", ["src/docs/app.py", "lib/docs/daw/helper.py"])
 def test_the_artefact_allowlist_is_a_prefix_and_not_a_substring(tmp_path, rel):
     """`docs/` opens the phases to the artifacts the method orders written.
     Read as a substring instead of a prefix, any path carrying `docs/` in the
@@ -674,7 +674,7 @@ def test_the_artefact_allowlist_is_a_prefix_and_not_a_substring(tmp_path, rel):
         f"{rel} could be written in PLAN: the allowlist is no longer anchored at the start"
     # …and what the allowlist exists to allow stays allowed.
     assert vt.source_write_denied(
-        os.path.join(repo, "docs/ddw/prd/prd-T-1.md"), repo, "PLAN") is None, \
+        os.path.join(repo, "docs/daw/prd/prd-T-1.md"), repo, "PLAN") is None, \
         "the guard swallowed the artifact the phase has to write"
 
 
@@ -687,13 +687,13 @@ def test_a_forged_history_cannot_skip_whole_phases(tmp_path):
     repo = _repo_at(tmp_path)
     h = [entry("IDLE", "CLASSIFY", tier="FEATURE", ticket="T-1"),
          entry("PLAN", "CODE", tier="FEATURE", ticket="T-1")]
-    with open(os.path.join(repo, ".ddw-state.json"), "w", encoding="utf-8") as fh:
+    with open(os.path.join(repo, ".daw-state.json"), "w", encoding="utf-8") as fh:
         json.dump(state("CODE", "FEATURE", "T-1",
                         {"define": True, "spec": True, "threat": True}, h), fh)
     why = None
     try:
-        why = vt.decide_post(os.path.join(repo, ".ddw-state.json"),
-                             os.path.join(ROOT, "ddw/rules/transition-graph.json"))
+        why = vt.decide_post(os.path.join(repo, ".daw-state.json"),
+                             os.path.join(ROOT, "daw/rules/transition-graph.json"))
     except vt.Block as exc:
         why = str(exc)
     assert why, "a history that jumps from CLASSIFY to PLAN without DEFINE passed the post gate"
@@ -711,20 +711,20 @@ def test_a_receipt_earned_for_another_document_does_not_open_this_gate(tmp_path)
     The attack needs nothing exotic: `docs/` is writable in every phase, so
     it is a `cp`."""
     repo = _repo_at(tmp_path, phase="DEFINE", gates={})
-    prd_dir = os.path.join(repo, "docs/ddw/prd")
+    prd_dir = os.path.join(repo, "docs/daw/prd")
     os.makedirs(prd_dir)
     body = "# PRD T-1\n\n| Field | Value |\n|---|---|\n| Ticket | T-1 |\n"
     for stem in ("prd-T-1.md", "prd-T-2.md"):
         with open(os.path.join(prd_dir, stem), "w", encoding="utf-8") as fh:
             fh.write(body)
 
-    sys.path.insert(0, os.path.join(ROOT, "ddw/scripts"))
-    receipt = _load("ddw_receipt", "ddw/scripts/ddw_receipt.py")
+    sys.path.insert(0, os.path.join(ROOT, "daw/scripts"))
+    receipt = _load("daw_receipt", "daw/scripts/daw_receipt.py")
     name = "prd-validated-" + receipt.digest_of(body)
-    os.makedirs(os.path.join(repo, ".ddw-sessions"), exist_ok=True)
-    with open(os.path.join(repo, ".ddw-sessions", name), "w", encoding="utf-8") as fh:
+    os.makedirs(os.path.join(repo, ".daw-sessions"), exist_ok=True)
+    with open(os.path.join(repo, ".daw-sessions", name), "w", encoding="utf-8") as fh:
         fh.write("prd-T-1.md\n")          # earned for T-1, and only for T-1
-    with open(os.path.join(repo, ".ddw-journal.jsonl"), "a", encoding="utf-8") as fh:
+    with open(os.path.join(repo, ".daw-journal.jsonl"), "a", encoding="utf-8") as fh:
         fh.write(json.dumps({"record": "receipt", "name": name, "file": "prd-T-1.md"}) + "\n")
 
     st = state("DEFINE", "FEATURE", "T-1", {}, [entry("IDLE", "CLASSIFY", tier="FEATURE",
@@ -760,13 +760,13 @@ def test_the_helper_never_stamps_an_entry_before_the_one_it_follows(tmp_path):
     # instrument.
     repo = _repo_at(tmp_path, phase="CLASSIFY")
     ahead = "2099-01-01T00:00:00Z"          # the last stamp, in the future
-    with open(os.path.join(repo, ".ddw-state.json"), "w", encoding="utf-8") as fh:
+    with open(os.path.join(repo, ".daw-state.json"), "w", encoding="utf-8") as fh:
         json.dump(state("CLASSIFY", "FEATURE", "T-1", {},
                         [dict(entry("IDLE", "CLASSIFY", tier="FEATURE", ticket="T-1"),
                               timestamp=ahead)]), fh)
     # This test measures the clock, not the classify edge's context-check gate.
-    os.makedirs(os.path.join(repo, ".ddw-work"), exist_ok=True)
-    with open(os.path.join(repo, ".ddw-work", "context-check-T-1.md"), "w",
+    os.makedirs(os.path.join(repo, ".daw-work"), exist_ok=True)
+    with open(os.path.join(repo, ".daw-work", "context-check-T-1.md"), "w",
               encoding="utf-8") as fh:
         fh.write("Nothing to report: the context file matches the repo.\n")
     # An explicit `CLAUDE_PROJECT_DIR`: the helper resolves the repo through
@@ -775,14 +775,14 @@ def test_the_helper_never_stamps_an_entry_before_the_one_it_follows(tmp_path):
     # repo: the test passed alone and failed inside the suite, with a message
     # about gates that had nothing to do with what it measures.
     r = subprocess.run(
-        [sys.executable, os.path.join(ROOT, "ddw/scripts/transition.py"),
+        [sys.executable, os.path.join(ROOT, "daw/scripts/transition.py"),
          "--to", "DEFINE", "--action", "x", "--write"],
         capture_output=True, text=True, cwd=repo,
         env=dict(os.environ, CLAUDE_PROJECT_DIR=repo))
     assert r.returncode == 0, \
         ("a legal transition was refused because the clock went backwards, and there is "
          "nothing the user can do: " + (r.stderr or r.stdout)[-200:])
-    history = json.load(open(os.path.join(repo, ".ddw-state.json"), encoding="utf-8"))["history"]
+    history = json.load(open(os.path.join(repo, ".daw-state.json"), encoding="utf-8"))["history"]
     stamps = [e["timestamp"] for e in history]
     assert stamps == sorted(stamps), f"the history ended up out of order anyway: {stamps}"
     assert stamps[-1] >= ahead, \
@@ -800,8 +800,8 @@ def test_the_helper_never_stamps_an_entry_before_the_one_it_follows(tmp_path):
 
 # Paths, not the already-loaded graph: `GRAPH` in this module is the parsed
 # JSON and half a dozen tests use it as a dict.
-_TRANSITION_PY = os.path.join(ROOT, "ddw/scripts/transition.py")
-_GRAPH_PATH = os.path.join(ROOT, "ddw/rules/transition-graph.json")
+_TRANSITION_PY = os.path.join(ROOT, "daw/scripts/transition.py")
+_GRAPH_PATH = os.path.join(ROOT, "daw/rules/transition-graph.json")
 
 
 def test_el_helper_sin_write_dice_que_no_escribio(tmp_path):
@@ -814,10 +814,10 @@ def test_el_helper_sin_write_dice_que_no_escribio(tmp_path):
     Measured live on Copilot: the model ran the documented command, read a
     state that said `"phase": "CLASSIFY"`, told the user the pipeline had
     advanced and went on classifying. On disk the phase was still IDLE,
-    `history` was empty and no journal line existed. Exit 0, DDW's JSON, and
+    `history` was empty and no journal line existed. Exit 0, DAW's JSON, and
     a transition that never happened.
     """
-    p = str(tmp_path / ".ddw-state.json")
+    p = str(tmp_path / ".daw-state.json")
     open(p, "w", encoding="utf-8").write(json.dumps(state()))
     r = subprocess.run([sys.executable, _TRANSITION_PY, "--state", p, "--graph", _GRAPH_PATH,
                         "--to", "CLASSIFY", "--action", "clasificar: probar"],
@@ -852,14 +852,14 @@ def _step(state_path, *args):
 
 def _split_upto_pause(tmp_path):
     """CLASSIFY → DEFINE → IDLE(pause), which is how every split ends."""
-    p = str(tmp_path / ".ddw-state.json")
+    p = str(tmp_path / ".daw-state.json")
     open(p, "w", encoding="utf-8").write(json.dumps(state()))
     assert _step(p, "--to", "CLASSIFY", "--tier", "FEATURE", "--ticket", "F-1",
                  "--action", "clasificar").returncode == 0
     # The context check the classify edge now demands — these steps measure
     # the pause/resume arc, not that gate, which has its own tests below.
-    (tmp_path / ".ddw-work").mkdir(exist_ok=True)
-    (tmp_path / ".ddw-work" / "context-check-F-1.md").write_text(
+    (tmp_path / ".daw-work").mkdir(exist_ok=True)
+    (tmp_path / ".daw-work" / "context-check-F-1.md").write_text(
         "Nothing to report: the context file matches the repo.\n", encoding="utf-8")
     assert _step(p, "--to", "DEFINE", "--tier", "FEATURE", "--ticket", "F-1",
                  "--action", "definir").returncode == 0
@@ -911,15 +911,15 @@ def test_saliendo_de_idle_tras_un_pause_el_helper_no_adivina_el_ticket(tmp_path)
 # single "avanti". Each one legal on its own.
 
 def _turn_passes(repo_dir):
-    subprocess.run([sys.executable, os.path.join(ROOT, "ddw/scripts/hook-gate.py"),
-                    "--mode", "turn", "--state", os.path.join(repo_dir, ".ddw-state.json"),
+    subprocess.run([sys.executable, os.path.join(ROOT, "daw/scripts/hook-gate.py"),
+                    "--mode", "turn", "--state", os.path.join(repo_dir, ".daw-state.json"),
                     "--graph", _GRAPH_PATH, "--repo", repo_dir],
                    input="{}", capture_output=True, text=True)
 
 
 def _arrow(repo_dir, *args):
     """The arrow via the sanctioned path, with the pre-write guard watching."""
-    p = os.path.join(repo_dir, ".ddw-state.json")
+    p = os.path.join(repo_dir, ".daw-state.json")
     args = list(args)
     if "--ticket" in args and "--title" not in args:
         args += ["--title", "un ticket de prueba"]   # see `_step`
@@ -927,7 +927,7 @@ def _arrow(repo_dir, *args):
                               "--graph", _GRAPH_PATH, *args],
                              capture_output=True, text=True, cwd=repo_dir)
     assert emitted.returncode == 0, emitted.stderr[-300:]
-    vt = _load("vt", "ddw/scripts/validate-transition.py")
+    vt = _load("vt", "daw/scripts/validate-transition.py")
     old = json.load(open(p, encoding="utf-8"))
     new = json.loads(emitted.stdout)
     reason = vt.second_arrow_in_one_turn(repo_dir, old, new)
@@ -939,8 +939,8 @@ def _arrow(repo_dir, *args):
 
 def _repo_con_estado(tmp_path, autonomy="assisted"):
     d = str(tmp_path)
-    os.makedirs(os.path.join(d, ".ddw-sessions"), exist_ok=True)
-    open(os.path.join(d, ".ddw-state.json"), "w", encoding="utf-8").write(
+    os.makedirs(os.path.join(d, ".daw-sessions"), exist_ok=True)
+    open(os.path.join(d, ".daw-state.json"), "w", encoding="utf-8").write(
         json.dumps(state(autonomy=autonomy) if False else
                    {"phase": "IDLE", "tier": None, "ticket": None, "autonomy": autonomy,
                     "gates": {}, "history": []}))
@@ -994,7 +994,7 @@ def test_el_guard_de_pre_write_es_el_que_refusa_la_segunda_flecha(tmp_path):
     `decide_pre` stops consulting it, that test stays green and the hole comes back."""
     d = _repo_con_estado(tmp_path)
     _turn_passes(d)
-    p = os.path.join(d, ".ddw-state.json")
+    p = os.path.join(d, ".daw-state.json")
 
     def write(*args):
         args = list(args)
@@ -1082,9 +1082,9 @@ def test_el_tier_del_hijo_es_el_del_pause():
 
 def test_un_split_que_el_journal_nunca_vio_es_refusado(tmp_path):
     old, new = _open_child()
-    sp = tmp_path / ".ddw-state.json"
+    sp = tmp_path / ".daw-state.json"
     sp.write_text("{}", encoding="utf-8")
-    (tmp_path / ".ddw-journal.jsonl").write_text(
+    (tmp_path / ".daw-journal.jsonl").write_text(
         json.dumps(entry("IDLE", "CLASSIFY", "c")) + "\n", encoding="utf-8")
     why = refusal(old, new, state_path=str(sp))
     assert why and "journal" in why.lower(), \
@@ -1093,9 +1093,9 @@ def test_un_split_que_el_journal_nunca_vio_es_refusado(tmp_path):
 
 def test_el_journal_que_vio_el_split_lo_avala(tmp_path):
     old, new = _open_child()
-    sp = tmp_path / ".ddw-state.json"
+    sp = tmp_path / ".daw-state.json"
     sp.write_text("{}", encoding="utf-8")
-    (tmp_path / ".ddw-journal.jsonl").write_text(
+    (tmp_path / ".daw-journal.jsonl").write_text(
         "\n".join(json.dumps(e) for e in _split_history()) + "\n", encoding="utf-8")
     assert refusal(old, new, state_path=str(sp)) is None
 
@@ -1167,7 +1167,7 @@ def test_el_gate_pr_sobrevive_al_merge_que_borra_la_rama(tmp_path):
     repo, binpath = _pr_repo(tmp_path), _gh_stub(tmp_path)
     # It is earned on the ticket's branch: the receipt gets written.
     assert _ask_pr(repo, binpath, GH_LIST_OUT='[{"number":7,"state":"OPEN"}]') is None
-    assert os.path.exists(os.path.join(repo, ".ddw-sessions", "pr-T-1.json"))
+    assert os.path.exists(os.path.join(repo, ".daw-sessions", "pr-T-1.json"))
     # The closeout's happy path: merge, branch deleted, standing on the base.
     subprocess.run(["git", "-C", repo, "checkout", "-q", "-b", "landing"], check=True)
     subprocess.run(["git", "-C", repo, "branch", "-q", "-D", "feat/T-1-x"], check=True)
@@ -1178,8 +1178,8 @@ def test_el_gate_pr_sobrevive_al_merge_que_borra_la_rama(tmp_path):
 
 def test_un_receipt_que_nombra_el_pr_de_otro_ticket_es_refusado(tmp_path):
     repo, binpath = _pr_repo(tmp_path), _gh_stub(tmp_path)
-    os.makedirs(os.path.join(repo, ".ddw-sessions"), exist_ok=True)
-    with open(os.path.join(repo, ".ddw-sessions", "pr-T-1.json"), "w") as fh:
+    os.makedirs(os.path.join(repo, ".daw-sessions"), exist_ok=True)
+    with open(os.path.join(repo, ".daw-sessions", "pr-T-1.json"), "w") as fh:
         json.dump({"number": 99, "head": "feat/OTRO-9-x"}, fh)
     why = _ask_pr(repo, binpath,
                   GH_VIEW_OUT='{"state":"MERGED","headRefName":"feat/OTRO-9-x"}')
@@ -1188,8 +1188,8 @@ def test_un_receipt_que_nombra_el_pr_de_otro_ticket_es_refusado(tmp_path):
 
 def test_un_pr_cerrado_sin_mergear_no_sostiene_el_gate(tmp_path):
     repo, binpath = _pr_repo(tmp_path), _gh_stub(tmp_path)
-    os.makedirs(os.path.join(repo, ".ddw-sessions"), exist_ok=True)
-    with open(os.path.join(repo, ".ddw-sessions", "pr-T-1.json"), "w") as fh:
+    os.makedirs(os.path.join(repo, ".daw-sessions"), exist_ok=True)
+    with open(os.path.join(repo, ".daw-sessions", "pr-T-1.json"), "w") as fh:
         json.dump({"number": 7, "head": "feat/T-1-x"}, fh)
     why = _ask_pr(repo, binpath,
                   GH_VIEW_OUT='{"state":"CLOSED","headRefName":"feat/T-1-x"}')
@@ -1198,8 +1198,8 @@ def test_un_pr_cerrado_sin_mergear_no_sostiene_el_gate(tmp_path):
 
 def test_un_gh_roto_con_receipt_sigue_sin_ser_un_veredicto(tmp_path):
     repo, binpath = _pr_repo(tmp_path), _gh_stub(tmp_path)
-    os.makedirs(os.path.join(repo, ".ddw-sessions"), exist_ok=True)
-    with open(os.path.join(repo, ".ddw-sessions", "pr-T-1.json"), "w") as fh:
+    os.makedirs(os.path.join(repo, ".daw-sessions"), exist_ok=True)
+    with open(os.path.join(repo, ".daw-sessions", "pr-T-1.json"), "w") as fh:
         json.dump({"number": 7, "head": "feat/T-1-x"}, fh)
     assert _ask_pr(repo, binpath, GH_VIEW_RC="1", GH_LIST_RC="1") is None, \
         "a fallen-over gh was read as a verdict"
@@ -1227,22 +1227,22 @@ def _fresh_edge(frm, to, tier="FEATURE", ticket="T-9"):
 def test_classify_no_cierra_sin_context_check(tmp_path):
     old, new = _fresh_edge("CLASSIFY", "DEFINE")
     why = vt.context_check_missing(str(tmp_path), old, new)
-    assert why and "ddw-context-check" in why and "context-check-T-9.md" in why, \
+    assert why and "daw-context-check" in why and "context-check-T-9.md" in why, \
         "the classify edge opened with no context check on disk: %r" % why
 
 
 def test_el_context_check_en_disco_abre_la_arista(tmp_path):
     old, new = _fresh_edge("CLASSIFY", "DEFINE")
-    os.makedirs(str(tmp_path / ".ddw-work"))
-    (tmp_path / ".ddw-work" / "context-check-T-9.md").write_text(
+    os.makedirs(str(tmp_path / ".daw-work"))
+    (tmp_path / ".daw-work" / "context-check-T-9.md").write_text(
         "Nothing to report.\n", encoding="utf-8")
     assert vt.context_check_missing(str(tmp_path), old, new) is None
 
 
 def test_un_context_check_vacio_no_es_un_context_check(tmp_path):
     old, new = _fresh_edge("CLASSIFY", "DEFINE")
-    os.makedirs(str(tmp_path / ".ddw-work"))
-    (tmp_path / ".ddw-work" / "context-check-T-9.md").write_text("", encoding="utf-8")
+    os.makedirs(str(tmp_path / ".daw-work"))
+    (tmp_path / ".daw-work" / "context-check-T-9.md").write_text("", encoding="utf-8")
     assert vt.context_check_missing(str(tmp_path), old, new), \
         "an empty file counted as a run context check"
 
@@ -1250,8 +1250,8 @@ def test_un_context_check_vacio_no_es_un_context_check(tmp_path):
 def test_el_context_check_es_del_ticket_no_del_repo(tmp_path):
     """A split's sibling must not open on the parent's file — per ticket is the rule."""
     old, new = _fresh_edge("CLASSIFY", "DEFINE", ticket="T-9b")
-    os.makedirs(str(tmp_path / ".ddw-work"))
-    (tmp_path / ".ddw-work" / "context-check-T-9.md").write_text("x\n", encoding="utf-8")
+    os.makedirs(str(tmp_path / ".daw-work"))
+    (tmp_path / ".daw-work" / "context-check-T-9.md").write_text("x\n", encoding="utf-8")
     assert vt.context_check_missing(str(tmp_path), old, new), \
         "another ticket's context check opened this ticket's edge"
 
@@ -1272,7 +1272,7 @@ def test_code_no_cierra_sin_decisions(tmp_path):
 
 def test_el_decisions_en_disco_cierra_code(tmp_path):
     old, new = _fresh_edge("CODE", "VERIFY")
-    d = tmp_path / "docs" / "ddw" / "specs"
+    d = tmp_path / "docs" / "daw" / "specs"
     os.makedirs(str(d))
     (d / "decisions-T-9.md").write_text(
         "No decisions were approved outside the spec during this ticket.\n", encoding="utf-8")
@@ -1292,8 +1292,8 @@ def test_avanzar_el_block_gasta_las_dos_reviews(tmp_path):
 
 
 def test_con_ambos_veredictos_el_block_avanza(tmp_path):
-    os.makedirs(str(tmp_path / ".ddw-work"))
-    (tmp_path / ".ddw-work" / "review-block-2.md").write_text(
+    os.makedirs(str(tmp_path / ".daw-work"))
+    (tmp_path / ".daw-work" / "review-block-2.md").write_text(
         "verifier: PASSED — matches the spec, TDD evidence shown\n"
         "arch: PASSED — conventions hold\n", encoding="utf-8")
     assert vt.block_review_missing(str(tmp_path), "1/5", "2/5") is None
@@ -1302,8 +1302,8 @@ def test_con_ambos_veredictos_el_block_avanza(tmp_path):
 def test_un_solo_veredicto_no_es_la_review_de_dos_etapas(tmp_path):
     """The measured collapse: the auditor died and the orchestrator judged its
     own block. One line is one reviewer."""
-    os.makedirs(str(tmp_path / ".ddw-work"))
-    (tmp_path / ".ddw-work" / "review-block-2.md").write_text(
+    os.makedirs(str(tmp_path / ".daw-work"))
+    (tmp_path / ".daw-work" / "review-block-2.md").write_text(
         "verifier: PASSED\n", encoding="utf-8")
     assert vt.block_review_missing(str(tmp_path), "1/5", "2/5"), \
         "one verdict opened a gate that spends two"
@@ -1321,16 +1321,16 @@ def test_reescribir_el_mismo_block_no_debe_nada(tmp_path):
 
 
 def test_el_notice_queda_en_el_journal_y_no_se_repite(tmp_path):
-    p = str(tmp_path / ".ddw-state.json")
+    p = str(tmp_path / ".daw-state.json")
     open(p, "w", encoding="utf-8").write(json.dumps(state()))
     vt.record_notice(p, "product source has changed while the pipeline is in PLAN: app/x.py")
     vt.record_notice(p, "product source has changed while the pipeline is in PLAN: app/x.py")
-    lines = [json.loads(l) for l in open(str(tmp_path / ".ddw-journal.jsonl"), encoding="utf-8")
+    lines = [json.loads(l) for l in open(str(tmp_path / ".daw-journal.jsonl"), encoding="utf-8")
              if l.strip()]
     notes = [l for l in lines if l.get("record") == "notice"]
     assert len(notes) == 1, "an unchanged finding wrote %d journal lines" % len(notes)
     vt.record_notice(p, "product source has changed while the pipeline is in PLAN: app/y.py")
-    lines = [json.loads(l) for l in open(str(tmp_path / ".ddw-journal.jsonl"), encoding="utf-8")
+    lines = [json.loads(l) for l in open(str(tmp_path / ".daw-journal.jsonl"), encoding="utf-8")
              if l.strip()]
     notes = [l for l in lines if l.get("record") == "notice"]
     assert len(notes) == 2, "a NEW finding was deduplicated away"
@@ -1339,7 +1339,7 @@ def test_el_notice_queda_en_el_journal_y_no_se_repite(tmp_path):
 def test_el_notice_no_desplaza_las_transiciones_del_journal(tmp_path):
     """`_journal_entries` indexes the blessed history; a notice line counted as
     a transition would slide that index — the exact defect snapshots had."""
-    p = str(tmp_path / ".ddw-state.json")
+    p = str(tmp_path / ".daw-state.json")
     open(p, "w", encoding="utf-8").write(json.dumps(state()))
     vt._journal_append(p, [entry("IDLE", "CLASSIFY")])
     before = len(vt._journal_entries(p))
@@ -1408,11 +1408,11 @@ def test_dropped_y_unverified_llevan_su_razon():
 
 def _fam_repo(tmp_path):
     r = str(tmp_path / "fam")
-    os.makedirs(os.path.join(r, "docs", "ddw", "prd"))
+    os.makedirs(os.path.join(r, "docs", "daw", "prd"))
     subprocess.run(["git", "-C", r, "init", "-q"], check=True)
-    idx = os.path.join(r, "docs", "ddw", "prd", "prd-CHK-1.md")
+    idx = os.path.join(r, "docs", "daw", "prd", "prd-CHK-1.md")
     open(idx, "w", encoding="utf-8").write(FAM_INDEX)
-    open(os.path.join(r, ".ddw-state.json"), "w", encoding="utf-8").write(
+    open(os.path.join(r, ".daw-state.json"), "w", encoding="utf-8").write(
         json.dumps(state()))
     return r, idx
 
@@ -1425,7 +1425,7 @@ def _fam_try(repo, idx, content, binpath, **stub_env):
     try:
         return vt.family_index_write_denied(
             idx, repo, "Write",
-            {"file_path": "docs/ddw/prd/prd-CHK-1.md", "content": content})
+            {"file_path": "docs/daw/prd/prd-CHK-1.md", "content": content})
     finally:
         os.environ.clear()
         os.environ.update(old)
@@ -1467,7 +1467,7 @@ def test_las_salidas_declaradas_pasan_sin_forge(tmp_path):
 
 def test_un_documento_comun_no_es_asunto_del_gate(tmp_path):
     repo, _ = _fam_repo(tmp_path)
-    comun = os.path.join(repo, "docs", "ddw", "prd", "prd-OTRO-1.md")
+    comun = os.path.join(repo, "docs", "daw", "prd", "prd-OTRO-1.md")
     why = _fam_try(repo, comun, "# PRD normal\nnada de familia\n", _gh_stub(tmp_path),
                    GH_LIST_RC="1")
     assert why is None
@@ -1483,7 +1483,7 @@ def test_el_gate_corre_en_decide_pre(tmp_path):
     os.environ["PATH"] = binpath + os.pathsep + os.environ["PATH"]
     os.environ["GH_LIST_OUT"] = '[{"headRefName":"feat/CHK-1-x","state":"OPEN","number":7}]'
     try:
-        reason = vt.decide_pre(os.path.join(repo, ".ddw-state.json"), _GRAPH_PATH,
+        reason = vt.decide_pre(os.path.join(repo, ".daw-state.json"), _GRAPH_PATH,
                                "Write", {"file_path": idx, "content": listo}, [idx],
                                repo=repo)
     finally:
@@ -1524,7 +1524,7 @@ def test_borrar_el_marcador_multirepo_es_refusado(tmp_path):
 def test_un_indice_nuevo_no_debe_diff_contra_nada(tmp_path):
     """El primer Write del índice no tiene filas viejas que preservar."""
     repo, _ = _fam_repo(tmp_path)
-    nuevo = os.path.join(repo, "docs", "ddw", "prd", "prd-NUEVO-1.md")
+    nuevo = os.path.join(repo, "docs", "daw", "prd", "prd-NUEVO-1.md")
     why = _fam_try(repo, nuevo, FAM_INDEX.replace("CHK-1", "NUEVO-1"),
                    _gh_stub(tmp_path))
     assert why is None, "a brand-new index was refused for rows it never had: %r" % why
@@ -1533,22 +1533,22 @@ def test_un_indice_nuevo_no_debe_diff_contra_nada(tmp_path):
 def _fam_pause(tmp_path, with_receipt):
     """DEFINE→IDLE multirepo pause via the helper, with/without the receipt."""
     d = str(tmp_path / "wsrepo")
-    os.makedirs(os.path.join(d, "docs", "ddw", "prd"))
-    os.makedirs(os.path.join(d, ".ddw-work"))
+    os.makedirs(os.path.join(d, "docs", "daw", "prd"))
+    os.makedirs(os.path.join(d, ".daw-work"))
     subprocess.run(["git", "-C", d, "init", "-q"], check=True)
-    idx = os.path.join(d, "docs", "ddw", "prd", "prd-CHK-1.md")
+    idx = os.path.join(d, "docs", "daw", "prd", "prd-CHK-1.md")
     open(idx, "w", encoding="utf-8").write(FAM_INDEX)
     hist = [entry("IDLE", "CLASSIFY", tier="FEATURE", ticket="CHK-1"),
             entry("CLASSIFY", "DEFINE", tier="FEATURE", ticket="CHK-1")]
-    open(os.path.join(d, ".ddw-state.json"), "w", encoding="utf-8").write(json.dumps(
+    open(os.path.join(d, ".daw-state.json"), "w", encoding="utf-8").write(json.dumps(
         state("DEFINE", "FEATURE", "CHK-1", {}, hist)))
     if with_receipt:
         r = subprocess.run([sys.executable,
-                            os.path.join(ROOT, "ddw/scripts/validate_prd.py"),
+                            os.path.join(ROOT, "daw/scripts/validate_prd.py"),
                             idx, "--tier", "FEATURE"], capture_output=True, text=True, cwd=d)
         assert r.returncode == 0, "fixture: the healthy index failed validation: " + r.stdout
     return subprocess.run([sys.executable, _TRANSITION_PY, "--state",
-                           os.path.join(d, ".ddw-state.json"), "--graph", _GRAPH_PATH,
+                           os.path.join(d, ".daw-state.json"), "--graph", _GRAPH_PATH,
                            "--to", "IDLE",
                            "--action", "pause: multirepo split into back/bff", "--write"],
                           capture_output=True, text=True, cwd=d)
@@ -1573,10 +1573,10 @@ def test_una_pausa_comun_sigue_sin_gates(tmp_path):
     subprocess.run(["git", "-C", d, "init", "-q"], check=True)
     hist = [entry("IDLE", "CLASSIFY", tier="FEATURE", ticket="T-2"),
             entry("CLASSIFY", "DEFINE", tier="FEATURE", ticket="T-2")]
-    open(os.path.join(d, ".ddw-state.json"), "w", encoding="utf-8").write(json.dumps(
+    open(os.path.join(d, ".daw-state.json"), "w", encoding="utf-8").write(json.dumps(
         state("DEFINE", "FEATURE", "T-2", {}, hist)))
     r = subprocess.run([sys.executable, _TRANSITION_PY, "--state",
-                        os.path.join(d, ".ddw-state.json"), "--graph", _GRAPH_PATH,
+                        os.path.join(d, ".daw-state.json"), "--graph", _GRAPH_PATH,
                         "--to", "IDLE", "--action", "pause: lo retomo mañana", "--write"],
                        capture_output=True, text=True, cwd=d)
     assert r.returncode == 0, "an ordinary pause got gated: " + r.stderr[-200:]
@@ -1586,14 +1586,14 @@ def test_la_pausa_multirepo_por_el_hook_tambien_debe_el_recibo(tmp_path):
     """Mutation 230 survived: the helper's path was checked and the hook's was
     not — a gate only one door enforces is decoration at the other."""
     d = str(tmp_path / "wshook")
-    os.makedirs(os.path.join(d, "docs", "ddw", "prd"))
+    os.makedirs(os.path.join(d, "docs", "daw", "prd"))
     subprocess.run(["git", "-C", d, "init", "-q"], check=True)
-    open(os.path.join(d, "docs", "ddw", "prd", "prd-CHK-1.md"), "w",
+    open(os.path.join(d, "docs", "daw", "prd", "prd-CHK-1.md"), "w",
          encoding="utf-8").write(FAM_INDEX)
     hist = [entry("IDLE", "CLASSIFY", tier="FEATURE", ticket="CHK-1"),
             entry("CLASSIFY", "DEFINE", tier="FEATURE", ticket="CHK-1")]
     old = state("DEFINE", "FEATURE", "CHK-1", {}, hist)
-    p = os.path.join(d, ".ddw-state.json")
+    p = os.path.join(d, ".daw-state.json")
     open(p, "w", encoding="utf-8").write(json.dumps(old))
     new = json.loads(json.dumps(old))
     new.update({"tier": None, "phase": "IDLE", "ticket": None, "title": None,
@@ -1619,12 +1619,12 @@ def test_la_pausa_multirepo_por_el_hook_tambien_debe_el_recibo(tmp_path):
 # would be.
 
 def _define_receipt(repo, body):
-    receipt = _load("ddw_receipt", "ddw/scripts/ddw_receipt.py")
+    receipt = _load("daw_receipt", "daw/scripts/daw_receipt.py")
     name = "prd-validated-" + receipt.digest_of(body)
-    os.makedirs(os.path.join(repo, ".ddw-sessions"), exist_ok=True)
-    with open(os.path.join(repo, ".ddw-sessions", name), "w", encoding="utf-8") as fh:
+    os.makedirs(os.path.join(repo, ".daw-sessions"), exist_ok=True)
+    with open(os.path.join(repo, ".daw-sessions", name), "w", encoding="utf-8") as fh:
         fh.write("prd-T-1.md\n")
-    with open(os.path.join(repo, ".ddw-journal.jsonl"), "a", encoding="utf-8") as fh:
+    with open(os.path.join(repo, ".daw-journal.jsonl"), "a", encoding="utf-8") as fh:
         fh.write(json.dumps({"record": "receipt", "name": name, "file": "prd-T-1.md"}) + "\n")
 
 
@@ -1642,8 +1642,8 @@ def test_el_claim_tras_el_ciclo_correctivo_emite_su_evento_y_el_post_lo_bendice(
     live repositories, now walking clean — helper claim, event appended,
     post replay green."""
     repo = _repo_at(tmp_path, phase="DEFINE", gates={})
-    sp = os.path.join(repo, ".ddw-state.json")
-    prd_dir = os.path.join(repo, "docs/ddw/prd")
+    sp = os.path.join(repo, ".daw-state.json")
+    prd_dir = os.path.join(repo, "docs/daw/prd")
     os.makedirs(prd_dir, exist_ok=True)
     body = "# PRD T-1\n\n| Field | Value |\n|---|---|\n| Ticket | T-1 |\n"
     with open(os.path.join(prd_dir, "prd-T-1.md"), "w", encoding="utf-8") as fh:
@@ -1679,7 +1679,7 @@ def test_un_evento_de_claim_inventado_sin_recibo_es_refusado(tmp_path):
     an audit record nothing backs is laundering. A hand-written claim event
     with no receipt on disk must not open the gate."""
     repo = _repo_at(tmp_path, phase="DEFINE", gates={})
-    sp = os.path.join(repo, ".ddw-state.json")
+    sp = os.path.join(repo, ".daw-state.json")
     h = _corrective_history() + [entry("DEFINE", "DEFINE", action="claim: define",
                                        tier="FEATURE", ticket="T-1")]
     with open(sp, "w", encoding="utf-8") as fh:
@@ -1723,7 +1723,7 @@ def test_un_evento_en_fase_que_no_es_claim_sigue_refusado(tmp_path):
 
 def _familia_repo(tmp_path, with_family=True):
     repo = str(tmp_path / "repo")
-    os.makedirs(os.path.join(repo, ".ddw-work"), exist_ok=True)
+    os.makedirs(os.path.join(repo, ".daw-work"), exist_ok=True)
     agents = "# repo\n\n## Stack\n\n| Campo | Valor |\n|---|---|\n| Lenguaje | Python |\n"
     if with_family:
         agents += ("\n## Repo family\n\n| Field | Value |\n|---|---|\n"
@@ -1755,15 +1755,15 @@ def test_el_veredicto_validado_abre_la_puerta_y_editarlo_despues_la_cierra(tmp_p
     repo = _familia_repo(tmp_path)
     old, new = _classify_to_define()
     verdict = "impacta: este repo. Sin impacto: el resto — razones."
-    open(os.path.join(repo, ".ddw-work", "impact-T-1.md"), "w", encoding="utf-8").write(verdict)
+    open(os.path.join(repo, ".daw-work", "impact-T-1.md"), "w", encoding="utf-8").write(verdict)
     import hashlib as _h
     digest = _h.sha256(verdict.encode()).hexdigest()[:12]
-    os.makedirs(os.path.join(repo, ".ddw-sessions"), exist_ok=True)
-    open(os.path.join(repo, ".ddw-sessions", "impact-validated-" + digest), "w").write("x")
+    os.makedirs(os.path.join(repo, ".daw-sessions"), exist_ok=True)
+    open(os.path.join(repo, ".daw-sessions", "impact-validated-" + digest), "w").write("x")
     assert vt.impact_receipt_missing(repo, old, new) is None, \
         "a validated verdict was refused — the gate cannot be satisfied"
     # One byte after validation: the receipt no longer matches, the door shuts.
-    open(os.path.join(repo, ".ddw-work", "impact-T-1.md"), "a", encoding="utf-8").write("!")
+    open(os.path.join(repo, ".daw-work", "impact-T-1.md"), "a", encoding="utf-8").write("!")
     why = vt.impact_receipt_missing(repo, old, new)
     assert why and "edited after" in why, \
         "an edited-after-validation verdict still opened the edge: " + str(why)[:200]

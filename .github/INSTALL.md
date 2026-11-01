@@ -10,7 +10,7 @@ Run, in the user's shell:
 
 ```bash
 copilot plugin marketplace add DiluxOne/dilux-agentic-workflow
-copilot plugin install ddw@dilux
+copilot plugin install daw@dilux
 ```
 
 Copilot reads the Claude-format manifest and installs the 17 skills. It does
@@ -27,7 +27,7 @@ path in `~/.copilot/config.json` under `installedPlugins[].cache_path` — call 
 python3 ROOT/adapters/copilot/wire-user-hooks.py ROOT
 ```
 
-It writes `~/.copilot/hooks/ddw.json` and prints what it wired. Show the user
+It writes `~/.copilot/hooks/daw.json` and prints what it wired. Show the user
 the file afterwards.
 
 Do not hand-write that JSON instead. The script exists because the wiring has
@@ -66,7 +66,7 @@ permission: the gate exits 2, `||` catches it, `echo` exits 0, and Copilot reads
 0 as allow. It must be `if [ -f hook ]; then exec bash hook; fi; echo '{}'`.
 
 The scripts resolve the method repo-first, plugin-root second: a repo with its
-own drop-in is judged by its own `.ddw/`, and a repo with no DAW at all is
+own drop-in is judged by its own `.daw/`, and a repo with no DAW at all is
 answered with `{}` and left alone.
 
 ## Step 3 — hand back to the user
@@ -75,7 +75,7 @@ Tell the user: DAW is installed for Copilot. **Close every open `copilot`
 session** — hooks are read at startup, so a session opened before this install
 runs without gates — then start a fresh one and ask "where is the pipeline?"
 to verify. Nothing of DAW lands in any repo until
-a ticket starts — then only `.ddw-state.json`, its `.gitignore` entry and the
+a ticket starts — then only `.daw-state.json`, its `.gitignore` entry and the
 phase artifacts.
 
 ---
@@ -88,8 +88,8 @@ What was driven live on Copilot CLI 1.0.75, and what it means:
   separate marketplace repo needed, private works through your GitHub login.
 - Plugin skills load (17) and get used; the Claude-format hooks manifest is
   ignored, which is why the gates ride user-level hooks instead.
-- With the hooks wired, a forged `.ddw-state.json` was detected live: the model
-  invoked `ddw-status`, stopped without writing, and reported — Copilot's post
+- With the hooks wired, a forged `.daw-state.json` was detected live: the model
+  invoked `daw-status`, stopped without writing, and reported — Copilot's post
   hook cannot refuse (GitHub documents that), so this is the model heeding the
   report, which is the strongest thing this tool offers.
 
@@ -103,9 +103,9 @@ leaves them pointing at scripts that no longer exist, and Copilot fails closed:
 **every tool call in every repo gets denied** (measured live).
 
 ```bash
-copilot plugin uninstall ddw
+copilot plugin uninstall daw
 copilot plugin marketplace remove dilux
 ```
 
-Then delete `~/.copilot/hooks/ddw.json` — but only if no repo on this machine
+Then delete `~/.copilot/hooks/daw.json` — but only if no repo on this machine
 still has DAW installed for Copilot. That one file is what gates all of them.

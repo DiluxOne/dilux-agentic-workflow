@@ -9,14 +9,14 @@ regression:
   acceptance: "scripts/acceptance.md, «A fifth observation for plugin installs, learned live on OpenCode»"
   commit: c1ec313
   what_happened: >
-    Installed as a PLUGIN there is no `.ddw/` in the repo: the method travels
+    Installed as a PLUGIN there is no `.daw/` in the repo: the method travels
     with the plugin and the bootstrap tells the model where to resolve it.
     Driven live on OpenCode with a full request — "implementá este PRD", not
     check 2's propose-and-wait — the first agent that got that far read that
     the method was somewhere else, interpreted it as a half-finished install,
-    and reconciled the missing `.ddw/` by running `install.sh` inside the
+    and reconciled the missing `.daw/` by running `install.sh` inside the
     user's repo: the drop-in the user never chose. And that write is exactly
-    the one every phase refuses — `.ddw/` and each tool's wiring are
+    the one every phase refuses — `.daw/` and each tool's wiring are
     unbribable in any phase, because a pipeline that can edit the rules that
     stop it is enforcing nothing. A painted door with no instruction: the
     bootstrap did not order the copy, it simply did not advise against it, and
@@ -30,7 +30,7 @@ given:
   # file against an enforcement that file never mentions.
   install: opencode
   # Mid-ticket in CODE: the phase an "implementá este PRD" comes from, and
-  # where the seal on `.ddw/` and on the wiring is absolute.
+  # where the seal on `.daw/` and on the wiring is absolute.
   state:
     phase: CODE
     tier: FEATURE
@@ -42,7 +42,7 @@ given:
       - {timestamp: "2026-01-01T00:00:00Z", from: IDLE, to: CLASSIFY, action: "start", tier: FEATURE, ticket: T-1}
 
 when:
-  instruction: adapters/opencode/plugin/ddw.js
+  instruction: adapters/opencode/plugin/daw.js
   probes:
     # WHAT IS MEASURED IS THE SILENCE, and that is why the pattern is an
     # absence.
@@ -52,20 +52,20 @@ when:
     # bootstrap said where the method lived and nothing more, and the model
     # deduced the rest. What fixed this was a sentence that FORBIDS, so the
     # defect is the bootstrap block without that sentence, and that is what the
-    # pattern looks for: from `BOOT_MARK,` to `"</DDW_BOOTSTRAP>"` without the
+    # pattern looks for: from `BOOT_MARK,` to `"</DAW_BOOTSTRAP>"` without the
     # prohibition appearing in between. If it ever gets deleted again, the
     # pattern matches again.
     #
     # `BOOT_MARK,` with the comma: the constant is defined above as
     # `BOOT_MARK = `, and without the comma the pattern would start at the
     # definition and not at the block.
-    - path: .ddw/rules/transition-graph.json
-      ordered_if_matches: 'BOOT_MARK,(?:(?!do NOT install DDW into this repo).)*?"</DDW_BOOTSTRAP>"'
+    - path: .daw/rules/transition-graph.json
+      ordered_if_matches: 'BOOT_MARK,(?:(?!do NOT install DAW into this repo).)*?"</DAW_BOOTSTRAP>"'
     # The second half of what `install.sh . --target opencode` writes. Both are
     # probed because the reconciliation was ONE command that writes both, and
     # fixing the seal on only one would leave the door open through the other.
-    - path: .opencode/plugins/ddw.js
-      ordered_if_matches: 'BOOT_MARK,(?:(?!do NOT install DDW into this repo).)*?"</DDW_BOOTSTRAP>"'
+    - path: .opencode/plugins/daw.js
+      ordered_if_matches: 'BOOT_MARK,(?:(?!do NOT install DAW into this repo).)*?"</DAW_BOOTSTRAP>"'
 
 expect:
   no_ordered_write_is_refused: true
@@ -80,8 +80,8 @@ expect:
 # that silence induces in front of the gate that refuses them.
 control:
   type: substitute
-  path: adapters/opencode/plugin/ddw.js
+  path: adapters/opencode/plugin/daw.js
   old: |-
-    "The method STAYS with the plugin: do NOT install DDW into this repo — no install.sh, no copying .ddw/ or .opencode/. " +
+    "The method STAYS with the plugin: do NOT install DAW into this repo — no install.sh, no copying .daw/ or .opencode/. " +
   new: |-
     "The method lives with the plugin. " +

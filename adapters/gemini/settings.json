@@ -4,10 +4,10 @@
       {
         "hooks": [
           {
-            "name": "ddw-session-start",
+            "name": "daw-session-start",
             "type": "command",
-            "command": "bash \"$GEMINI_PROJECT_DIR/.gemini/hooks/ddw/session-start.sh\"",
-            "description": "DDW: boot the pipeline for this session",
+            "command": "bash \"$GEMINI_PROJECT_DIR/.gemini/hooks/daw/session-start.sh\"",
+            "description": "DAW: boot the pipeline for this session",
             "timeout": 10000
           }
         ]
@@ -18,10 +18,10 @@
         "matcher": "write_file|replace",
         "hooks": [
           {
-            "name": "ddw-validate-transition",
+            "name": "daw-validate-transition",
             "type": "command",
-            "command": "bash \"$GEMINI_PROJECT_DIR/.gemini/hooks/ddw/pre-tool-use.sh\"",
-            "description": "DDW: refuse a write that would break the state machine",
+            "command": "bash \"$GEMINI_PROJECT_DIR/.gemini/hooks/daw/pre-tool-use.sh\"",
+            "description": "DAW: refuse a write that would break the state machine",
             "timeout": 15000
           }
         ]
@@ -32,10 +32,10 @@
         "matcher": "write_file|replace|run_shell_command",
         "hooks": [
           {
-            "name": "ddw-revalidate-state",
+            "name": "daw-revalidate-state",
             "type": "command",
-            "command": "bash \"$GEMINI_PROJECT_DIR/.gemini/hooks/ddw/post-write.sh\"",
-            "description": "DDW: catch a state edited around the pre-write hook",
+            "command": "bash \"$GEMINI_PROJECT_DIR/.gemini/hooks/daw/post-write.sh\"",
+            "description": "DAW: catch a state edited around the pre-write hook",
             "timeout": 15000
           }
         ]
@@ -45,10 +45,10 @@
       {
         "hooks": [
           {
-            "name": "ddw-pre-compress",
+            "name": "daw-pre-compress",
             "type": "command",
-            "command": "bash \"$GEMINI_PROJECT_DIR/.gemini/hooks/ddw/pre-compact.sh\"",
-            "description": "DDW: re-read the pipeline after compression, never infer it",
+            "command": "bash \"$GEMINI_PROJECT_DIR/.gemini/hooks/daw/pre-compact.sh\"",
+            "description": "DAW: re-read the pipeline after compression, never infer it",
             "timeout": 10000
           }
         ]

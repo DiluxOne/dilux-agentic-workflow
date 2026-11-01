@@ -18,7 +18,7 @@ import subprocess
 import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-SCRIPT = os.path.join(ROOT, "ddw/scripts/family_impact.py")
+SCRIPT = os.path.join(ROOT, "daw/scripts/family_impact.py")
 
 spec = importlib.util.spec_from_file_location("fimp", SCRIPT)
 fimp = importlib.util.module_from_spec(spec)
@@ -34,29 +34,29 @@ def test_parse_familia_no_lee_consume_de_consumed_by():
 
 
 def test_el_recibo_cae_en_el_repo_del_veredicto_no_en_el_cwd(tmp_path):
-    # A verdict under <repo>/.ddw-work validated FROM ANOTHER DIRECTORY must
-    # leave its receipt in <repo>/.ddw-sessions — the gate reads there, and a
+    # A verdict under <repo>/.daw-work validated FROM ANOTHER DIRECTORY must
+    # leave its receipt in <repo>/.daw-sessions — the gate reads there, and a
     # cwd-derived receipt is a PASS the gate never sees.
     repo = tmp_path / "repo"
-    (repo / ".ddw-work").mkdir(parents=True)
-    (repo / ".ddw-sessions").mkdir()
+    (repo / ".daw-work").mkdir(parents=True)
+    (repo / ".daw-sessions").mkdir()
     facts = {"family": "fam", "workspace": "acme/ws", "ticket": "T-1",
              "members": [{"name": "alpha", "slug": "acme/alpha"}], "problems": []}
-    (repo / ".ddw-work" / "impact-data-T-1.json").write_text(
+    (repo / ".daw-work" / "impact-data-T-1.json").write_text(
         json.dumps(facts), encoding="utf-8")
-    (repo / ".ddw-work" / "impact-T-1.md").write_text(
+    (repo / ".daw-work" / "impact-T-1.md").write_text(
         "# Impacto T-1\n\nalpha: impactado — cambia su seam.\n", encoding="utf-8")
     elsewhere = tmp_path / "elsewhere"
     elsewhere.mkdir()
     r = subprocess.run([sys.executable, SCRIPT, "--validate",
-                        str(repo / ".ddw-work" / "impact-T-1.md"),
+                        str(repo / ".daw-work" / "impact-T-1.md"),
                         "--root", str(repo)],
                        capture_output=True, text=True, cwd=str(elsewhere))
     assert r.returncode == 0, r.stdout + r.stderr
-    receipts = os.listdir(repo / ".ddw-sessions")
+    receipts = os.listdir(repo / ".daw-sessions")
     assert any(n.startswith("impact-validated-") for n in receipts), \
         "the PASS left no receipt where the gate reads: %s" % receipts
-    stray = [p for p in os.listdir(elsewhere) if p.startswith(".ddw")]
+    stray = [p for p in os.listdir(elsewhere) if p.startswith(".daw")]
     assert not stray, "the receipt leaked into the invoker's cwd: %s" % stray
 
 
@@ -88,14 +88,14 @@ def test_gather_lee_el_mapa_y_los_seams_en_origin(tmp_path):
            "| Workspace | acme/ws |\n| Provides | api |\n| Consumed by | none |\n"
            "| Consumes | none |\n")
     mk("ws", {"AGENTS.md": "# ws\n\n" + fam,
-              "ddw-family.md": ("# Familia\n\n| Repo | Qué hace | Expone |\n"
+              "daw-family.md": ("# Familia\n\n| Repo | Qué hace | Expone |\n"
                                 "|---|---|---|\n| alpha | api | REST |\n")})
     alpha = mk("alpha", {"AGENTS.md": "# alpha\n\n" + fam})
     r = subprocess.run([sys.executable, SCRIPT, "--ticket", "T-1",
                         "--root", str(alpha), "--siblings", str(tmp_path)],
                        capture_output=True, text=True)
     assert r.returncode == 0, r.stdout + r.stderr
-    data = json.loads((alpha / ".ddw-work" / "impact-data-T-1.json").read_text())
+    data = json.loads((alpha / ".daw-work" / "impact-data-T-1.json").read_text())
     assert data["workspace"] == "acme/ws" and data["members"], data
     assert all(m.get("sha") or m.get("origin_sha") or True for m in data["members"])
     names = {m["name"] for m in data["members"]}
@@ -105,20 +105,20 @@ def test_gather_lee_el_mapa_y_los_seams_en_origin(tmp_path):
 def test_find_family_map_prefiere_el_nombre_nuevo_y_lee_el_viejo(tmp_path):
     import importlib.util
     spec2 = importlib.util.spec_from_file_location(
-        "rec", os.path.join(ROOT, "ddw/scripts/ddw_receipt.py"))
+        "rec", os.path.join(ROOT, "daw/scripts/daw_receipt.py"))
     rec = importlib.util.module_from_spec(spec2)
     spec2.loader.exec_module(rec)
-    d = tmp_path / "repo" / "docs" / "ddw" / "prd"
+    d = tmp_path / "repo" / "docs" / "daw" / "prd"
     d.mkdir(parents=True)
     start = str(d / "prd-T-1.md")
     assert rec.find_family_map(start) is None
     (tmp_path / "repo" / "familia.md").write_text("viejo\n", encoding="utf-8")
     assert rec.find_family_map(start).endswith("familia.md"), \
         "the deprecated name stopped being read — existing families broke"
-    (tmp_path / "repo" / "ddw-family.md").write_text("nuevo\n", encoding="utf-8")
-    assert rec.find_family_map(start).endswith("ddw-family.md"), \
+    (tmp_path / "repo" / "daw-family.md").write_text("nuevo\n", encoding="utf-8")
+    assert rec.find_family_map(start).endswith("daw-family.md"), \
         "the new name does not outrank the deprecated one"
-    assert rec.family_map_in(str(tmp_path / "repo")).endswith("ddw-family.md")
+    assert rec.family_map_in(str(tmp_path / "repo")).endswith("daw-family.md")
 
 
 def _stub_gh(tmp_path, answers):
@@ -172,7 +172,7 @@ def test_gather_lee_del_forge_y_jamas_clona(tmp_path):
     siblings.mkdir()
     answers = {
         "repos/acme/ws/commits?per_page=1": "0123456789abcdef0123456789abcdef01234567",
-        "repos/acme/ws/contents/ddw-family.md":
+        "repos/acme/ws/contents/daw-family.md":
             "# Familia\n\n| Repo | Qué hace | Consumed by | Consume |\n"
             "|---|---|---|---|\n| beta | api de pagos | gamma | none |\n",
         "repos/acme/beta/commits?per_page=1": "89abcdef0123456789abcdef0123456789abcdef",
@@ -187,7 +187,7 @@ def test_gather_lee_del_forge_y_jamas_clona(tmp_path):
                        capture_output=True, text=True, env=env)
     assert r.returncode == 0, r.stdout + r.stderr
     data = json.loads(
-        (standing / ".ddw-work" / "impact-data-T-9.json").read_text())
+        (standing / ".daw-work" / "impact-data-T-9.json").read_text())
     beta = [m for m in data["members"] if m["name"] == "beta"]
     assert beta, data["members"]
     assert beta[0]["sha"] == "89abcde", beta[0]
@@ -236,15 +236,15 @@ def _gather_with(tmp_path, answers, ticket="T-5"):
         env=dict(os.environ, PATH="%s:%s" % (binp, os.environ["PATH"]),
                  GH_STUB_LOG=str(log)))
     data = None
-    f = standing / ".ddw-work" / ("impact-data-%s.json" % ticket)
+    f = standing / ".daw-work" / ("impact-data-%s.json" % ticket)
     if f.exists():
         data = json.loads(f.read_text())
     return r, data
 
 
-ROWS = ("<!-- BEGIN DDW ROWS -->\n| Repo | SHA | Renglón |\n|---|---|---|\n"
+ROWS = ("<!-- BEGIN DAW ROWS -->\n| Repo | SHA | Renglón |\n|---|---|---|\n"
         "| beta | 89abcde | La api de pagos: cobra y acredita cashback. |\n"
-        "<!-- END DDW ROWS -->\n")
+        "<!-- END DAW ROWS -->\n")
 
 
 def test_gather_trae_el_renglon_del_store(tmp_path):
@@ -252,10 +252,10 @@ def test_gather_trae_el_renglon_del_store(tmp_path):
     # renglón travels into the facts the verdict is written over.
     r, data = _gather_with(tmp_path, {
         "repos/acme/ws/commits?per_page=1": "0" * 40,
-        "repos/acme/ws/contents/ddw-family.md":
+        "repos/acme/ws/contents/daw-family.md":
             "| Repo | Qué hace | Consumed by | Consume |\n|---|---|---|---|\n"
             "| beta | api | gamma | none |\n",
-        "repos/acme/ws/contents/docs/ddw/store/renglones.md": ROWS,
+        "repos/acme/ws/contents/docs/daw/store/renglones.md": ROWS,
         "repos/acme/beta/commits?per_page=1": "89abcdef" + "0" * 32,
         "repos/acme/beta/contents/AGENTS.md": "# beta\n\n" + _fam_section(),
     })
@@ -271,10 +271,10 @@ def test_gather_dice_que_el_renglon_quedo_atras(tmp_path):
     # must never happen is the lag being invisible.
     r, data = _gather_with(tmp_path, {
         "repos/acme/ws/commits?per_page=1": "0" * 40,
-        "repos/acme/ws/contents/ddw-family.md":
+        "repos/acme/ws/contents/daw-family.md":
             "| Repo | Qué hace | Consumed by | Consume |\n|---|---|---|---|\n"
             "| beta | api | gamma | none |\n",
-        "repos/acme/ws/contents/docs/ddw/store/renglones.md": ROWS,
+        "repos/acme/ws/contents/docs/daw/store/renglones.md": ROWS,
         "repos/acme/beta/commits?per_page=1": "ffffffff" + "0" * 32,
         "repos/acme/beta/contents/AGENTS.md": "# beta\n\n" + _fam_section(),
     })
@@ -289,7 +289,7 @@ def test_gather_sin_store_corre_igual_que_antes(tmp_path):
     # before the store existed — and the absence is a recorded state.
     r, data = _gather_with(tmp_path, {
         "repos/acme/ws/commits?per_page=1": "0" * 40,
-        "repos/acme/ws/contents/ddw-family.md":
+        "repos/acme/ws/contents/daw-family.md":
             "| Repo | Qué hace | Consumed by | Consume |\n|---|---|---|---|\n"
             "| beta | api | gamma | none |\n",
         "repos/acme/beta/commits?per_page=1": "89abcdef" + "0" * 32,

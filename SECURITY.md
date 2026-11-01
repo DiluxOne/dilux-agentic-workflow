@@ -2,7 +2,7 @@
 
 ## What DAW does to your repository
 
-The installer writes into the repo you point it at: `.ddw/`, the wiring
+The installer writes into the repo you point it at: `.daw/`, the wiring
 directory for the tools you pick, a context file, and a `.gitignore` block. It
 never writes outside that repo, never touches your machine's global config, and
 never sends anything anywhere. There is no telemetry and no network access at

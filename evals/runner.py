@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-DDW instruction evals — the layer verify_install.sh cannot reach.
+DAW instruction evals — the layer verify_install.sh cannot reach.
 
 verify_install.sh measures the HOOKS: given an event, does the gate answer
 correctly. This measures the INSTRUCTIONS: given the rules as written, does an
@@ -76,7 +76,7 @@ def sh(cmd, cwd=None, env=None, timeout=120, stdin=None):
 
 
 # --------------------------------------------------------------------------- #
-# throwaway repo with DDW installed
+# throwaway repo with DAW installed
 # --------------------------------------------------------------------------- #
 
 def copilot_home(workdir: Path, repo: Path) -> Path:
@@ -109,7 +109,7 @@ def copilot_home(workdir: Path, repo: Path) -> Path:
     return home
 
 
-def make_repo(ddw_root: Path, target: str, workdir: Path) -> Path:
+def make_repo(daw_root: Path, target: str, workdir: Path) -> Path:
     repo = workdir / "repo"
     repo.mkdir(parents=True)
     sh(["git", "init", "-q"], cwd=repo)
@@ -135,14 +135,14 @@ def make_repo(ddw_root: Path, target: str, workdir: Path) -> Path:
         #
         # So: a HOME per run, carrying the credentials forward and nothing else.
         env = dict(os.environ, HOME=str(copilot_home(workdir, repo)))
-    r = sh(["bash", str(ddw_root / "install.sh"), str(repo), "--target", target],
+    r = sh(["bash", str(daw_root / "install.sh"), str(repo), "--target", target],
            cwd=repo, env=env, timeout=180)
     if r.returncode != 0:
         raise RuntimeError(f"install.sh failed ({r.returncode}): {r.stderr[-600:]}")
-    if target == "copilot" and not (workdir / "home" / ".copilot" / "hooks" / "ddw.json").exists():
+    if target == "copilot" and not (workdir / "home" / ".copilot" / "hooks" / "daw.json").exists():
         raise RuntimeError("install.sh exited 0 and wired no user-level Copilot hooks — "
                            "nothing would gate this run, and it would report as a clean pass")
-    if not (repo / ".ddw" / "scripts" / "hook-gate.py").exists():
+    if not (repo / ".daw" / "scripts" / "hook-gate.py").exists():
         raise RuntimeError("install.sh exited 0 but wrote no method")
     return repo
 
@@ -165,7 +165,7 @@ def _fingerprint(path: Path):
 
 
 def reseal_manifest(repo: Path, rels) -> int:
-    manifest = repo / ".ddw-installed.json"
+    manifest = repo / ".daw-installed.json"
     if not manifest.exists():
         return 0
     try:
@@ -200,9 +200,9 @@ TAP = r'''#!/usr/bin/env bash
 PAYLOAD="$(cat)"
 printf '%s' "$PAYLOAD" | bash "$(dirname "$0")/__REAL__"
 CODE=$?
-python3 - "$CODE" "__NAME__" <<'PY' >> "${CLAUDE_PROJECT_DIR:-.}/.ddw-eval-verdicts.jsonl"
+python3 - "$CODE" "__NAME__" <<'PY' >> "${CLAUDE_PROJECT_DIR:-.}/.daw-eval-verdicts.jsonl"
 import json, os, sys
-raw = os.environ.get("DDW_EVAL_PAYLOAD", "")
+raw = os.environ.get("DAW_EVAL_PAYLOAD", "")
 try:
     ev = json.loads(raw)
 except Exception:
@@ -228,7 +228,7 @@ def _tap_claude(repo: Path) -> int:
         src.rename(real)
         body = TAP.replace("__REAL__", real.name).replace("__NAME__", name)
         body = body.replace('printf \'%s\' "$PAYLOAD" | bash',
-                            'export DDW_EVAL_PAYLOAD="$PAYLOAD"; printf \'%s\' "$PAYLOAD" | bash')
+                            'export DAW_EVAL_PAYLOAD="$PAYLOAD"; printf \'%s\' "$PAYLOAD" | bash')
         src.write_text(body)
         src.chmod(0o755)
         reseal_manifest(repo, {f".claude/hooks/{name}"})
@@ -239,8 +239,8 @@ def _tap_claude(repo: Path) -> int:
 # --------------------------------------------------------------------------- #
 # the tap — OpenCode (JavaScript plugin)
 #
-# The adapter here is `adapters/opencode/plugin/ddw.js`, installed to
-# `.opencode/plugins/ddw.js`. It has no exit code to read: it enforces by
+# The adapter here is `adapters/opencode/plugin/daw.js`, installed to
+# `.opencode/plugins/daw.js`. It has no exit code to read: it enforces by
 # THROWING out of `tool.execute.before`, which is how OpenCode cancels a tool
 # call. So the tap wraps the plugin's returned hook table and records
 # throw/no-throw as exit 2/0 — the same codes Claude's hooks use, so
@@ -251,23 +251,23 @@ def _tap_claude(repo: Path) -> int:
 # it twice — enforcing twice and recording nothing for the second copy.
 # --------------------------------------------------------------------------- #
 
-OPENCODE_TAP = Path(__file__).with_name("ddw-eval-tap.js")
+OPENCODE_TAP = Path(__file__).with_name("daw-eval-tap.js")
 
 
 def _tap_opencode(repo: Path) -> int:
     plugins = repo / ".opencode" / "plugins"
-    src = plugins / "ddw.js"
+    src = plugins / "daw.js"
     if not src.exists():
         # OpenCode reads both spellings; the installer writes the plural.
-        alt = repo / ".opencode" / "plugin" / "ddw.js"
+        alt = repo / ".opencode" / "plugin" / "daw.js"
         if not alt.exists():
             return 0
         plugins, src = alt.parent, alt
-    real = repo / ".opencode" / "ddw.real.js"
+    real = repo / ".opencode" / "daw.real.js"
     src.rename(real)
     body = (OPENCODE_TAP.read_text(encoding="utf-8")
-            .replace("__REAL__", "../ddw.real.js")
-            .replace("__LOG__", str((repo / ".ddw-eval-verdicts.jsonl").resolve())))
+            .replace("__REAL__", "../daw.real.js")
+            .replace("__LOG__", str((repo / ".daw-eval-verdicts.jsonl").resolve())))
     src.write_text(body, encoding="utf-8")
     reseal_manifest(repo, {str(src.relative_to(repo))})
     return 1
@@ -277,7 +277,7 @@ def _tap_opencode(repo: Path) -> int:
 # the tap — Copilot CLI
 #
 # Same shell tap as Claude's, on the scripts the repo carries in
-# `.github/hooks/ddw/`. What differs is who calls them: Copilot's wiring lives
+# `.github/hooks/daw/`. What differs is who calls them: Copilot's wiring lives
 # at USER level, and runs the repo's script by relative path. So wrapping the
 # repo's copy is enough — and it is also the only thing that works, because
 # there is no repo-level manifest to rewrite.
@@ -289,7 +289,7 @@ def _tap_opencode(repo: Path) -> int:
 
 
 def _tap_copilot(repo: Path) -> int:
-    hooks = repo / ".github" / "hooks" / "ddw"
+    hooks = repo / ".github" / "hooks" / "daw"
     if not hooks.is_dir():
         return 0
     tapped = 0
@@ -301,10 +301,10 @@ def _tap_copilot(repo: Path) -> int:
         src.rename(real)
         body = TAP.replace("__REAL__", real.name).replace("__NAME__", name)
         body = body.replace('printf \'%s\' "$PAYLOAD" | bash',
-                            'export DDW_EVAL_PAYLOAD="$PAYLOAD"; printf \'%s\' "$PAYLOAD" | bash')
+                            'export DAW_EVAL_PAYLOAD="$PAYLOAD"; printf \'%s\' "$PAYLOAD" | bash')
         src.write_text(body)
         src.chmod(0o755)
-        reseal_manifest(repo, {f".github/hooks/ddw/{name}"})
+        reseal_manifest(repo, {f".github/hooks/daw/{name}"})
         tapped += 1
     return tapped
 
@@ -495,15 +495,15 @@ def write_state(repo: Path, state):
     if state is None:
         return
     if isinstance(state, str):
-        (repo / ".ddw-state.json").write_text(state, encoding="utf-8")
+        (repo / ".daw-state.json").write_text(state, encoding="utf-8")
         return
-    (repo / ".ddw-state.json").write_text(json.dumps(state, indent=2))
+    (repo / ".daw-state.json").write_text(json.dumps(state, indent=2))
 
 
 def seed_files(repo: Path, files, commit=True) -> int:
     """The files the scenario needs to ALREADY exist.
 
-    `given.state` knows how to write exactly one, `.ddw-state.json`, and there
+    `given.state` knows how to write exactly one, `.daw-state.json`, and there
     is an entire family of scenarios that cannot be expressed with only that: a
     product source a phase must not touch, a half-written artifact its gate has
     to refuse, a PRD already in place when the phase goes to write it. All of
@@ -537,9 +537,9 @@ def seed_files(repo: Path, files, commit=True) -> int:
         except ValueError:
             raise RuntimeError(
                 f"given.files tried to write outside the fixture repo: {rel!r}") from None
-        if dest.resolve() == (repo / ".ddw-state.json").resolve():
+        if dest.resolve() == (repo / ".daw-state.json").resolve():
             raise RuntimeError(
-                "given.files cannot write `.ddw-state.json` — that is what `given.state` is "
+                "given.files cannot write `.daw-state.json` — that is what `given.state` is "
                 "for, and two sources of truth for one file is how a fixture stops being one")
         dest.parent.mkdir(parents=True, exist_ok=True)
         dest.write_text(content if isinstance(content, str)
@@ -552,7 +552,7 @@ def seed_files(repo: Path, files, commit=True) -> int:
         # index on purpose.
         #
         # `-f` because the installation leaves a block in `.gitignore`, and
-        # what it ignores — `.ddw-paused/`, `.ddw-sessions/`, the journal — is
+        # what it ignores — `.daw-paused/`, `.daw-sessions/`, the journal — is
         # exactly part of what a scenario needs to seed. Without `-f`,
         # `git add` refuses those paths, the commit finds nothing to commit,
         # and the fixture ends up different from what the scenario says it is
@@ -568,12 +568,12 @@ def seed_files(repo: Path, files, commit=True) -> int:
 
 def hook_verdict(repo: Path, event: dict, mode="pre") -> tuple[int, str]:
     """Drive the real shared gate with a real tool event. Returns (exit code, reason)."""
-    r = sh([sys.executable, str(repo / ".ddw" / "scripts" / "hook-gate.py"),
+    r = sh([sys.executable, str(repo / ".daw" / "scripts" / "hook-gate.py"),
             "--mode", mode,
-            "--state", str(repo / ".ddw-state.json"),
-            "--graph", str(repo / ".ddw" / "rules" / "transition-graph.json"),
+            "--state", str(repo / ".daw-state.json"),
+            "--graph", str(repo / ".daw" / "rules" / "transition-graph.json"),
             "--repo", str(repo),
-            "--method", str(repo / ".ddw")],
+            "--method", str(repo / ".daw")],
            stdin=json.dumps(event), timeout=60)
     return r.returncode, (r.stdout + r.stderr).strip()
 
@@ -593,8 +593,8 @@ def hook_verdict(repo: Path, event: dict, mode="pre") -> tuple[int, str]:
 # If the instruction file has vanished, the scenario cannot be judged → ERROR.
 # --------------------------------------------------------------------------- #
 
-def run_painted_door(sc, ddw_root, repo):
-    src = ddw_root / sc["when"]["instruction"]
+def run_painted_door(sc, daw_root, repo):
+    src = daw_root / sc["when"]["instruction"]
     if not src.exists():
         return ERROR, f"instruction file gone: {sc['when']['instruction']}"
     text = src.read_text(encoding="utf-8", errors="replace")
@@ -648,7 +648,7 @@ WRITE_VERB = r"(?:copy|write|create|add|append|place|save|install|generate|put)"
 NOT_AN_ORDER = re.compile(
     r"(?i)\b(refus|reject|block|forbid|denied|cannot|can't|never|do not|don't|must not|"
     r"prohibit|instead of|rather than|used to|no longer|would be)\b")
-# The real destinations come templated — `docs/ddw/prd/prd-{ticket}.md` is the
+# The real destinations come templated — `docs/daw/prd/prd-{ticket}.md` is the
 # form the method writes them in. Rejecting them for carrying braces left the
 # sweep at ONE order across thirty-two files, which is not sweeping. They get
 # substituted; what still carries brackets after substitution IS an example.
@@ -658,7 +658,7 @@ PLACEHOLDER = re.compile(r"[<{\[]|path/to|your-|example|FIXME|TODO|\.\.\.")
 
 # Between the verb and the path: if one of these appears, the path is a
 # REFERENCE, not the object of the write. "Write the summary following
-# `ddw/rules/x.md`" does not order writing that rule. Without this, the sweep
+# `daw/rules/x.md`" does not order writing that rule. Without this, the sweep
 # accused every file a skill cites of being a painted door — six of six
 # offenders were citations.
 REFERENCE = re.compile(
@@ -686,7 +686,7 @@ def _ordered_writes(text):
         rest = line[verb.end():]
         for m in re.finditer(r"`([^`\s]+)`", rest):
             path = m.group(1)
-            # A slash-command (`/ddw-create-prd`) is not a path, and the verb
+            # A slash-command (`/daw-create-prd`) is not a path, and the verb
             # that let it in was the "create" of its own name. And a path with
             # no extension and no inner slash does not name a file.
             path = TEMPLATED.sub("T-1", path)
@@ -697,7 +697,7 @@ def _ordered_writes(text):
             if path.endswith("/"):
                 # A DIRECTORY is a legitimate destination, and it was the one
                 # of the painted door that started all this: "**Copy** the
-                # method to `.ddw/`". Requiring an inner slash rejected it, so
+                # method to `.daw/`". Requiring an inner slash rejected it, so
                 # the sweep did not find the one regression it did know how to
                 # reproduce — and the control said so. The gate is asked about
                 # a file inside, which is what a copy writes.
@@ -710,18 +710,18 @@ def _ordered_writes(text):
                 continue                   # `src/x.ts:58` is a citation, not a destination
             if REFERENCE.search(rest[:m.start()]):
                 continue                   # the path is where to LOOK, not where to write
-            # `lstrip("./")` eats the leading dot and turns `.ddw-paused/x`
-            # into `ddw-paused/x`, which is ANOTHER path: the first is written
+            # `lstrip("./")` eats the leading dot and turns `.daw-paused/x`
+            # into `daw-paused/x`, which is ANOTHER path: the first is written
             # by the pause in any phase, the second is product source. The
             # sweep accused the orchestrator of a painted door that does not exist.
             out.append((line, path[2:] if path.startswith("./") else path))
     return out
 
 
-def run_painted_door_sweep(sc, ddw_root, repo):
+def run_painted_door_sweep(sc, daw_root, repo):
     corpus = []
     for pattern in sc["when"]["corpus"]:
-        corpus += sorted(ddw_root.glob(pattern))
+        corpus += sorted(daw_root.glob(pattern))
     if not corpus:
         return ERROR, "the corpus matched no file — a sweep over nothing is not a sweep"
 
@@ -744,7 +744,7 @@ def run_painted_door_sweep(sc, ddw_root, repo):
                     "tool_input": {"file_path": str(target), "content": "x"},
                 })
                 if code != 0:
-                    rel = src.relative_to(ddw_root)
+                    rel = src.relative_to(daw_root)
                     offenders.append(
                         "%s orders `%s` and the gate refuses it in %s: %s"
                         % (rel, path, phase,
@@ -770,8 +770,8 @@ def run_painted_door_sweep(sc, ddw_root, repo):
 # gate it is written for" family — it shipped three times.
 # --------------------------------------------------------------------------- #
 
-def run_template_vs_gate(sc, ddw_root, repo):
-    src = ddw_root / sc["when"]["instruction"]
+def run_template_vs_gate(sc, daw_root, repo):
+    src = daw_root / sc["when"]["instruction"]
     if not src.exists():
         return ERROR, f"instruction file gone: {sc['when']['instruction']}"
     text = src.read_text(encoding="utf-8", errors="replace")
@@ -786,7 +786,7 @@ def run_template_vs_gate(sc, ddw_root, repo):
     art.parent.mkdir(parents=True, exist_ok=True)
     art.write_text(doc, encoding="utf-8")
 
-    cmd = [sys.executable, str(repo / ".ddw" / "scripts" / sc["when"]["validator"])]
+    cmd = [sys.executable, str(repo / ".daw" / "scripts" / sc["when"]["validator"])]
     cmd += [a.replace("${ARTIFACT}", str(art)).replace("${REPO}", str(repo))
             for a in sc["when"].get("validator_args", [])]
     r = sh(cmd, cwd=repo, timeout=90)
@@ -814,8 +814,8 @@ def run_template_vs_gate(sc, ddw_root, repo):
 # helper, and require it to change the state.
 # --------------------------------------------------------------------------- #
 
-def run_router_reachability(sc, ddw_root, repo):
-    before = json.loads((repo / ".ddw-state.json").read_text())
+def run_router_reachability(sc, daw_root, repo):
+    before = json.loads((repo / ".daw-state.json").read_text())
     steps = sc["when"]["prescribed_steps"]
     if not steps:
         return ERROR, "scenario declared no prescribed steps"
@@ -835,9 +835,9 @@ def run_router_reachability(sc, ddw_root, repo):
             code, reason = hook_verdict(repo, trig["event"])
         elif "transition" in trig:
             args = [a.replace("${REPO}", str(repo)) for a in trig["transition"]]
-            r = sh([sys.executable, str(repo / ".ddw" / "scripts" / "transition.py"), *args,
-                    "--state", str(repo / ".ddw-state.json"),
-                    "--graph", str(repo / ".ddw" / "rules" / "transition-graph.json")],
+            r = sh([sys.executable, str(repo / ".daw" / "scripts" / "transition.py"), *args,
+                    "--state", str(repo / ".daw-state.json"),
+                    "--graph", str(repo / ".daw" / "rules" / "transition-graph.json")],
                    cwd=repo, timeout=60, env=dict(os.environ, CLAUDE_PROJECT_DIR=str(repo)))
             code, reason = r.returncode, (r.stderr or r.stdout)
         else:
@@ -851,10 +851,10 @@ def run_router_reachability(sc, ddw_root, repo):
 
     for step in steps:
         args = [a.replace("${REPO}", str(repo)) for a in step]
-        r = sh([sys.executable, str(repo / ".ddw" / "scripts" / "transition.py"),
+        r = sh([sys.executable, str(repo / ".daw" / "scripts" / "transition.py"),
                 *args,
-                "--state", str(repo / ".ddw-state.json"),
-                "--graph", str(repo / ".ddw" / "rules" / "transition-graph.json"),
+                "--state", str(repo / ".daw-state.json"),
+                "--graph", str(repo / ".daw" / "rules" / "transition-graph.json"),
                 "--write"], cwd=repo, timeout=60,
                # `transition.py` does not accept `--repo`: it resolves the repo
                # via `CLAUDE_PROJECT_DIR` and then the cwd. Passing it, argparse
@@ -866,7 +866,7 @@ def run_router_reachability(sc, ddw_root, repo):
         if r.returncode != 0 and sc["expect"].get("every_step_succeeds", True):
             return FAIL, (f"the prescribed step {' '.join(args)} is itself refused: "
                           + (r.stdout + r.stderr).strip().splitlines()[0][:110])
-    after = json.loads((repo / ".ddw-state.json").read_text())
+    after = json.loads((repo / ".daw-state.json").read_text())
     if after == before:
         return FAIL, "following the prescribed steps changed nothing — a fixed point"
     return PASS, f"prescribed move reaches {after.get('phase')}"
@@ -891,9 +891,9 @@ def run_router_reachability(sc, ddw_root, repo):
 # repository already made with the controls that failed on a TypeError.
 # --------------------------------------------------------------------------- #
 
-def run_method_lint(sc, ddw_root, repo, control=False):
-    r = sh([sys.executable, str(ddw_root / "scripts" / "lint_method.py"),
-            "--repo", str(ddw_root)], cwd=ddw_root, timeout=300)
+def run_method_lint(sc, daw_root, repo, control=False):
+    r = sh([sys.executable, str(daw_root / "scripts" / "lint_method.py"),
+            "--repo", str(daw_root)], cwd=daw_root, timeout=300)
     out = (r.stdout + r.stderr).strip()
     if not re.search(r"^lint_method: ", out, re.M):
         # Neither the green nor the red: it crashed before judging. A stack is
@@ -922,11 +922,11 @@ def run_method_lint(sc, ddw_root, repo, control=False):
 # kind: behavioral
 #
 # The only kind that needs a model. Drive the real tool headless in a repo with
-# DDW really installed, send the user's turns, and then ask the repo — never the
+# DAW really installed, send the user's turns, and then ask the repo — never the
 # transcript — what happened.
 # --------------------------------------------------------------------------- #
 
-def run_behavioral(sc, ddw_root, repo, agent_cmd, model):
+def run_behavioral(sc, daw_root, repo, agent_cmd, model):
     install_verdict_tap(repo)
     ctx = sc["given"].get("context_file")
     if ctx:
@@ -962,7 +962,7 @@ def run_behavioral(sc, ddw_root, repo, agent_cmd, model):
             said = [l.strip() for l in ((r.stderr or "") + "\n" + (r.stdout or "")).splitlines()
                     if l.strip()]
             # And the line that TALKS about the error first. With the plain
-            # last three, the boot notice DDW injects into every turn ate the
+            # last three, the boot notice DAW injects into every turn ate the
             # character budget and the event that says what happened came out
             # truncated — no diagnosis again, this time because of the trim.
             errs = [l for l in said if '"type":"error"' in l or '"error"' in l]
@@ -987,7 +987,7 @@ def judge_repo_state(sc, repo, transcript):
     # model fabricated itself a pipeline in order to write", which is what this
     # scenario exists to catch.
     if "state_phase" in exp:
-        sp = repo / ".ddw-state.json"
+        sp = repo / ".daw-state.json"
         try:
             got = json.loads(sp.read_text()).get("phase")
         except Exception:  # noqa: BLE001 — an unreadable state is NOT a pass
@@ -1071,12 +1071,12 @@ def judge_repo_state(sc, repo, transcript):
                     problems.append(f"the transcript says {pat!r} and must not")
 
     state = {}
-    sp = repo / ".ddw-state.json"
+    sp = repo / ".daw-state.json"
     if sp.exists() and sp.read_text().strip():
         try:
             state = json.loads(sp.read_text())
         except json.JSONDecodeError:
-            problems.append(".ddw-state.json is not readable JSON")
+            problems.append(".daw-state.json is not readable JSON")
 
     for field, allowed in (exp.get("state") or {}).items():
         allowed = allowed if isinstance(allowed, list) else [allowed]
@@ -1090,7 +1090,7 @@ def judge_repo_state(sc, repo, transcript):
     # `bash` carry no path, so requiring a concrete one cannot be asserted —
     # and `hook_ran` is satisfied by any read, which is not the same thing.
     if exp.get("hook_refused_any"):
-        vp = repo / ".ddw-eval-verdicts.jsonl"
+        vp = repo / ".daw-eval-verdicts.jsonl"
         rows = ([json.loads(l) for l in vp.read_text().splitlines() if l.strip()]
                 if vp.exists() else [])
         if not any(r.get("exit") not in (0, None) for r in rows):
@@ -1098,7 +1098,7 @@ def judge_repo_state(sc, repo, transcript):
                             "is the 'the agent politely declines' false pass")
 
     if "hook_refused" in exp or "hook_ran" in exp:
-        vp = repo / ".ddw-eval-verdicts.jsonl"
+        vp = repo / ".daw-eval-verdicts.jsonl"
         if not vp.exists():
             problems.append("the verdict tap recorded nothing — no hook ran at all")
         else:
@@ -1112,7 +1112,7 @@ def judge_repo_state(sc, repo, transcript):
                                     f"(verdicts seen: {[(r['hook'], r['exit']) for r in rows]})")
 
     if "journal_records" in exp:
-        jp = repo / ".ddw-journal.jsonl"
+        jp = repo / ".daw-journal.jsonl"
         body = jp.read_text() if jp.exists() else ""
         for needle in exp["journal_records"]:
             if needle not in body:
@@ -1139,10 +1139,28 @@ def judge_repo_state(sc, repo, transcript):
 # controls — the mutation that must make the scenario go red
 # --------------------------------------------------------------------------- #
 
-def apply_control(sc, ddw_root, repo, workdir, git_root=None):
+def _show_at(commit, rel_path, cwd):
+    """`git show commit:rel_path`, for a commit from before the product's
+    rename too: there the file had its former path and named the former
+    runtime, so it is read at that path and brought to the current names, or
+    the control goes red on a file it cannot find rather than on its
+    regression. The former name lives in the migration module alone."""
+    r = sh(["git", "show", f"{commit}:{rel_path}"], cwd=cwd)
+    if r.returncode == 0:
+        return r
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "daw" / "scripts"))
+    import migrate_legacy
+    old = sh(["git", "show", f"{commit}:{migrate_legacy.legacy_path(rel_path)}"], cwd=cwd)
+    if old.returncode == 0:
+        old.stdout = migrate_legacy.current_text(old.stdout)
+        return old
+    return r
+
+
+def apply_control(sc, daw_root, repo, workdir, git_root=None):
     """The control, applied.
 
-    `git_root` is where history is READ from and `ddw_root` where it is
+    `git_root` is where history is READ from and `daw_root` where it is
     WRITTEN: the working copy carries no `.git`, so `git show` run there fails,
     and with the failure now counting as a broken control, all six failed.
     It went unnoticed before because nobody called this function for this type.
@@ -1161,8 +1179,8 @@ def apply_control(sc, ddw_root, repo, workdir, git_root=None):
         # as one that does not go red.
         paths = ctl.get("paths") or [ctl["path"]]
         for rel_path in paths:
-            gr = git_root or ddw_root
-            r = sh(["git", "show", f"{ctl['commit']}:{rel_path}"], cwd=gr)
+            gr = git_root or daw_root
+            r = _show_at(ctl["commit"], rel_path, gr)
             if r.returncode != 0:
                 # The commit may not be reachable from here: it lives on
                 # another branch, or the clone is shallow. Locally the clone
@@ -1174,7 +1192,7 @@ def apply_control(sc, ddw_root, repo, workdir, git_root=None):
                 # by sha, which is what GitHub allows.
                 base = ctl["commit"].rstrip("^~0123456789")
                 sh(["git", "fetch", "--quiet", "--depth=2", "origin", base], cwd=gr)
-                r = sh(["git", "show", f"{ctl['commit']}:{rel_path}"], cwd=gr)
+                r = _show_at(ctl["commit"], rel_path, gr)
             if r.returncode != 0:
                 raise RuntimeError(
                     f"cannot read {rel_path} at {ctl['commit']} — the commit is not reachable "
@@ -1186,15 +1204,15 @@ def apply_control(sc, ddw_root, repo, workdir, git_root=None):
             installed = (ctl.get("installed_paths", {}).get(rel_path)
                          or ctl.get("installed_path")
                          or rel_path)
-            for dest in (ddw_root / rel_path, repo / installed):
+            for dest in (daw_root / rel_path, repo / installed):
                 if dest.parent.exists():
                     dest.write_text(r.stdout, encoding="utf-8")
         return
     if kind == "substitute" and ctl.get("edits"):
         # Several files, one single control.
         #
-        # DDW repeats some rules ON PURPOSE: the corrupt-state one lives in the
-        # hook's message and twice in `ddw/orchestrator.md`, because the model
+        # DAW repeats some rules ON PURPOSE: the corrupt-state one lives in the
+        # hook's message and twice in `daw/orchestrator.md`, because the model
         # has to find it whichever way it comes in. Reinjecting the defect into
         # a single file leaves the other copies standing, and the control comes
         # out red or green depending on which of the three the model read that
@@ -1205,7 +1223,7 @@ def apply_control(sc, ddw_root, repo, workdir, git_root=None):
             #
             # This branch silently skips the destination that is not there, and
             # for a behavioral scenario that is the entire control turned into
-            # nothing: the model reads `.ddw/…` and `.claude/skills/…` from the
+            # nothing: the model reads `.daw/…` and `.claude/skills/…` from the
             # installed repo, not the source tree. With a misspelled
             # `installed_path` the control applied "fine", the scenario passed,
             # and the verdict accused the scenario of being unable to detect
@@ -1217,7 +1235,7 @@ def apply_control(sc, ddw_root, repo, workdir, git_root=None):
                         f"the control patches {spec['path']} but its installed copy "
                         f"({spec.get('installed_path', spec['path'])}) is not in the fixture — "
                         "the model reads the installed tree, so this edit would change nothing")
-            for dest in (ddw_root / spec["path"],
+            for dest in (daw_root / spec["path"],
                          repo / spec.get("installed_path", spec["path"])):
                 if not dest.exists():
                     continue
@@ -1238,7 +1256,7 @@ def apply_control(sc, ddw_root, repo, workdir, git_root=None):
         # `unrecognized arguments` — a crash, not the regression. It is the
         # idiom `scripts/mutate.py` already uses, and for the same reason: it
         # expresses the defect without dragging the rest of the tree into the past.
-        for dest in (ddw_root / ctl["path"], repo / ctl.get("installed_path", ctl["path"])):
+        for dest in (daw_root / ctl["path"], repo / ctl.get("installed_path", ctl["path"])):
             if not dest.exists():
                 continue
             text = dest.read_text(encoding="utf-8")
@@ -1258,7 +1276,7 @@ def apply_control(sc, ddw_root, repo, workdir, git_root=None):
 # driver
 # --------------------------------------------------------------------------- #
 
-def run_one(sc, ddw_root, args, control: bool):
+def run_one(sc, daw_root, args, control: bool):
     # A control that CANNOT discriminate, said by the scenario and with its
     # reason written down.
     #
@@ -1281,8 +1299,8 @@ def run_one(sc, ddw_root, args, control: bool):
             return Result(sc["id"], sc.get("kind", "?"), SKIP,
                           "control declared non-discriminating: " + " ".join(excuse.split())[:150])
 
-    workdir = Path(tempfile.mkdtemp(prefix=f"ddweval-{sc['id']}-"))
-    scratch_root = ddw_root
+    workdir = Path(tempfile.mkdtemp(prefix=f"daweval-{sc['id']}-"))
+    scratch_root = daw_root
     try:
         if control and sc.get("control"):
             # Never mutate the user's checkout. Work on a copy of the tree.
@@ -1296,8 +1314,8 @@ def run_one(sc, ddw_root, args, control: bool):
             # The rule was not "this type copies", it was "no control touches
             # the tree of whoever runs it", and it was written right above.
             scratch_root = workdir / "src"
-            sh(["git", "worktree", "list"], cwd=ddw_root)
-            shutil.copytree(ddw_root, scratch_root,
+            sh(["git", "worktree", "list"], cwd=daw_root)
+            shutil.copytree(daw_root, scratch_root,
                             ignore=shutil.ignore_patterns(".git", "node_modules", "__pycache__"))
             sh(["git", "init", "-q"], cwd=scratch_root)
 
@@ -1310,7 +1328,7 @@ def run_one(sc, ddw_root, args, control: bool):
         # that agent never calls: nothing judges, the model writes whatever it
         # wants, and the scenario reports it as the PRODUCT's failure.
         # Measured — that is how the first attempt came out, and the verdict
-        # accused DDW of something that had never been installed for the agent
+        # accused DAW of something that had never been installed for the agent
         # that ran.
         ADAPTERS = ("claude", "codex", "copilot", "cursor", "gemini", "opencode")
         _agent_name = Path((sc["given"].get("agent") or args.agent).split()[0]).name
@@ -1327,7 +1345,7 @@ def run_one(sc, ddw_root, args, control: bool):
         #
         # The fixture was born on `master` with a state that says DEFINE, and
         # that is NOT a possible world: the boot orders checking the branch
-        # before resuming — `ddw/orchestrator.md`, "if we are on a generic
+        # before resuming — `daw/orchestrator.md`, "if we are on a generic
         # branch … the state says work is in progress, but we are on [branch]" —
         # so an obedient agent stops to ask about that inconsistency. Measured
         # with Claude Code: the ENTIRE first turn went into that question, and
@@ -1352,13 +1370,13 @@ def run_one(sc, ddw_root, args, control: bool):
             # mode an ERROR counted as "went red". A control green for the
             # wrong reason, which is worse than a red one.
             try:
-                apply_control(sc, scratch_root, repo, workdir, git_root=ddw_root)
+                apply_control(sc, scratch_root, repo, workdir, git_root=daw_root)
             except Exception as exc:  # noqa: BLE001
                 return Result(sc["id"], sc["kind"], ERROR, f"control unavailable: {exc}")
 
         kind = sc["kind"]
         if kind == "painted-door-sweep":
-            # `scratch_root`, not `ddw_root`: it is the copy where the control
+            # `scratch_root`, not `daw_root`: it is the copy where the control
             # applies the broken instruction. Reading the real tree, the
             # control would see nothing and the sweep would pass the control
             # without being able to go red.
@@ -1375,7 +1393,7 @@ def run_one(sc, ddw_root, args, control: bool):
             # The agent and the model come from the scenario if it declares
             # them, and from the command line if not. Without this the same
             # scenario cannot be run against two adapters, which is half the
-            # point: DDW ships six and the behavioral layer tested one.
+            # point: DAW ships six and the behavioral layer tested one.
             _agent = (sc["given"].get("agent") or args.agent).split()
             _model = sc["given"].get("model") or args.model
             v, d = run_behavioral(sc, scratch_root, repo, _agent, _model)
@@ -1393,7 +1411,7 @@ def run_one(sc, ddw_root, args, control: bool):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--repo", required=True, help="the DDW checkout under test")
+    ap.add_argument("--repo", required=True, help="the DAW checkout under test")
     ap.add_argument("--scenarios", default=str(Path(__file__).parent / "scenarios"))
     ap.add_argument("--only", default=None)
     ap.add_argument("--kinds", default=None, help="comma-separated; default all")
@@ -1405,9 +1423,9 @@ def main():
     ap.add_argument("--keep", action="store_true")
     args = ap.parse_args()
 
-    ddw_root = Path(args.repo).resolve()
-    if not (ddw_root / "install.sh").exists():
-        print(f"FATAL: {ddw_root} is not a DDW checkout", file=sys.stderr)
+    daw_root = Path(args.repo).resolve()
+    if not (daw_root / "install.sh").exists():
+        print(f"FATAL: {daw_root} is not a DAW checkout", file=sys.stderr)
         return 2
 
     files = sorted(Path(args.scenarios).glob("*.yaml"))
@@ -1434,13 +1452,13 @@ def main():
         scenarios.append(sc)
 
     mode = "CONTROL (each scenario must go RED)" if args.control else "normal"
-    print(f"\nDDW instruction evals — {mode}")
+    print(f"\nDAW instruction evals — {mode}")
     print(f"discovered {discovered} scenario file(s), running {len(scenarios)}, "
           f"filtered out {skipped}\n")
 
     results = []
     for sc in scenarios:
-        r = run_one(sc, ddw_root, args, control=args.control)
+        r = run_one(sc, daw_root, args, control=args.control)
         if args.control:
             # In control mode the expectation inverts: not-green is the healthy
             # answer. ERROR counts — "the skill no longer carries a canonical

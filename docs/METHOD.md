@@ -22,7 +22,7 @@ before the code — so the history says what happened in what order instead of a
 ticket that gets dropped still leaves its thinking behind on the branch.
 
 The canonical tables — every phase, every tier, every gate — are in
-[`ddw/rules/README.md`](../ddw/rules/README.md). This page is the why.
+[`daw/rules/README.md`](../daw/rules/README.md). This page is the why.
 
 ## Not every request deserves all of that
 
@@ -75,11 +75,11 @@ against the codebase it is about to be built in, and materialises it in the repo
 That last part is deliberate. An agent cannot read your wiki in the middle of a session, and a
 requirement it cannot read is a requirement it will invent. The same goes for everything else the
 pipeline produces: the spec, the threat model, the SAST report, the verification report. They live
-under `docs/ddw/` because that is the only place the agent is certain to find them at the moment it
+under `docs/daw/` because that is the only place the agent is certain to find them at the moment it
 needs them.
 
 **Where they live is a convention, not a law.** One table defines every artifact path
-(`ddw/rules/branches.instructions.md`), and a fork that wants them somewhere else changes them there.
+(`daw/rules/branches.instructions.md`), and a fork that wants them somewhere else changes them there.
 If you do mirror them out, generate the mirror and keep the repo as the source of truth. Inverted,
 the copy in the repo ages, and the agent builds against a PRD that stopped being true.
 

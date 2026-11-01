@@ -15,7 +15,7 @@ is for one project only, use the project's `opencode.json`. Create the file with
 
 ```json
 {
-  "plugin": ["ddw@git+https://github.com/DiluxOne/dilux-agentic-workflow.git"]
+  "plugin": ["daw@git+https://github.com/DiluxOne/dilux-agentic-workflow.git"]
 }
 ```
 
@@ -65,12 +65,12 @@ Facts that cost a night: the plugins dir loads **copies, not symlinks**; the
 `plugin` config array takes npm-style packages only (no `file:` paths).
 
 ```bash
-cp adapters/opencode/plugin/ddw.js ~/.config/opencode/plugins/ddw.js
-cp -r ddw ~/.config/opencode/ddw
+cp adapters/opencode/plugin/daw.js ~/.config/opencode/plugins/daw.js
+cp -r daw ~/.config/opencode/daw
 cp -r skills ~/.config/opencode/skills
 ```
 
-Add `permission.external_directory` allowing `~/.config/opencode/ddw/*` to the
-global config so the model can read the method without a prompt. `ddw.js`
+Add `permission.external_directory` allowing `~/.config/opencode/daw/*` to the
+global config so the model can read the method without a prompt. `daw.js`
 resolves the method repo-first, then next to itself (package or global layout),
 and finds the skills beside it. The state file stays in the project either way.

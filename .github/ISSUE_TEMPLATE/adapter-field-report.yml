@@ -1,5 +1,5 @@
 name: 🔌 Adapter field report
-description: You drove DDW against a real tool. Tell us what it did.
+description: You drove DAW against a real tool. Tell us what it did.
 title: "[field report] <tool> <version>"
 labels: [field-report]
 body:
@@ -36,7 +36,7 @@ body:
         - label: "1. It boots on its own — the first message gets an answer that knows the phase."
         - label: "2. It classifies instead of coding — a feature request comes back as a proposed tier, and waits."
         - label: "3. It refuses source before the spec — **with the hook's own message**, not the agent politely declining."
-        - label: "4. It refuses a forged state — a `.ddw-state.json` written from a shell is objected to."
+        - label: "4. It refuses a forged state — a `.daw-state.json` written from a shell is objected to."
 
   - type: textarea
     id: refusal

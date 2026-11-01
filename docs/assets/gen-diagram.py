@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
-"""Renders the DDW phases-and-gates diagram.
+"""Renders the DAW phases-and-gates diagram.
 
 Draws with Pillow at 3x supersampling and scales down to the final size (clean
-edges). Output: assets/ddw-pipeline.png (2000x775).
+edges). Output: assets/daw-pipeline.png (2000x775).
 """
 import os
 from PIL import Image, ImageDraw, ImageFont
 
-OUT = os.environ.get("DDW_DIAGRAM_OUT", os.path.join(os.path.dirname(__file__), "..", "assets", "ddw-pipeline.png"))
+OUT = os.environ.get("DAW_DIAGRAM_OUT", os.path.join(os.path.dirname(__file__), "..", "assets", "daw-pipeline.png"))
 W, H, S = 2000, 775, 3                       # final size and supersampling factor
 
 DILUX      = (0x00, 0x86, 0x71)
@@ -51,10 +51,10 @@ center("Six phases, and a gate to clear between each one", F_SUB, W / 2, 98, MUT
 # ── geometry ─────────────────────────────────────────────────────────────────
 PHASES = [
     ("CLASSIFY", "Understand what\nis being asked", "ticket + branch"),
-    ("DEFINE",   "The what\nand the why",           "docs/ddw/prd/"),
-    ("PLAN",     "The how, and what\ncould go wrong", "docs/ddw/specs/\n+ threat model"),
+    ("DEFINE",   "The what\nand the why",           "docs/daw/prd/"),
+    ("PLAN",     "The how, and what\ncould go wrong", "docs/daw/specs/\n+ threat model"),
     ("CODE",     "Implement,\nblock by block",      "code + tests"),
-    ("VERIFY",   "Have someone\nelse review it",     "docs/ddw/reports/"),
+    ("VERIFY",   "Have someone\nelse review it",     "docs/daw/reports/"),
     ("CLOSEOUT", "Close out and\nleave a trail",     "commit + PR"),
 ]
 GATES = [                      # condition to LEAVE each phase

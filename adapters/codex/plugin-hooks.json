@@ -7,8 +7,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "DDW_PLUGIN_ROOT=\"${CODEX_PLUGIN_ROOT}\" bash \"${CODEX_PLUGIN_ROOT}/adapters/codex/hooks/session-start.sh\"",
-            "statusMessage": "DDW: booting the pipeline",
+            "command": "DAW_PLUGIN_ROOT=\"${CODEX_PLUGIN_ROOT}\" bash \"${CODEX_PLUGIN_ROOT}/adapters/codex/hooks/session-start.sh\"",
+            "statusMessage": "DAW: booting the pipeline",
             "timeout": 10
           }
         ]
@@ -20,8 +20,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "DDW_PLUGIN_ROOT=\"${CODEX_PLUGIN_ROOT}\" bash \"${CODEX_PLUGIN_ROOT}/adapters/codex/hooks/pre-tool-use.sh\"",
-            "statusMessage": "DDW: validating the transition",
+            "command": "DAW_PLUGIN_ROOT=\"${CODEX_PLUGIN_ROOT}\" bash \"${CODEX_PLUGIN_ROOT}/adapters/codex/hooks/pre-tool-use.sh\"",
+            "statusMessage": "DAW: validating the transition",
             "timeout": 15
           }
         ]
@@ -33,7 +33,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "DDW_PLUGIN_ROOT=\"${CODEX_PLUGIN_ROOT}\" bash \"${CODEX_PLUGIN_ROOT}/adapters/codex/hooks/post-write.sh\"",
+            "command": "DAW_PLUGIN_ROOT=\"${CODEX_PLUGIN_ROOT}\" bash \"${CODEX_PLUGIN_ROOT}/adapters/codex/hooks/post-write.sh\"",
             "timeout": 15
           }
         ]
@@ -44,7 +44,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "DDW_PLUGIN_ROOT=\"${CODEX_PLUGIN_ROOT}\" bash \"${CODEX_PLUGIN_ROOT}/adapters/codex/hooks/pre-compact.sh\"",
+            "command": "DAW_PLUGIN_ROOT=\"${CODEX_PLUGIN_ROOT}\" bash \"${CODEX_PLUGIN_ROOT}/adapters/codex/hooks/pre-compact.sh\"",
             "timeout": 10
           }
         ]

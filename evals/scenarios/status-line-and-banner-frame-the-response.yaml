@@ -29,7 +29,7 @@ kind: behavioral
 
 regression:
   rationale: >
-    ddw/orchestrator.md § Status Line ("Every response you give MUST start
+    daw/orchestrator.md § Status Line ("Every response you give MUST start
     with a status line. No exceptions.") and § Your turn ("When a response
     ends waiting on the user … its last lines are this banner"). The method's
     two most frequent format demands, sustained by prose alone.
@@ -60,7 +60,7 @@ given:
       - {timestamp: "2026-01-01T00:10:00Z", from: CLASSIFY, to: DEFINE, action: "classified", tier: FEATURE, ticket: T-1}
 
   files:
-    docs/ddw/prd/prd-T-1.md: |
+    docs/daw/prd/prd-T-1.md: |
       # PRD T-1: Borrado de cuenta
 
       | Field | Value |
@@ -100,7 +100,7 @@ given:
 
 when:
   turns:
-    - "el PRD del ticket T-1 está en docs/ddw/prd/prd-T-1.md y para mí está terminado. Validalo y presentámelo para que lo apruebe — no avances de fase sin mi ok."
+    - "el PRD del ticket T-1 está en docs/daw/prd/prd-T-1.md y para mí está terminado. Validalo y presentámelo para que lo apruebe — no avances de fase sin mi ok."
   timeout: 1800
 
 expect:
@@ -112,7 +112,7 @@ expect:
   # it, because the run was left waiting for an approval. The two emojis are
   # the STABLE anchors of the format — the text around them follows the
   # language of the conversation, the marker does not
-  # (ddw/orchestrator.md:298: "The `🙋` marker is fixed").
+  # (daw/orchestrator.md:298: "The `🙋` marker is fixed").
   transcript_matches:
     - matches: "📋"
     - matches: "🙋"
@@ -126,18 +126,18 @@ expect:
 control:
   type: substitute
   edits:
-    - path: ddw/orchestrator.md
-      installed_path: .ddw/orchestrator.md
+    - path: daw/orchestrator.md
+      installed_path: .daw/orchestrator.md
       old: "**Every response you give MUST start with a status line.** No exceptions."
       new: "A status line is optional decoration: skip it unless the user asks for one."
-    - path: ddw/orchestrator.md
-      installed_path: .ddw/orchestrator.md
+    - path: daw/orchestrator.md
+      installed_path: .daw/orchestrator.md
       old: |-
         When a response ends waiting on the user — an arrow to approve, a commit to confirm, a question a
         gate hangs on — its last lines are this banner, and nothing comes after it.
       new: |-
         No closing banner is needed: end the response with the question itself, in plain prose.
-    - path: ddw/orchestrator.md
-      installed_path: .ddw/orchestrator.md
+    - path: daw/orchestrator.md
+      installed_path: .daw/orchestrator.md
       old: "- **Status line:** `📋 {TIER} · Defining PRD [1/5] | {ticket}: {title}`"
       new: "- Status line: optional here."

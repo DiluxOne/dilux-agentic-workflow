@@ -13,12 +13,12 @@ a tier that says so out loud (`FREE`) rather than a hole that lets you drift out
 Works with **Claude Code**, **Codex CLI**, **Copilot CLI**, **Cursor**, **Gemini CLI** and
 **OpenCode** — one method, six wirings.
 
-> **Formerly DDW — Dilux Development Workflow.** The product was renamed and the repository moved to
-> `DiluxOne/dilux-agentic-workflow` (the old URLs redirect). The internal names keep the old one for
-> now — the `ddw` plugin (`ddw@dilux`), the `ddw/` directory, the `docs/ddw/` artifacts,
-> `.ddw-state.json` and the `DDW_*` variables — and will move in a later release.
+> **Renamed.** The product, its plugin and every internal name changed at once (the
+> [CHANGELOG](CHANGELOG.md) says from what). A project set up under the old name moves to the new
+> one the first time DAW runs there, with its state, paused tickets and gates kept; see
+> [`docs/INSTALL.md`](docs/INSTALL.md#upgrading-from-the-old-name).
 
-![The DAW pipeline: six phases and the gates between them](docs/assets/ddw-pipeline.png)
+![The DAW pipeline: six phases and the gates between them](docs/assets/daw-pipeline.png)
 
 ## Install
 
@@ -28,7 +28,7 @@ pipeline's state.
 
 | Tool | How |
 |---|---|
-| **Claude Code** | `/plugin marketplace add DiluxOne/dilux-agentic-workflow`, then `/plugin install ddw@dilux --scope project` |
+| **Claude Code** | `/plugin marketplace add DiluxOne/dilux-agentic-workflow`, then `/plugin install daw@dilux --scope project` |
 | **Copilot CLI** | [`.github/INSTALL.md`](.github/INSTALL.md) — written as steps to hand to your agent |
 | **OpenCode** | [`.opencode/INSTALL.md`](.opencode/INSTALL.md) — same, and it registers the plugin in `opencode.json` |
 
@@ -192,7 +192,7 @@ python3 scripts/mutate.py         # breaks DAW on purpose and checks the suite n
 | [`docs/RATIONALE.md`](docs/RATIONALE.md) | Every decision that could have gone the other way, and its cost |
 | [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md) | Internals: the orchestrator, the state machine, the hooks |
 | [`docs/AI-POLICY.md`](docs/AI-POLICY.md) | How AI-generated work is handled here, and who is accountable |
-| [`ddw/rules/README.md`](ddw/rules/README.md) | The method itself, phase by phase |
+| [`daw/rules/README.md`](daw/rules/README.md) | The method itself, phase by phase |
 | [`adapters/adapter.schema.md`](adapters/adapter.schema.md) | How to add a seventh tool |
 
 [`CONTRIBUTING.md`](CONTRIBUTING.md) · [`SECURITY.md`](SECURITY.md) ·
