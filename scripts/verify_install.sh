@@ -858,6 +858,10 @@ import json, sys
 root = sys.argv[1]
 drop = open(f"{root}/adapters/claude/settings.json", encoding="utf-8").read()
 plug = open(f"{root}/adapters/claude/plugin-hooks.json", encoding="utf-8").read()
+# The plugin's copy quotes its root (`claude plugin validate --strict` refuses an
+# unquoted ${CLAUDE_PLUGIN_ROOT}, which a path with a space splits); the drop-in's
+# keeps the commands earlier installs merged into a project's settings.
+plug = plug.replace('\\"', "")
 normalize = lambda t: (t.replace("${CLAUDE_PROJECT_DIR}/.claude/hooks/", "@@")
                         .replace("${CLAUDE_PLUGIN_ROOT}/adapters/claude/hooks/", "@@"))
 a, b = json.loads(normalize(drop)), json.loads(normalize(plug))
