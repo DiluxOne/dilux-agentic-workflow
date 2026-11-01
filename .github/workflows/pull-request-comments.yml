@@ -1,0 +1,25 @@
+name: Pull request comments
+
+# A person who mentions @dilux-bot in a pull request, in a review thread or in
+# the conversation, gets an answer from the Claude reviewer, through the shared
+# workflow in DiluxOne/.github.
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+jobs:
+  reply:
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+    uses: DiluxOne/.github/.github/workflows/review-reply.yml@v7
+    with:
+      profile: general # the default; the `kind:` in .github/review-policy.yml adds that kind's profile, so a WordPress plugin needs no plugin-wp here
+    secrets: inherit
