@@ -143,6 +143,13 @@ TARGET="$(cd "${TARGET_DIR:-$PWD}" && pwd)"
 # the WHOLE installer, silently, before it had printed one line. Measured.
 PREDIRTY="$(git -C "$TARGET" status --porcelain -- AGENTS.md CLAUDE.md GEMINI.md .gitignore .claude/settings.json opencode.json 2>/dev/null | awk '{print $2}' || true)"
 
+# A project set up under the product's former name moves to DAW's names before
+# anything else reads it (daw/scripts/migrate_legacy.py): its state, paused
+# tickets and gates are kept, and what the old installer put here is read below
+# as DAW's own older copy, so this run upgrades it. Both names present: it
+# refuses, changes nothing, and so does this.
+python3 "$SELF/daw/scripts/migrate_legacy.py" --repo "$TARGET" || exit 1
+
 # ── The banner ────────────────────────────────────────────────────────────────
 #
 # Someone running this has usually been sent a one-line command and has no idea

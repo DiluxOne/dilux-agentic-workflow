@@ -36,6 +36,18 @@ done
 TARGET="$(cd "${TARGET_DIR:-$PWD}" && pwd)"
 [ "$TARGET" = "$SELF" ] && { echo "That is the DAW repo itself, not a repo DAW is installed into." >&2; exit 1; }
 
+# Installed under the product's former name: it moves to DAW's names first
+# (daw/scripts/migrate_legacy.py), so what follows finds and removes it. Not
+# under --plan, which changes nothing: the plan then says so.
+if python3 -c 'import sys; sys.path.insert(0, sys.argv[1]); import migrate_legacy; sys.exit(0 if migrate_legacy.legacy_present(sys.argv[2]) else 1)' \
+     "$SELF/daw/scripts" "$TARGET" 2>/dev/null; then
+  if [ -n "$PLAN" ]; then
+    echo "This project is installed under DAW's former name. Without --plan it is moved to DAW's names first, then uninstalled."
+    exit 0
+  fi
+  python3 "$SELF/daw/scripts/migrate_legacy.py" --repo "$TARGET" || exit 1
+fi
+
 if [ ! -d "$TARGET/.daw" ] && [ ! -f "$TARGET/.daw-installed.json" ]; then
   echo "DAW does not appear to be installed in $TARGET (no .daw/ and no manifest)."
   exit 0

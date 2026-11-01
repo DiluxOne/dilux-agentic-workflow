@@ -201,6 +201,28 @@ Two things decide what "yours" means:
   instead, so those get a four-line pointer and nothing else. Nothing is duplicated, so nothing can
   drift.
 
+### Upgrading from the old name
+
+The product, its plugin and every internal name changed at once (the [CHANGELOG](../CHANGELOG.md)
+says from what). A project set up under the old name needs no step of its own:
+
+- **Installed as a plugin:** the first session of the upgraded plugin moves it. It says so once.
+- **Copied into the repository:** re-run the installer, as for any upgrade. It moves the project
+  first, then upgrades what the old installer put there as its own older copy.
+
+What moves: the state, the paused tickets, the session receipts, the scratch, the journal, the
+method's copy, the install record and the artifacts, each to its `.daw-*` or `docs/daw/` name; the
+`BEGIN/END` blocks of `.gitignore`, `AGENTS.md`, `CLAUDE.md` and `GEMINI.md`; and, in each tool's
+settings, the hook entries that run a file DAW installed. A hook of your own is not touched. The
+state keeps its phase, its tier and its gates, and a gate earned before keeps its receipt: a page the
+move rewrites (the markers of a managed block) is sealed again, but only on a receipt the journal
+shows a validator wrote. The journal gets one line naming what moved.
+
+When a file exists under both names it refuses and changes nothing, because which of the two is the
+pipeline is not something to guess: keep one of each pair and run it again,
+`python3 <the plugin or .daw>/scripts/migrate_legacy.py --repo .`. Interrupted, the next run
+finishes it: every move is a rename, and the state goes last.
+
 ### Taking it out
 
 ```bash

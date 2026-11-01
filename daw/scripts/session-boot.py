@@ -470,6 +470,39 @@ def declined_recommendations(repo):
     return found
 
 
+def migrate_from_former_name(repo):
+    """A project set up under the product's former name, moved to DAW's names
+    the first time the upgraded plugin starts in it (`migrate_legacy.py`): its
+    state, paused tickets and gates kept, nothing asked of the project. Returns
+    the lines to say.
+
+    Not where the method itself was copied in under that name: its hooks are
+    the old installer's and run that copy, so moving it would leave them
+    pointing at nothing. The installer moves both at once."""
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    try:
+        import migrate_legacy
+    except ImportError:
+        return []
+    if not migrate_legacy.legacy_present(repo):
+        return []
+    copied = [old for old, new in migrate_legacy.RUNTIME if new == ".daw"]
+    if copied and os.path.isdir(os.path.join(repo, copied[0])):
+        return ["⚠️ This project has DAW's method copied in under the product's former name. "
+                "Run DAW's install.sh on it once: it moves the project to DAW's names, with "
+                "its state and gates kept, and upgrades the copy."]
+    try:
+        done = migrate_legacy.migrate(repo)
+    except migrate_legacy.Refused as why:
+        return ["⚠️ %s" % why]
+    except OSError as exc:
+        return ["⚠️ Moving this project to DAW's names stopped partway (%s). The next "
+                "session finishes it; nothing was lost." % exc]
+    return ["This project was set up under DAW's former name and now uses DAW's: "
+            "%d path(s) moved, %d file(s) rewritten, state and gates kept."
+            % (len(done["moved"]), len(done["rewritten"]))]
+
+
 def emit(message, fmt, event="SessionStart"):
     """One message, four incompatible envelopes.
 
@@ -539,6 +572,8 @@ def main():
     args = ap.parse_args()
 
     repo = args.repo
+    # First, before anything reads a runtime file by its name.
+    migrated = migrate_from_former_name(repo)
     # Where the orchestrator is. Drop-in: `.daw/` in the repo. Plugin: under the
     # plugin root, and the caller has to say where because nothing in the repo
     # points at it. The default keeps every existing caller working.
@@ -589,6 +624,7 @@ def main():
     lines = []
     # First, above everything: if the enforcement itself was changed, nothing
     # below it means what it says.
+    lines += migrated
     lines += enforcement_drift(repo)
     # FREE is the pipeline turned off, on the record, and the record is only half
     # of it: the other half is that nobody forgets they are in it. Said at every

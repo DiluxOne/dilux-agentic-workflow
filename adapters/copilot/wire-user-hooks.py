@@ -92,6 +92,20 @@ def entry(script, timeout):
         bash = "if [ -f %s ]; then exec bash %s; fi; echo '{}'" % (target, target)
     return [{"type": "command", "bash": bash, "timeoutSec": timeout}]
 
+# The product's former name (daw/scripts/migrate_legacy.py, the one place that
+# knows it): its user-level wiring runs scripts the rename moved, and both load.
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                os.pardir, os.pardir, "daw", "scripts"))
+try:
+    from migrate_legacy import OLD as FORMER
+except ImportError:
+    FORMER = None
+if FORMER:
+    former = os.path.join(home, ".copilot", "hooks", FORMER + ".json")
+    if os.path.isfile(former):
+        os.remove(former)
+        print("  ✓ ~/.copilot/hooks/%s.json  the former name's hooks removed" % FORMER)
+
 path = os.path.join(home, ".copilot", "hooks", "daw.json")
 os.makedirs(os.path.dirname(path), exist_ok=True)
 with open(path, "w", encoding="utf-8") as fh:
@@ -117,7 +131,8 @@ except (OSError, ValueError):
     settings = None
 if isinstance(settings, dict) and isinstance(settings.get("hooks"), dict):
     kept = {k: v for k, v in settings["hooks"].items()
-            if not (isinstance(v, list) and any("daw" in json.dumps(e) for e in v))}
+            if not (isinstance(v, list) and any(n in json.dumps(e) for e in v
+                                                for n in ("daw", FORMER) if n))}
     if kept != settings["hooks"]:
         settings["hooks"] = kept
         with open(sp, "w", encoding="utf-8") as fh:
