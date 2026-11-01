@@ -6,8 +6,8 @@ name: mutations
 # which is the only way to tell a passing suite from one that cannot go red.
 #
 # Not on every push to every branch: at nearly two hundred faults that is the
-# full suite two hundred times for a typo fix. On the pull request, on main,
-# and weekly.
+# full suite two hundred times for a typo fix. On the pull request and in the
+# merge queue (narrowed to what the change touches), on main, and weekly.
 on:
   pull_request:
   push:
@@ -103,9 +103,17 @@ jobs:
       # the required checks keep their names and a docs-only change comes back
       # in seconds saying it injected nothing. On main and on the weekly
       # schedule there is no `--changed`, and that run is the coverage figure.
-      - run: |
+      # The merge queue runs what the pull request ran, against the queue's
+      # base: the same narrowed set, not the coverage run.
+      - env:
+          QUEUE_BASE: ${{ github.event.merge_group.base_ref }}
+        run: |
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             python3 scripts/mutate.py --shard ${{ matrix.shard }}/24 --changed "origin/${{ github.base_ref }}"
+          elif [ "${{ github.event_name }}" = "merge_group" ]; then
+            base="${QUEUE_BASE#refs/heads/}"
+            git fetch --no-tags origin "+refs/heads/$base:refs/remotes/origin/$base"
+            python3 scripts/mutate.py --shard ${{ matrix.shard }}/24 --changed "origin/$base"
           else
             python3 scripts/mutate.py --shard ${{ matrix.shard }}/24
           fi
