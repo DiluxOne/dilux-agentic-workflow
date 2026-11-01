@@ -1,0 +1,31 @@
+name: Plugin checks
+
+# The checks of a plugin for coding agents, from the shared workflows in
+# DiluxOne/.github (#552): every tool's manifest agreeing on the plugin's
+# name, version and description, and the kind's review rules (hooks, what
+# the plugin asks the agent to run, credentials), on every pull request and
+# in the merge queue's group (#451), on a push to the default branch and by
+# hand. The conventions, the accepted-issue gate, the Claude review and the
+# auto-merge decision are the organisation's (org-pull-request.yml, required
+# by its ruleset): nothing of them here. Declare the kind in
+# .github/review-policy.yml (`kind: ai-agent-plugin`). The repository's own
+# suites stay its own workflows, on the same triggers (merge_group too).
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  # A merge queue's group (#451): the checks it requires run on it too.
+  merge_group:
+    types: [checks_requested]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    permissions:
+      contents: read
+    uses: DiluxOne/.github/.github/workflows/plugin-checks-ai.yml@v7
