@@ -32,7 +32,7 @@ jobs:
       issues: write
     uses: DiluxOne/.github/.github/workflows/issue-triage.yml@v7
     with:
-      support-url: https://example.com/support # this repository's own page for usage questions (a forum, a help page), not an example's
+      support-url: https://diluxone.com/support/
     secrets: inherit
 
   repro:
