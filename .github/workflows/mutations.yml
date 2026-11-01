@@ -105,9 +105,7 @@ jobs:
       # schedule there is no `--changed`, and that run is the coverage figure.
       # The merge queue runs what the pull request ran, against the queue's
       # base: the same narrowed set, not the coverage run.
-      - env:
-          QUEUE_BASE: ${{ github.event.merge_group.base_ref }}
-        run: |
+      - run: |
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             python3 scripts/mutate.py --shard ${{ matrix.shard }}/24 --changed "origin/${{ github.base_ref }}"
           elif [ "${{ github.event_name }}" = "merge_group" ]; then
@@ -117,6 +115,8 @@ jobs:
           else
             python3 scripts/mutate.py --shard ${{ matrix.shard }}/24
           fi
+        env:
+          QUEUE_BASE: ${{ github.event.merge_group.base_ref }}
 
   # ── Are there checks that cannot fail? ─────────────────────────────────────
   #
