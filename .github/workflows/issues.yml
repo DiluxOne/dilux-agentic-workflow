@@ -1,0 +1,89 @@
+name: Issues
+
+# What happens to an issue, from the shared workflows in DiluxOne/.github: the
+# triage classifies it when it opens (from docs/roadmap.md and the docs) and
+# the reproduction job tries to write a failing unit test for a report the
+# triage calls a bug (repro-triaged), and a maintainer can start one by hand
+# with the label repro:run. A person claims an issue to work it with their
+# own code (`/claim`, or the form's checkbox, #488): the autopilot steps
+# aside, and the daily run reminds, releases and hands it back to the
+# autopilot, so no accepted issue is left held by nobody.
+
+on:
+  issues:
+    types: [opened, edited, labeled, closed]
+  # Claims (#488): the commands in comments, and a person's pull request
+  # (metadata only; its code is never checked out).
+  issue_comment:
+    types: [created]
+  pull_request_target:
+    types: [opened, reopened, synchronize, closed]
+  schedule:
+    - cron: '0 13 * * *'
+
+permissions:
+  contents: read
+
+jobs:
+  triage:
+    if: github.event_name == 'issues' || github.event_name == 'schedule'
+    permissions:
+      contents: read
+      issues: write
+    uses: DiluxOne/.github/.github/workflows/issue-triage.yml@v7
+    with:
+      support-url: https://example.com/support # this repository's own page for usage questions (a forum, a help page), not an example's
+    secrets: inherit
+
+  repro:
+    if: github.event_name == 'issues'
+    permissions:
+      actions: read
+      contents: write
+      issues: write
+      pull-requests: write
+    uses: DiluxOne/.github/.github/workflows/issue-repro.yml@v7
+    secrets: inherit
+
+  repro-triaged:
+    needs: triage
+    if: github.event_name == 'issues' && needs.triage.outputs.bug == 'true'
+    permissions:
+      actions: read
+      contents: write
+      issues: write
+      pull-requests: write
+    uses: DiluxOne/.github/.github/workflows/issue-repro.yml@v7
+    with:
+      trigger: triage
+      triage-bug: ${{ needs.triage.outputs.bug }}
+    secrets: inherit
+
+  # When a person opens or edits an issue not accepted yet: it is checked
+  # against the issue schema and labelled awaiting-acceptance or incomplete.
+  # When a person accepts an issue: it lands on its product's Project as
+  # Accepted, it is assigned to that person if nobody has it, and a pull
+  # request opened before gets its gate re-run; a release issue ("Release
+  # X.Y.Z", the Release form) opens its release pull request. When it
+  # closes: Done.
+  accepted:
+    if: github.event_name == 'issues'
+    permissions:
+      actions: write
+      issues: read
+      pull-requests: read
+    uses: DiluxOne/.github/.github/workflows/issue-accepted.yml@v7
+    secrets:
+      DILUX_BOT_PRIVATE_KEY: ${{ secrets.DILUX_BOT_PRIVATE_KEY }}
+
+  # A person claims an issue (#488): `/claim`, the form's checkbox, and the
+  # daily reminders and releases; every release starts the autopilot. The
+  # only job that runs on issue_comment and pull_request_target. It inherits
+  # the secrets (dilux-bot's key, and the Claude token for the autopilot it
+  # starts) and never checks out a pull request's code: on
+  # pull_request_target it reads the pull request's metadata only.
+  claim:
+    permissions:
+      contents: read
+    uses: DiluxOne/.github/.github/workflows/issue-claim.yml@v7
+    secrets: inherit
