@@ -17,6 +17,9 @@ on:
     # catch a third party moving — it catches the runner image moving under us,
     # which has broken this suite before.
     - cron: "0 6 * * 1"
+  # The organisation's merge queue waits for these checks (#552).
+  merge_group:
+    types: [checks_requested]
   workflow_dispatch:
 
 permissions:

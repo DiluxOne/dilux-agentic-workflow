@@ -1,0 +1,17 @@
+# DAW's review policy, added to the organisation defaults in DiluxOne/.github
+# (policy/review-policy.default.yml). Read before the Claude review; the
+# review can raise the risk these rules set, never lower it.
+
+# The kind of project: its rules, review profile and checks are the
+# organisation's pack for it (DiluxOne/.github, kinds/ai-agent-plugin/).
+kind: ai-agent-plugin
+
+# What a plugin installs and runs in someone else's repository: the hooks
+# it wires into every tool, the install and uninstall scripts, and the gates
+# that decide what the agent may do. Always high risk, always a human merge.
+high-risk:
+  - "install.sh"
+  - "uninstall.sh"
+  - "daw/scripts/**"
+  - "adapters/**"
+  - "daw/scripts/migrate_legacy.py"

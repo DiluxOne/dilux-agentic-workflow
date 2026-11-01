@@ -44,7 +44,6 @@ def test_and_the_changelog_keeps_it_in_its_history_only():
     assert not re.search(FORMER, head, re.I), "the CHANGELOG's preamble still says the former name"
 
 
-@pytest.mark.xfail(strict=True, reason="behavioral.yml is renamed by a maintainer (#65)")
 def test_the_workflows_say_the_new_name():
     tracked()
     out = git("grep", "-I", "-l", "-i", "-E", FORMER, "--", *sorted(PENDING))

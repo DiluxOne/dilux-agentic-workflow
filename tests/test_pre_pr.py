@@ -83,7 +83,6 @@ def test_pre_pr_runs_the_pull_requests_suites_in_their_order():
 # A workflow change, which the autopilot cannot push: the maintainer pushes the
 # `merge_group: [checks_requested]` trigger of both to this pull request (#65),
 # and removes this marker with it. Strict, so the marker cannot outlive it.
-@pytest.mark.xfail(strict=True, reason="merge_group is pushed to verify.yml and mutations.yml by a maintainer")
 def test_the_merge_queue_runs_the_same_suites():
     for name in ("verify.yml", "mutations.yml"):
         assert "merge_group" in triggers(name), "%s does not run in the merge queue" % name
