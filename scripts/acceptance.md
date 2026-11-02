@@ -16,7 +16,7 @@ major version.
 ## The setup, once per tool
 
 ```bash
-mkdir /tmp/ddw-acceptance-<tool> && cd $_ && git init -q
+mkdir /tmp/daw-acceptance-<tool> && cd $_ && git init -q
 bash /path/to/dilux-agentic-workflow/install.sh . --target <tool>
 ```
 
@@ -25,19 +25,19 @@ Fill in the `Stack` section of the context file it created — one line is enoug
 
 > **Codex and Gemini quarantine project hooks.** Both fingerprint what a repo
 > brings and refuse to run it until you approve it, which is a sensible defence
-> against a repo full of hostile hooks. Run `/hooks` and approve DDW's before
+> against a repo full of hostile hooks. Run `/hooks` and approve DAW's before
 > starting, or everything below will pass for the wrong reason: nothing is
 > enforcing anything yet.
 
 ## The six things to observe
 
 **1. It boots on its own.** Send `where is the pipeline?` as the very first
-message. It must answer **knowing DDW is here**, without being told. If it
+message. It must answer **knowing DAW is here**, without being told. If it
 answers like an ordinary chat, the session-start hook did not fire or its output
 was emitted in a shape this tool ignores.
 
 > Originally this said "it must answer with the phase", which was written for a
-> drop-in, where `.ddw-state.json` always exists. Installed as a plugin nothing
+> drop-in, where `.daw-state.json` always exists. Installed as a plugin nothing
 > is written until a ticket starts, so *"no pipeline has been started in this
 > repo yet"* is the correct answer and the check has to accept it. What is being
 > tested is whether the orchestrator reached the model, not whether a file
@@ -88,7 +88,7 @@ import json
 json.dump({"phase": "CLOSEOUT", "tier": "FEATURE", "gates": {},
            "history": [{"timestamp": "2026-01-01T00:00:00Z",
                         "from": "IDLE", "to": "CLOSEOUT", "action": "forged"}]},
-          open(".ddw-state.json", "w"))
+          open(".daw-state.json", "w"))
 PY
 ```
 
@@ -107,7 +107,7 @@ Both halves have failed here before.
 it from a shell — one blank line is enough — and ask the agent to advance:
 
 ```bash
-echo "" >> docs/ddw/prd/prd-<TICKET>.md
+echo "" >> docs/daw/prd/prd-<TICKET>.md
 ```
 
 The refusal must name the receipt and the artifact's *current content*. This is
@@ -144,9 +144,9 @@ says nothing about the other.
 | OpenCode | drop-in | assisted | 1.18.9 | 2026-07-29 | ✅ | ✅ | ✅ | ✅ | — | — |
 | OpenCode | **plugin** (global) | assisted | 1.18.9 | 2026-07-29 | ✅ | ❌ see below | ✅ | ✅ | — | — |
 
-> **Claude Code, plugin, driven 2026-08-02 on DDW 0.9.3.** All five, plus the
+> **Claude Code, plugin, driven 2026-08-02 on DAW 0.9.3.** All five, plus the
 > fifth observation this file asks for: told to implement a whole PRD it did not
-> run `install.sh`, and no `.ddw/` appeared in the repository. Check 3's refusal
+> run `install.sh`, and no `.daw/` appeared in the repository. Check 3's refusal
 > named `${CLAUDE_PLUGIN_ROOT}`, which is what distinguishes this row from the
 > drop-in one above it. Check 4 exercised the recovery end to end: it objected,
 > stopped, did not repair, and wrote the reconstructed state to a scratch path
@@ -156,17 +156,17 @@ says nothing about the other.
 > because that run loaded the skill as well.
 >
 > **Copilot plugin — what was driven.** Install via `copilot plugin marketplace
-> add` + `install ddw@dilux` against this repo (private, through the user's
+> add` + `install daw@dilux` against this repo (private, through the user's
 > GitHub login). Skills load and get used; Copilot ignores the Claude-format
 > hooks manifest, so the gates ride user-level hooks in `~/.copilot/config.json`
-> (see `.github/INSTALL.md`). Check 4 live: the model invoked `ddw-status`,
+> (see `.github/INSTALL.md`). Check 4 live: the model invoked `daw-status`,
 > stopped without writing, and reported — its post hook cannot refuse, so this
 > is the strongest outcome the tool offers. Checks 1–3 and the fifth
 > observation are still owed.
 >
 > **OpenCode plugin (global) — what the ❌ means.** The install that was driven:
-> `ddw.js` copied (not symlinked — OpenCode skips symlinks in the plugins dir)
-> to `~/.config/opencode/plugins/`, the method to `~/.config/opencode/ddw/`,
+> `daw.js` copied (not symlinked — OpenCode skips symlinks in the plugins dir)
+> to `~/.config/opencode/plugins/`, the method to `~/.config/opencode/daw/`,
 > plus `instructions` + an `external_directory` permission in the global
 > `opencode.jsonc` (see `.opencode/INSTALL.md`). Enforcement holds: checks 3
 > and 4 refused with the gate's own wording. Check 2 failed because the plugin
@@ -181,7 +181,7 @@ says nothing about the other.
 > mutations, and RATIONALE decisions 14–15 hold the reasoning.
 >
 > **⚠️ in check 4 means detected, not prevented, and the distinction is the tool's
-> not DDW's.** Copilot CLI's `postToolUse` cannot refuse anything — GitHub
+> not DAW's.** Copilot CLI's `postToolUse` cannot refuse anything — GitHub
 > documents `permissionDecision` as exclusive to `preToolUse`, and a non-zero
 > exit there as "logged and skipped". So the forged state is caught and reported
 > through `additionalContext`, and the model stops because it was told to, not
@@ -190,7 +190,7 @@ says nothing about the other.
 >
 > **A fifth observation for plugin installs, learned live on OpenCode:** drive a
 > full "implement this PRD" request, not just check 2's propose-and-wait. The
-> first agent that got that far reconciled the missing `.ddw/` by running
+> first agent that got that far reconciled the missing `.daw/` by running
 > `install.sh` into the user's repo — the drop-in the user never chose. The
 > OpenCode bootstrap now forbids it in so many words; Claude's plugin row
 > passed 1–3 before this was known, so it has NOT been exercised there.
@@ -235,7 +235,7 @@ says nothing about the other.
 > model declines in prose — it read the same rules the hook enforces, so it never calls the tool and
 > the hook never gets a decision to make. That reads like a pass and proves nothing.
 >
-> What works is asking for the evidence rather than the disobedience: *"I am testing that the DDW
+> What works is asking for the evidence rather than the disobedience: *"I am testing that the DAW
 > hook works. **Attempt** the write. The expected result is the hook refusing it. Show me what the
 > tool returns, not your explanation."* That is not asking the model to break the pipeline; it is
 > asking it to demonstrate that the pipeline holds.

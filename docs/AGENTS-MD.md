@@ -18,7 +18,7 @@ Google, Cursor and Factory, and donated to the Linux Foundation's Agentic AI Fou
 
 DAW keeps your context there, and not in `CLAUDE.md`, for one reason: **it is the same file for every
 tool**. Port the pipeline from Claude to Copilot and your stack, conventions and glossary come along
-untouched. That is the same reason `.ddw/` is byte-identical across the six adapters.
+untouched. That is the same reason `.daw/` is byte-identical across the six adapters.
 
 ---
 
@@ -29,7 +29,7 @@ untouched. That is the same reason `.ddw/` is byte-identical across the six adap
 | | Owner | What happens on an upgrade |
 |---|---|---|
 | Everything outside the markers | **You** | Never read, never moved, never rewritten |
-| The `<!-- BEGIN DDW -->` … `<!-- END DDW -->` block | **DAW** | Replaced with the current version |
+| The `<!-- BEGIN DAW -->` … `<!-- END DAW -->` block | **DAW** | Replaced with the current version |
 
 **Do not edit inside the block.** Its first line says so. On the next `install.sh` it is replaced,
 and your edit is gone — and unlike most losses, this one is silent.
@@ -56,17 +56,17 @@ pipeline to another agent.
 The pointer is the whole file:
 
 ```markdown
-<!-- BEGIN DDW (managed by DDW — do not edit by hand) -->
+<!-- BEGIN DAW (managed by DAW — do not edit by hand) -->
 @AGENTS.md
-@.ddw/orchestrator.md
-<!-- END DDW -->
+@.daw/orchestrator.md
+<!-- END DAW -->
 ```
 
 No prose, no duplicated instructions, nothing to keep in step. Claude and Gemini do not read
 `AGENTS.md` on their own, so the first import is what brings your context in; without it the pipeline
 runs knowing nothing about your project.
 
-> **Why is `@.ddw/orchestrator.md` there and not inside `AGENTS.md` with the rest?** Because it would
+> **Why is `@.daw/orchestrator.md` there and not inside `AGENTS.md` with the rest?** Because it would
 > then be reached through a *nested* import — `CLAUDE.md → AGENTS.md → orchestrator`. Claude
 > documents nested imports (five deep) and would manage it. Gemini documents `@file.md` and says
 > nothing about nesting. Loading the state machine is not the place to rely on undocumented
@@ -81,16 +81,16 @@ DAW does not read `AGENTS.md` as one blob. Specific phases look up specific head
 
 Two of them are cited by name in the method's own instructions, so a phase goes looking for them.
 The other three are read by whoever is doing the work — they are in the template, and
-`/ddw-context-check` reports them missing, but no phase resolves them. The distinction is here
+`/daw-context-check` reports them missing, but no phase resolves them. The distinction is here
 rather than implied, because a table that lists five and enforces two teaches you to expect more
 than you get.
 
 | Heading | Who reads it | Looked up by name? | What breaks without it |
 |---|---|---|---|
-| `## Stack` | CLASSIFY, CODE, `ddw-test`, `ddw-security-sast`, `ddw-threat-modeling`, `ddw-create-prd`, `ddw-create-adr`, `ddw-sec-auditor` | **yes** | The pipeline does not know your language, test runner or linter. It guesses, or runs nothing |
-| `## Architecture conventions` | PLAN, CODE, `ddw-validate-arch`, `ddw-arch-auditor` | **yes** | The architecture audit has no standard to audit against, so it passes |
+| `## Stack` | CLASSIFY, CODE, `daw-test`, `daw-security-sast`, `daw-threat-modeling`, `daw-create-prd`, `daw-create-adr`, `daw-sec-auditor` | **yes** | The pipeline does not know your language, test runner or linter. It guesses, or runs nothing |
+| `## Architecture conventions` | PLAN, CODE, `daw-validate-arch`, `daw-arch-auditor` | **yes** | The architecture audit has no standard to audit against, so it passes |
 | `## Code conventions` | whoever is reviewing | no | Same, one level down — but nothing goes looking for it |
-| `## What NOT to do in this project` | whoever is reviewing (`/ddw-context-check` lists it) | no | Your hard-won "never do X here" is unknown, and X gets done |
+| `## What NOT to do in this project` | whoever is reviewing (`/daw-context-check` lists it) | no | Your hard-won "never do X here" is unknown, and X gets done |
 | `## Domain glossary` | whoever is writing the PRD or the spec | no | The PRD and the spec invent names for things you already named |
 | `## Repo family` | CLASSIFY (Step 1.2) | **yes** | The repo is treated as standalone: no multi-repo scope question, no seam warnings, no family initiative — which is also exactly what its ABSENCE means on purpose. This heading IS the mono/multi switch |
 
@@ -129,7 +129,7 @@ that speaks MCP fits — and with no section the step still runs over the commit
 ```
 
 **A missing heading fails quietly.** The lookup finds nothing and the phase carries on. Nothing goes
-red. That is the whole hazard of this file, and it is why the installer and `/ddw-context-check` both
+red. That is the whole hazard of this file, and it is why the installer and `/daw-context-check` both
 report the ones that are absent.
 
 ---
@@ -175,7 +175,7 @@ a ticket: **CLASSIFY detects your stack from the repo's own config files** — `
 `pyproject.toml`, `go.mod` and friends — and hands you the finished table to approve. It will not
 write it without asking.
 
-Or run **`/ddw-context-check`** any time. It reports every missing heading with what reads it, and
+Or run **`/daw-context-check`** any time. It reports every missing heading with what reads it, and
 every command your repo has configured that DAW was never told about — your linter, your
 `pre-commit`, the commands your CI runs. It proposes; you decide; it writes nothing you did not
 approve.
@@ -218,9 +218,9 @@ approve.
 - **Ticket**: a support request from a student. Not a tracker issue.
 - **Triage**: assigning category + priority. Always reviewed by a human before sending.
 
-<!-- BEGIN DDW (managed by DDW — do not edit by hand) -->
+<!-- BEGIN DAW (managed by DAW — do not edit by hand) -->
 …
-<!-- END DDW -->
+<!-- END DAW -->
 ```
 
 ---
@@ -228,7 +228,7 @@ approve.
 ## The short version
 
 - **`AGENTS.md` is yours.** DAW manages exactly one block in it and nothing else.
-- **Never edit inside `<!-- BEGIN DDW -->`.** It is replaced on every upgrade, without warning.
+- **Never edit inside `<!-- BEGIN DAW -->`.** It is replaced on every upgrade, without warning.
 - **The headings matter more than the prose.** A missing heading fails silently; that is the one
   failure mode of this file.
-- **When in doubt, run `/ddw-context-check`.** It tells you what is missing and what reads it.
+- **When in doubt, run `/daw-context-check`.** It tells you what is missing and what reads it.

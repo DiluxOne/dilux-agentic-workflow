@@ -11,7 +11,7 @@ the CHANGELOG. It is what someone installs and what the changelog talks about.
 program reads that file and may be handed an old one. The validator refuses a
 major it does not know, which is what separates a version from a decoration.
 
-**A rule's.** Each `ddw/rules/*.instructions.md` carries its own. These are the
+**A rule's.** Each `daw/rules/*.instructions.md` carries its own. These are the
 ones people argue about, and the argument is settled by whether anything checks
 them: a number nobody verifies drifts, and this repo shipped `tracker` at 2.0.0
 while the product said 1.0.0 — a lie sitting in a file the model reads.
@@ -50,7 +50,7 @@ PRODUCT_MANIFESTS = (".claude-plugin/plugin.json", ".codex-plugin/plugin.json",
 # Deliberately NOT here: scripts/ (the suite and the linters), docs/, README,
 # CHANGELOG, .github/. Editing a test does not change what anyone installs, and
 # demanding a release for it teaches people that the number means nothing.
-SHIPPED = ("ddw/", "adapters/", "skills/", "agents/", "install.sh", "uninstall.sh",
+SHIPPED = ("daw/", "adapters/", "skills/", "agents/", "install.sh", "uninstall.sh",
            ".claude-plugin/", ".codex-plugin/", ".cursor-plugin/", "gemini-extension.json",
            "package.json")
 
@@ -91,7 +91,7 @@ def main():
 
     # 1. The product's version — ONE number, in every file that states it.
     #
-    # Six wirings, one product: `ddw/` is byte-identical in all of them, so a
+    # Six wirings, one product: `daw/` is byte-identical in all of them, so a
     # manifest saying 1.0.5 while another says 1.0.2 would not be describing two
     # versions of anything. It would mean a bug report no longer maps to a commit,
     # and a user on two tools having no way to tell they are running the same
@@ -114,26 +114,26 @@ def main():
                      "shipped six ways is one number, or nobody can say what they are running")
 
     # 2. The graph's format version, and that the validator knows that major.
-    gpath = os.path.join(root, "ddw/rules/transition-graph.json")
+    gpath = os.path.join(root, "daw/rules/transition-graph.json")
     graph = json.load(open(gpath, encoding="utf-8"))
     fv = graph.get("format_version")
     if not fv or not re.match(r"^\d+\.\d+$", str(fv)):
-        bad("ddw/rules/transition-graph.json",
+        bad("daw/rules/transition-graph.json",
             f"format_version {fv!r} is missing or not MAJOR.MINOR")
     else:
-        src = open(os.path.join(root, "ddw/scripts/validate-transition.py"),
+        src = open(os.path.join(root, "daw/scripts/validate-transition.py"),
                    encoding="utf-8").read()
         m = re.search(r"^GRAPH_FORMAT_MAJOR\s*=\s*(\d+)", src, re.M)
         if not m:
-            bad("ddw/scripts/validate-transition.py",
+            bad("daw/scripts/validate-transition.py",
                 "no GRAPH_FORMAT_MAJOR — nothing refuses a graph of an unknown format")
         elif int(m.group(1)) != int(str(fv).split(".")[0]):
-            bad("ddw/rules/transition-graph.json",
+            bad("daw/rules/transition-graph.json",
                 f"format {fv} but the validator reads major {m.group(1)} — it would refuse "
                 "the graph shipped beside it")
 
     # 3. Every rule carries a semver.
-    rules = sorted(glob.glob(os.path.join(root, "ddw/rules/*.instructions.md")))
+    rules = sorted(glob.glob(os.path.join(root, "daw/rules/*.instructions.md")))
     for path in rules:
         v = rule_version(path)
         rel = os.path.relpath(path, root)
@@ -156,18 +156,25 @@ def main():
             # the plugin cache still held a file that had been deleted upstream,
             # because nothing had told the tool anything was different.
             touched = sorted(f for f in changed.split() if f.startswith(SHIPPED))
-            if touched:
+            # Or it says so in a fragment, which is how the ai-agent-plugin
+            # kind releases: `changelog.d/<issue>.md` now, and the release
+            # brings every manifest and the CHANGELOG to the new number at
+            # once. The fragment is the debt written down; the release pays it.
+            fragments = [f for f in changed.split() if re.match(r"^changelog\.d/[^/]+\.md$", f)
+                         and os.path.isfile(os.path.join(root, f))]
+            if touched and not fragments:
                 before = git(root, "show", f"{args.since}:.claude-plugin/plugin.json")
                 old_pv = json.loads(before).get("version") if before else None
                 if old_pv is not None and old_pv == pv:
                     bad("the product version",
                         f"{len(touched)} shipped file(s) changed since {args.since} and the "
                         f"version is still {pv} — first: {touched[0]}. Bump it in all "
-                        f"{len(PRODUCT_MANIFESTS)} manifests and open the CHANGELOG entry, "
+                        f"{len(PRODUCT_MANIFESTS)} manifests and open the CHANGELOG entry, or write "
+                        "the change's line in changelog.d/<issue>.md for the release to, "
                         "or this ships as a version that already means something else")
 
             for rel in changed.split():
-                if not re.match(r"^ddw/rules/.*\.instructions\.md$", rel):
+                if not re.match(r"^daw/rules/.*\.instructions\.md$", rel):
                     continue
                 before = git(root, "show", f"{args.since}:{rel}")
                 if before is None:

@@ -1,10 +1,10 @@
 """Parallel tickets, one worktree each — and the two guards on `close`.
 
-What these tests pin is not git's worktree machinery — it is the DDW law
+What these tests pin is not git's worktree machinery — it is the DAW law
 wrapped around it:
 
   * `open` starts the new tree at the FETCHED origin default, detached,
-    with no `.ddw-state.json` inherited — the standing tree's half-done
+    with no `.daw-state.json` inherited — the standing tree's half-done
     work never leaks into the new ticket; and opening twice is an answer,
     not an error.
   * `close` removes NOTHING dirty: uncommitted work is named and left
@@ -22,7 +22,7 @@ import subprocess
 import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-SCRIPT = os.path.join(ROOT, "ddw/scripts/ticket_worktree.py")
+SCRIPT = os.path.join(ROOT, "daw/scripts/ticket_worktree.py")
 
 
 def _git(cwd, *args):
@@ -77,12 +77,12 @@ def test_open_nace_fresco_en_el_origin_y_sin_estado(tmp_path):
     # that must NOT travel into the new worktree.
     _git(repo, "checkout", "-q", "-b", "feat/OLD-1-algo")
     _git(repo, "commit", "-q", "--allow-empty", "-m", "half-done")
-    (repo / ".ddw-state.json").write_text('{"ticket": "OLD-1"}', encoding="utf-8")
+    (repo / ".daw-state.json").write_text('{"ticket": "OLD-1"}', encoding="utf-8")
     r = _run(["open", "--ticket", "NEW-2"], repo)
     assert r.returncode == 0, r.stderr
     wt = tmp_path / "repo--wt-new-2"
     assert wt.is_dir(), "the sibling worktree was not created"
-    assert not (wt / ".ddw-state.json").exists(), \
+    assert not (wt / ".daw-state.json").exists(), \
         "the standing tree's state leaked into the new worktree"
     head = subprocess.run(["git", "-C", str(wt), "rev-parse", "HEAD"],
                           capture_output=True, text=True).stdout.strip()
@@ -176,7 +176,7 @@ def test_gh_ausente_habla_no_estalla():
     spec = importlib.util.spec_from_file_location("tw", SCRIPT)
     tw = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(tw)
-    code, _, err = tw._run(["ddw-binario-que-no-existe"])
+    code, _, err = tw._run(["daw-binario-que-no-existe"])
     assert code == 127 and "command not found" in err, (code, err)
 
 
@@ -184,7 +184,7 @@ def test_list_muestra_cada_arbol_con_su_ticket_y_fase(tmp_path):
     repo = _repo_with_origin(tmp_path)
     _run(["open", "--ticket", "T-9"], repo)
     wt = tmp_path / "repo--wt-t-9"
-    (wt / ".ddw-state.json").write_text(
+    (wt / ".daw-state.json").write_text(
         json.dumps({"ticket": "T-9", "phase": "CODE"}), encoding="utf-8")
     r = _run(["list"], repo)
     assert r.returncode == 0, r.stderr

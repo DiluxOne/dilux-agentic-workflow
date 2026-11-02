@@ -78,8 +78,8 @@ expect:
 # on the topology.
 control:
   type: substitute
-  path: ddw/scripts/transition.py
-  installed_path: .ddw/scripts/transition.py
+  path: daw/scripts/transition.py
+  installed_path: .daw/scripts/transition.py
   old: |-
     "There is no %s→IDLE edge%s — the closeout is taken from %s. Claiming gates "
   new: |-

@@ -10,7 +10,7 @@ DAW is a method plus the wiring that plugs it into a coding agent, and those two
 move at different speeds. So the promise is specific:
 
 - **Covered.** The method itself: the phases, the transition graph's format, the
-  gate names, the artifact layout under `docs/ddw/`, the state schema, and the
+  gate names, the artifact layout under `docs/daw/`, the state schema, and the
   adapter recipe schema. A breaking change to any of these is a major version.
 - **Not covered.** The wiring for each individual tool. When Claude Code, Codex,
   Copilot, Cursor, Gemini or OpenCode changes its hook contract, that adapter

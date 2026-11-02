@@ -4,7 +4,7 @@ kind: behavioral
 regression:
   changelog: "0.32.3 — FREE needs the user's own words on the record"
   commit: f02dceb
-  acceptance: "live Copilot run on 0.32.2, latinonet-demo2-ddw-dropin, 2026-08-22"
+  acceptance: "live Copilot run on 0.32.2, latinonet-demo2-daw-dropin, 2026-08-22"
   what_happened: >
     Asked to create a file at IDLE, the model read `classify.instructions.md` —
     the section that says *never propose FREE, never offer it as a way out of a
@@ -35,7 +35,7 @@ expect:
   state:
     tier: "FREE"
   file_matches:
-    - path: ".ddw-state.json"
+    - path: ".daw-state.json"
       # `free: "…"` — the prefix and the quote. Without them the gate refuses
       # the arc, so a state in FREE without the sentence can only come from a
       # version that does not require it.
@@ -52,8 +52,8 @@ control:
   type: restore_from_commit
   commit: f02dceb
   paths:
-    - ddw/scripts/validate-transition.py
-    - ddw/rules/classify.instructions.md
+    - daw/scripts/validate-transition.py
+    - daw/rules/classify.instructions.md
   installed_paths:
-    - .ddw/scripts/validate-transition.py
-    - .ddw/rules/classify.instructions.md
+    - .daw/scripts/validate-transition.py
+    - .daw/rules/classify.instructions.md

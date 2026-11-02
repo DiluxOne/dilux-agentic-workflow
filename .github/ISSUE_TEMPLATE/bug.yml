@@ -21,7 +21,7 @@ body:
   - type: textarea
     id: state
     attributes:
-      label: .ddw-state.json
+      label: .daw-state.json
       description: >
         The whole file, as it was. Redact ticket titles if they are confidential —
         the phase, tier, gates and history are what matter.
@@ -47,9 +47,9 @@ body:
     validations: {required: true}
 
   - type: input
-    id: ddw
+    id: daw
     attributes:
-      label: DDW version
+      label: DAW version
       description: From `.claude-plugin/plugin.json`, or the tag you installed.
     validations: {required: true}
 

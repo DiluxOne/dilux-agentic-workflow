@@ -10,7 +10,7 @@
 # asks — naming a tool does not answer this — and falls to drop-in only where
 # there is no terminal to ask on, saying so when it does.
 #
-# The same command installs and updates. On a repo that already has DDW it says
+# The same command installs and updates. On a repo that already has DAW it says
 # so, defaults to refreshing the tools already wired there, and names any it is
 # leaving behind.
 #
@@ -20,7 +20,7 @@
 # Without --target it asks. Without a path it uses the current directory.
 # Idempotent.
 #
-# It always installs the METHOD into `.ddw/` — identical for every tool — and
+# It always installs the METHOD into `.daw/` — identical for every tool — and
 # then the WIRING for the target(s) you pick. Skills and agents have exactly one
 # source (skills, agents); each adapter only declares where its tool
 # looks for them and what frontmatter dialect it speaks.
@@ -32,7 +32,7 @@ set -euo pipefail
 
 # ── Pasted from a URL, with no repository around it ───────────────────────────
 #
-# The installer is not self-sufficient: it copies `ddw/`, `adapters/`,
+# The installer is not self-sufficient: it copies `daw/`, `adapters/`,
 # `scripts/` and the manifest from its own tree. A line pasted into a terminal
 # has none of the four — and until today it did not even get to say so: under
 # `bash -s` the variable `BASH_SOURCE[0]` does not exist, and with `set -u`
@@ -45,17 +45,17 @@ set -euo pipefail
 # was already one line and the drop-in demanded cloning first, which is the
 # only door three of the six tools have.
 #
-# `DDW_REF` chooses what gets fetched. `main` by default, and that is a debt
+# `DAW_REF` chooses what gets fetched. `main` by default, and that is a debt
 # said out loud: `release.yml` cuts releases with `v*` tags and none has been
 # cut yet, so today there is no version to point at.
 SELF="$(cd "$(dirname "${BASH_SOURCE[0]:-}")" && pwd)"
-DDW_REF="${DDW_REF:-main}"
-if ! { [ -f "$SELF/.claude-plugin/plugin.json" ] && [ -d "$SELF/ddw" ] && [ -d "$SELF/adapters" ]; }; then
+DAW_REF="${DAW_REF:-main}"
+if ! { [ -f "$SELF/.claude-plugin/plugin.json" ] && [ -d "$SELF/daw" ] && [ -d "$SELF/adapters" ]; }; then
   # Once. If the tree it fetched does not have them either, the problem is
   # not fixed by fetching it again, and a bootstrap that calls itself is a
   # bottomless recursion — the shape this repository has already paid for once.
-  if [ -n "${DDW_BOOTSTRAPPED:-}" ]; then
-    echo "install.sh: what was downloaded from '$DDW_REF' does not carry the method (ddw/, adapters/)." >&2
+  if [ -n "${DAW_BOOTSTRAPPED:-}" ]; then
+    echo "install.sh: what was downloaded from '$DAW_REF' does not carry the method (daw/, adapters/)." >&2
     echo "  Check that the ref exists, or clone the repository and run install.sh from there." >&2
     exit 1
   fi
@@ -68,18 +68,18 @@ if ! { [ -f "$SELF/.claude-plugin/plugin.json" ] && [ -d "$SELF/ddw" ] && [ -d "
   fi
   command -v tar >/dev/null 2>&1 || {
     echo "install.sh: unpacking the method needs tar, and it is not present." >&2; exit 1; }
-  DDW_TARBALL="${DDW_TARBALL:-https://codeload.github.com/DiluxOne/dilux-agentic-workflow/tar.gz/$DDW_REF}"
-  DDW_BOOT_DIR="$(mktemp -d)"
-  trap 'rm -rf "$DDW_BOOT_DIR"' EXIT
-  echo "  Fetching DAW ($DDW_REF)…"
-  $FETCH "$DDW_TARBALL" | tar xz -C "$DDW_BOOT_DIR" || {
-    echo "install.sh: could not fetch $DDW_TARBALL" >&2; exit 1; }
-  DDW_REAL="$(find "$DDW_BOOT_DIR" -maxdepth 2 -name install.sh -type f | head -1)"
-  [ -n "$DDW_REAL" ] || {
+  DAW_TARBALL="${DAW_TARBALL:-https://codeload.github.com/DiluxOne/dilux-agentic-workflow/tar.gz/$DAW_REF}"
+  DAW_BOOT_DIR="$(mktemp -d)"
+  trap 'rm -rf "$DAW_BOOT_DIR"' EXIT
+  echo "  Fetching DAW ($DAW_REF)…"
+  $FETCH "$DAW_TARBALL" | tar xz -C "$DAW_BOOT_DIR" || {
+    echo "install.sh: could not fetch $DAW_TARBALL" >&2; exit 1; }
+  DAW_REAL="$(find "$DAW_BOOT_DIR" -maxdepth 2 -name install.sh -type f | head -1)"
+  [ -n "$DAW_REAL" ] || {
     echo "install.sh: the downloaded tree does not carry an install.sh." >&2; exit 1; }
-  DDW_BOOT_RC=0
-  DDW_BOOTSTRAPPED=1 bash "$DDW_REAL" "$@" || DDW_BOOT_RC=$?
-  exit $DDW_BOOT_RC
+  DAW_BOOT_RC=0
+  DAW_BOOTSTRAPPED=1 bash "$DAW_REAL" "$@" || DAW_BOOT_RC=$?
+  exit $DAW_BOOT_RC
 fi
 
 # Is there a terminal to ask? The answer is NOT stdin.
@@ -109,9 +109,9 @@ while [ $# -gt 0 ]; do
       [ $# -ge 2 ] || { echo "--target needs a value (a tool id, several comma-separated, or 'all')." >&2; exit 1; }
       TARGETS="$2"; shift 2 ;;
     --target=*) TARGETS="${1#*=}"; shift ;;
-    # The method and nothing else. This is what `/ddw-eject` needs and could not
-    # have: the skill told the model to copy the plugin's method into `.ddw/`,
-    # and every write to `.ddw/` is refused in every phase — that seal is what
+    # The method and nothing else. This is what `/daw-eject` needs and could not
+    # have: the skill told the model to copy the plugin's method into `.daw/`,
+    # and every write to `.daw/` is refused in every phase — that seal is what
     # stops a pipeline editing the rules that stop it, and it does not know the
     # difference between disarming the method and installing it. So ejecting is
     # what installing and uninstalling already are: something the user runs,
@@ -131,7 +131,7 @@ while [ $# -gt 0 ]; do
 done
 
 TARGET="$(cd "${TARGET_DIR:-$PWD}" && pwd)"
-[ "$TARGET" = "$SELF" ] && { echo "The destination is the DDW repo itself; nothing to do." >&2; exit 1; }
+[ "$TARGET" = "$SELF" ] && { echo "The destination is the DAW repo itself; nothing to do." >&2; exit 1; }
 
 # Which of the files this installer EDITS (rather than creates) were already
 # dirty before it ran. Captured now, because at offer time — after the write —
@@ -143,12 +143,19 @@ TARGET="$(cd "${TARGET_DIR:-$PWD}" && pwd)"
 # the WHOLE installer, silently, before it had printed one line. Measured.
 PREDIRTY="$(git -C "$TARGET" status --porcelain -- AGENTS.md CLAUDE.md GEMINI.md .gitignore .claude/settings.json opencode.json 2>/dev/null | awk '{print $2}' || true)"
 
+# A project set up under the product's former name moves to DAW's names before
+# anything else reads it (daw/scripts/migrate_legacy.py): its state, paused
+# tickets and gates are kept, and what the old installer put here is read below
+# as DAW's own older copy, so this run upgrades it. Both names present: it
+# refuses, changes nothing, and so does this.
+python3 "$SELF/daw/scripts/migrate_legacy.py" --repo "$TARGET" || exit 1
+
 # ── The banner ────────────────────────────────────────────────────────────────
 #
 # Someone running this has usually been sent a one-line command and has no idea
 # what is about to be written into their repository. The installer used to open
 # with "Which tool will you be working with?", which asks them to decide
-# something before telling them what it is for. So: what DDW is, and what this
+# something before telling them what it is for. So: what DAW is, and what this
 # is about to do, before it does any of it.
 RULE="────────────────────────────────────────────────────────────────────────"
 VERSION="$(python3 -c "import json,sys;print(json.load(open(sys.argv[1]))['version'])" \
@@ -196,18 +203,18 @@ echo
 # agent you work with; it does not say whether you want the method copied into
 # the repository or managed by that agent, and the two leave very different
 # repositories behind. A default nobody was shown is how someone ends up with
-# `.ddw/` committed when they wanted a plugin.
+# `.daw/` committed when they wanted a plugin.
 #
 # With no terminal to ask on there is no decision to be had, so it falls to
 # drop-in and says which way it went. Silence is the thing being removed here.
 if [ -z "$MODE" ] && have_tty; then
   cat <<'MODES'
-  How do you want DDW installed?
+  How do you want DAW installed?
 
-    1) Plugin   — your tool fetches and manages it. Nothing of DDW is
+    1) Plugin   — your tool fetches and manages it. Nothing of DAW is
                   committed to this repo, and updates come from the tool.
                   Available for Claude Code, Copilot CLI and OpenCode.
-    2) Drop-in  — the method is copied into this repo, under .ddw/. Your
+    2) Drop-in  — the method is copied into this repo, under .daw/. Your
                   teammates get it on clone, and you can edit the rules.
                   Available for all six tools.
 
@@ -222,7 +229,7 @@ MODES
   echo
 elif [ -z "$MODE" ]; then
   echo "  No --mode given and no terminal to ask on: installing as a drop-in."
-  echo "  Pass --mode plugin to have your tool manage DDW instead."
+  echo "  Pass --mode plugin to have your tool manage DAW instead."
   echo
 fi
 MODE="${MODE:-dropin}"
@@ -241,17 +248,17 @@ plugin_install_of() {  # does this tool have a plugin install procedure? its rec
     "$SELF/adapters/$1/adapter.json" 2>/dev/null || echo "false"
 }
 
-# ── Is DDW already here, and for which tools? ────────────────────────────────
+# ── Is DAW already here, and for which tools? ────────────────────────────────
 #
 # The manifest keys are "<target>:<path>", so the repo already knows which tools
 # were wired into it. Asking "which tool will you be working with?" on a repo
 # that answered that question months ago is how a second install lands beside
 # the first instead of refreshing it — and how one tool's wiring silently stays
-# a version behind while the method in .ddw/ moves on.
+# a version behind while the method in .daw/ moves on.
 INSTALLED="$(python3 - "$TARGET" "$SELF" <<'PY' 2>/dev/null || true
 import json, os, sys
 keys = None
-for rel in (".ddw-installed.json", os.path.join(".ddw", ".installed.json")):
+for rel in (".daw-installed.json", os.path.join(".daw", ".installed.json")):
     try:
         keys = json.load(open(os.path.join(sys.argv[1], rel), encoding="utf-8")).keys()
         break
@@ -260,7 +267,7 @@ for rel in (".ddw-installed.json", os.path.join(".ddw", ".installed.json")):
 if keys is None:
     sys.exit(0)
 # Only the prefixes that name an adapter. The manifest also carries
-# `method:.ddw/...`, which is not a tool: unfiltered, an already-installed
+# `method:.daw/...`, which is not a tool: unfiltered, an already-installed
 # repo offered "claude method", and choosing that died on `Unknown target:
 # method`. With --target, it warned about a "target" not updated and gave the
 # command to include it, which also exits 1. The adapter list is on disk; it
@@ -277,7 +284,7 @@ PY
 
 # ── Pick target(s) ────────────────────────────────────────────────────────────
 if [ -z "$TARGETS" ] && [ -n "$INSTALLED" ] && [ "$MODE" = "dropin" ]; then
-  echo "DDW is already installed in this repo, wired for: $INSTALLED"
+  echo "DAW is already installed in this repo, wired for: $INSTALLED"
   echo
   echo "  1) Update it — refresh those and leave everything of yours alone"
   echo "  2) Update it and add another tool"
@@ -391,13 +398,13 @@ try:
     cfg = json.loads(re.sub(r"^\s*//.*$", "", raw, flags=re.M)) if raw.strip() else {}
 except ValueError:
     print("  ⚠ opencode: %s is not readable as JSON, so it was left untouched." % path)
-    print("    Add \"plugin\": [\"ddw@git+https://github.com/DiluxOne/"
+    print("    Add \"plugin\": [\"daw@git+https://github.com/DiluxOne/"
           "dilux-agentic-workflow.git\"] by hand.")
     raise SystemExit(0)
-entry = "ddw@git+https://github.com/DiluxOne/dilux-agentic-workflow.git"
+entry = "daw@git+https://github.com/DiluxOne/dilux-agentic-workflow.git"
 plugins = cfg.get("plugin")
 plugins = list(plugins) if isinstance(plugins, list) else []
-if not any(isinstance(p, str) and p.startswith("ddw@") for p in plugins):
+if not any(isinstance(p, str) and p.startswith("daw@") for p in plugins):
     plugins.append(entry)
 cfg["plugin"] = plugins          # merge: every other key of yours is preserved
 os.makedirs(base, exist_ok=True)
@@ -411,17 +418,17 @@ PY
 
 if [ "$MODE" = "plugin" ]; then
   echo "$RULE"
-  echo "  DDW is installing as a plugin"
+  echo "  DAW is installing as a plugin"
   echo "  Wiring for:  $LABELS"
   echo "  Into:        $TARGET"
   echo "$RULE"
   echo
-  # What this says used to be "nothing of DDW is written into your repo", and
+  # What this says used to be "nothing of DAW is written into your repo", and
   # thirty lines below the same run printed "scope: project". Both could not be
   # true then: a project-scope install records the activation in the repo's own
   # settings file. The activation is USER scope now — a plugin is installed to
   # your profile, once, and every repo decides its own behavior from its own
-  # context files — so the sentence finally holds: nothing of DDW lands in the
+  # context files — so the sentence finally holds: nothing of DAW lands in the
   # repo until a ticket starts, and that byte is gitignored. Measured the other
   # way first: a live run installed project-scope into one repo of a family,
   # the sibling ran a naked session, and nothing anywhere could warn — a
@@ -429,11 +436,12 @@ if [ "$MODE" = "plugin" ]; then
   echo "  The method is not copied into your repo — it lives in the tool's own"
   echo "  plugin store, installed to YOUR profile: every repo you open gets the"
   echo "  method, and each decides its own behavior from its own context files."
-  echo "  Nothing lands in the repo until a ticket starts (.ddw-state.json,"
-  echo "  gitignored). To switch DDW off for one repo: claude plugin disable ddw"
+  echo "  Nothing lands in the repo until a ticket starts (.daw-state.json,"
+  echo "  gitignored). To switch DAW off for one repo: claude plugin disable daw"
   echo "  standing in it."
   echo
   PLUGIN_FAILED=""
+  CATALOG="diluxone-plugins-ai"
   for t in $TARGETS; do
     case "$PLUGIN_CAPABLE" in
       *" $t "*) ;;
@@ -454,17 +462,19 @@ if [ "$MODE" = "plugin" ]; then
           echo "    Install the CLI first, or use --mode dropin."
           PLUGIN_FAILED="yes"; continue
         fi
-        # The marketplace is this working copy, so what gets installed is what is
-        # in front of you — including changes not pushed anywhere yet.
-        "$t" plugin marketplace add "$SELF" >/dev/null 2>&1 \
-          || "$t" plugin marketplace update dilux >/dev/null 2>&1 || true
+        # The organisation's catalog, where DAW is published: this repository
+        # is not a marketplace of its own, so what installs is the released
+        # version the catalog lists. A change not released yet is tried with
+        # --mode dropin, or by pointing the tool at this working copy by hand.
+        "$t" plugin marketplace add "DiluxOne/$CATALOG" >/dev/null 2>&1 \
+          || "$t" plugin marketplace update "$CATALOG" >/dev/null 2>&1 || true
         if [ "$t" = "claude" ]; then
-          claude plugin install ddw@dilux --scope user \
-            && echo "  ✓ installed  ddw@dilux (scope: user — your whole profile; each repo behaves per its own context files)" \
+          claude plugin install "daw@$CATALOG" --scope user \
+            && echo "  ✓ installed  daw@$CATALOG (scope: user — your whole profile; each repo behaves per its own context files)" \
             || { echo "  ⚠ claude: the plugin install did not complete."; PLUGIN_FAILED="yes"; }
         else
-          copilot plugin install ddw@dilux \
-            && echo "  ✓ installed  ddw@dilux (the 17 skills)" \
+          copilot plugin install "daw@$CATALOG" \
+            && echo "  ✓ installed  daw@$CATALOG (the 17 skills)" \
             || { echo "  ⚠ copilot: the plugin install did not complete."; PLUGIN_FAILED="yes"; }
           copilot_hooks "$SELF"
         fi ;;
@@ -473,7 +483,7 @@ if [ "$MODE" = "plugin" ]; then
     echo
   done
   echo "$RULE"
-  echo "  DDW installed as a plugin"
+  echo "  DAW installed as a plugin"
   echo "$RULE"
   echo
   echo "  Open your agent in $TARGET and ask for the work you want done."
@@ -490,39 +500,39 @@ if [ -n "$INSTALLED" ]; then
   # one and a re-run the other, and a mutation flips them to prove the check
   # bites; rewording them here would have made that mutation a no-op — an
   # unkillable mutant reads as a hole in the suite, and it is not one.
-  echo "  DDW is updating: $TARGET"
+  echo "  DAW is updating: $TARGET"
   echo "  Wiring for:      $LABELS"
   echo "$RULE"
   cat <<'PLAN_UPDATE'
 
   What this refreshes
-    .ddw/                the method — rules, phase graph, validators
+    .daw/                the method — rules, phase graph, validators
     the tool's wiring    skills, agents, hooks, settings
 
   What it leaves exactly as it is
-    Your code, your documents, and your phase: `.ddw-state.json` is never
+    Your code, your documents, and your phase: `.daw-state.json` is never
     touched, so a ticket in flight stays where it is. Any file of yours
-    whose name DDW also uses is reported and left alone.
+    whose name DAW also uses is reported and left alone.
 
   Nothing is deleted. `uninstall.sh` reverses the install using the
   manifest it wrote.
 
 PLAN_UPDATE
 else
-  echo "  DDW is installing into: $TARGET"
+  echo "  DAW is installing into: $TARGET"
   echo "  Wiring for:             $LABELS"
   echo "$RULE"
   cat <<'PLAN_INSTALL'
 
   What lands in your repo
-    .ddw/                the method — rules, phase graph, validators
+    .daw/                the method — rules, phase graph, validators
     the tool's directory skills, agents, hooks and settings for your agent
-    .ddw-installed.json  the manifest of everything DDW put here
+    .daw-installed.json  the manifest of everything DAW put here
     AGENTS.md            a short activation block appended at the end
     .gitignore           a block so the pipeline's runtime is never committed
 
   What it will not touch
-    Your code and your documents. If you already have a file whose name DDW
+    Your code and your documents. If you already have a file whose name DAW
     also uses, yours stays and the collision is reported at the end.
 
   Nothing is deleted, here or on an update. `uninstall.sh` reverses this
@@ -533,7 +543,7 @@ fi
 
 # A tool that is wired into this repo and not in this run keeps the wiring it
 # had. That is fine on purpose — but silently fine is how one tool ends up
-# enforcing a version of the method that no longer matches the .ddw/ sitting
+# enforcing a version of the method that no longer matches the .daw/ sitting
 # next to it, with nothing on screen having suggested anything was out of step.
 SKIPPED=""
 for inst in $INSTALLED; do
@@ -542,7 +552,7 @@ done
 [ -n "$SKIPPED" ] && {
   echo
   echo "  ⚠ Also installed here and NOT updated by this run:${SKIPPED}"
-  echo "    Their wiring stays as it is while .ddw/ moves to this version."
+  echo "    Their wiring stays as it is while .daw/ moves to this version."
   echo "    To bring them along: --target $(echo "$TARGETS$SKIPPED" | tr ' ' ',' | sed 's/^,//;s/,,*/,/g')"
 }
 echo
@@ -567,23 +577,23 @@ done
 #
 # Asked on an UPDATE too, which it was not. The reasoning for skipping it was
 # "an update is a refresh of what a branch already carries, and a new branch per
-# refresh would be noise" — true while you are standing on the branch DDW lives
+# refresh would be noise" — true while you are standing on the branch DAW lives
 # on, false the moment you are not. Reported from real use: an update run in the
 # middle of a ticket committed the whole framework onto that ticket's branch,
 # which is the exact failure the question exists to prevent, and which already
 # cost one pull request 66 framework files. A refresh is dozens of files; there
 # is nothing smaller about it than a first install.
 #
-# `DDW_GIT_FLOW=setup|current|none` answers the question without a terminal
+# `DAW_GIT_FLOW=setup|current|none` answers the question without a terminal
 # (tests, scripted installs); the prompt is the interactive spelling of it.
-DDW_GIT_CHOICE=""            # setup | current | none | "" (never asked)
-DDW_SETUP_BRANCH=""
+DAW_GIT_CHOICE=""            # setup | current | none | "" (never asked)
+DAW_SETUP_BRANCH=""
 CURBRANCH=""
 # The same question, and the right noun for it: calling a refresh "the
 # installation" is half of why it read as a question that did not apply here.
-DDW_LANDS="installation"; [ -n "$INSTALLED" ] && DDW_LANDS="update"
+DAW_LANDS="installation"; [ -n "$INSTALLED" ] && DAW_LANDS="update"
 if git -C "$TARGET" rev-parse --is-inside-work-tree >/dev/null 2>&1 \
-   && { [ -n "${DDW_GIT_FLOW:-}" ] || have_tty; }; then
+   && { [ -n "${DAW_GIT_FLOW:-}" ] || have_tty; }; then
   if git -C "$TARGET" rev-parse -q --verify HEAD >/dev/null 2>&1; then
     CURBRANCH="$(git -C "$TARGET" rev-parse --abbrev-ref HEAD 2>/dev/null || echo '?')"
     # Six hex characters, and asked of python — which this script has already
@@ -600,17 +610,17 @@ if git -C "$TARGET" rev-parse --is-inside-work-tree >/dev/null 2>&1 \
     # reader closes the pipe is a pipeline betting on SIGPIPE arriving, and that
     # bet is settled differently by two implementations of the same POSIX tool.
     # There is no unbounded read here any more.
-    DDW_SETUP_BRANCH="ddw-setup-$(python3 -c 'import secrets; print(secrets.token_hex(3))' 2>/dev/null)"
-    [ "$DDW_SETUP_BRANCH" = "ddw-setup-" ] && DDW_SETUP_BRANCH="ddw-setup-$$"
-    case "${DDW_GIT_FLOW:-}" in
+    DAW_SETUP_BRANCH="daw-setup-$(python3 -c 'import secrets; print(secrets.token_hex(3))' 2>/dev/null)"
+    [ "$DAW_SETUP_BRANCH" = "daw-setup-" ] && DAW_SETUP_BRANCH="daw-setup-$$"
+    case "${DAW_GIT_FLOW:-}" in
       setup)   GOPT=1 ;;
       current) GOPT=2 ;;
       none)    GOPT=3 ;;
       *)
         echo "  This is a git repository · current branch: $CURBRANCH"
         echo
-        echo "  Where should the $DDW_LANDS land?"
-        echo "    1. On a new setup branch — $DDW_SETUP_BRANCH   (recommended)"
+        echo "  Where should the $DAW_LANDS land?"
+        echo "    1. On a new setup branch — $DAW_SETUP_BRANCH   (recommended)"
         echo "       Written and committed there; your branches stay untouched."
         echo "       After the commit you choose: push it & open a PR, or keep it local."
         echo "    2. On the current branch ($CURBRANCH)"
@@ -622,16 +632,16 @@ if git -C "$TARGET" rev-parse --is-inside-work-tree >/dev/null 2>&1 \
         echo ;;
     esac
     case "$GOPT" in
-      2) DDW_GIT_CHOICE="current" ;;
-      3) DDW_GIT_CHOICE="none" ;;
-      *) DDW_GIT_CHOICE="setup"
-         if git -C "$TARGET" checkout -q -b "$DDW_SETUP_BRANCH" 2>/dev/null; then
-           echo "  ✓ On $DDW_SETUP_BRANCH — installing here."
+      2) DAW_GIT_CHOICE="current" ;;
+      3) DAW_GIT_CHOICE="none" ;;
+      *) DAW_GIT_CHOICE="setup"
+         if git -C "$TARGET" checkout -q -b "$DAW_SETUP_BRANCH" 2>/dev/null; then
+           echo "  ✓ On $DAW_SETUP_BRANCH — installing here."
            echo
          else
-           echo "  ⚠ Could not create $DDW_SETUP_BRANCH — staying on $CURBRANCH, committing nothing."
+           echo "  ⚠ Could not create $DAW_SETUP_BRANCH — staying on $CURBRANCH, committing nothing."
            echo
-           DDW_GIT_CHOICE="none"
+           DAW_GIT_CHOICE="none"
          fi ;;
     esac
   else
@@ -641,28 +651,28 @@ if git -C "$TARGET" rev-parse --is-inside-work-tree >/dev/null 2>&1 \
     echo "  This is a git repository with no commits yet: the installation will be"
     echo "  offered as its first commit, on the branch you are on."
     echo
-    DDW_GIT_CHOICE="current"
+    DAW_GIT_CHOICE="current"
   fi
 fi
 
 # ── 1. THE METHOD (identical for every tool) ─────────────────────────────────
-mkdir -p "$TARGET/.ddw"
+mkdir -p "$TARGET/.daw"
 # Skills and agents are the adapters' business, not the method payload's: they
 # get transpiled into each tool's native location by the install engine.
 rsync -a --exclude 'skills/' --exclude 'agents/' --exclude '__pycache__/' \
-      "$SELF/ddw/" "$TARGET/.ddw/" 2>/dev/null || {
-  cp -R "$SELF/ddw/." "$TARGET/.ddw/"
-  rm -rf "$TARGET/.ddw/skills" "$TARGET/.ddw/agents"
-  find "$TARGET/.ddw" -name __pycache__ -type d -exec rm -rf {} + 2>/dev/null || true
+      "$SELF/daw/" "$TARGET/.daw/" 2>/dev/null || {
+  cp -R "$SELF/daw/." "$TARGET/.daw/"
+  rm -rf "$TARGET/.daw/skills" "$TARGET/.daw/agents"
+  find "$TARGET/.daw" -name __pycache__ -type d -exec rm -rf {} + 2>/dev/null || true
 }
-echo "  ✓ .ddw/                  the method: orchestrator, rules, graph, scripts"
+echo "  ✓ .daw/                  the method: orchestrator, rules, graph, scripts"
 
 if [ -n "${METHOD_ONLY:-}" ]; then
   # Recorded, or the drift detector cannot see a shell rewriting what was just
   # ejected — and an ejected method is precisely the one people go on to edit.
   python3 "$SELF/scripts/install_target.py" --self "$SELF" --target "$TARGET" --method-only >/dev/null
   echo
-  echo "The method is now in .ddw/ and this repo runs ITS copy: every hook resolves"
+  echo "The method is now in .daw/ and this repo runs ITS copy: every hook resolves"
   echo "the repo first and the plugin second. The wiring stayed where it was."
   echo "Commit it — a method sitting uncommitted is taken by the next checkout."
   exit 0
@@ -672,7 +682,7 @@ fi
 if [ -f "$TARGET/AGENTS.md" ]; then
   # "left alone" was a lie on four of the six adapters. Codex, Copilot, Cursor
   # and OpenCode use AGENTS.md as their context file, so the wiring step below
-  # goes on to refresh the DDW block inside it — and the user read two lines,
+  # goes on to refresh the DAW block inside it — and the user read two lines,
   # one saying the file was untouched and the next saying it had been updated.
   # What is true on every adapter is narrower: the file is not replaced, and
   # nothing the user wrote in it is read or rewritten.
@@ -690,11 +700,11 @@ if [ -f "$TARGET/AGENTS.md" ]; then
   [ -n "$MISSING" ] && {
     echo "  ⚠ AGENTS.md              is missing headings the method reads:"
     echo "${MISSING#|}" | tr '|' '\n' | sed 's/^/                             /'
-    echo "                             Add them (empty is fine) or run /ddw-context-check,"
+    echo "                             Add them (empty is fine) or run /daw-context-check,"
     echo "                             which reports them with what reads each one."
   }
 else
-  cp "$SELF/ddw/AGENTS.template.md" "$TARGET/AGENTS.md"
+  cp "$SELF/daw/AGENTS.template.md" "$TARGET/AGENTS.md"
   echo "  ✓ AGENTS.md              created from the template — FILL IT IN before working"
 fi
 
@@ -713,12 +723,12 @@ for t in $TARGETS; do
   # written once, at user level, and serves every drop-in repo on this machine.
   if [ "$t" = "copilot" ]; then
     copilot_hooks
-    # A manifest an older DDW left in the repo still runs wherever the folder is
+    # A manifest an older DAW left in the repo still runs wherever the folder is
     # trusted, and there every source's hooks are combined and all of them run —
     # so leaving it judges every write twice in exactly the repos that work.
-    if [ -f "$TARGET/.github/hooks/ddw.json" ]; then
-      rm -f "$TARGET/.github/hooks/ddw.json"
-      echo "  ✓ .github/hooks/ddw.json  removed — unread in an untrusted folder, doubled where trusted"
+    if [ -f "$TARGET/.github/hooks/daw.json" ]; then
+      rm -f "$TARGET/.github/hooks/daw.json"
+      echo "  ✓ .github/hooks/daw.json  removed — unread in an untrusted folder, doubled where trusted"
     fi
   fi
 done
@@ -726,12 +736,12 @@ done
 # ── 4. .gitignore ─────────────────────────────────────────────────────────────
 echo
 GITIGNORE="$TARGET/.gitignore"
-# An existing block is REPLACED, not left alone. "Already has the DDW block" was
+# An existing block is REPLACED, not left alone. "Already has the DAW block" was
 # true and useless: the day the pipeline started writing a new runtime file, an
 # updated repo kept a block that did not mention it, and the first `git add -A`
-# committed somebody's scratch. The block is DDW's, delimited by its own markers,
+# committed somebody's scratch. The block is DAW's, delimited by its own markers,
 # and every line outside them is untouched.
-if [ -f "$GITIGNORE" ] && grep -qF "# BEGIN DDW" "$GITIGNORE"; then
+if [ -f "$GITIGNORE" ] && grep -qF "# BEGIN DAW" "$GITIGNORE"; then
   python3 - "$GITIGNORE" <<'PY'
 import sys
 path = sys.argv[1]
@@ -739,11 +749,11 @@ with open(path, encoding="utf-8") as fh:
     lines = fh.read().splitlines()
 out, skipping = [], False
 for line in lines:
-    if line.startswith("# BEGIN DDW"):
+    if line.startswith("# BEGIN DAW"):
         skipping = True
         continue
     if skipping:
-        if line.startswith("# END DDW"):
+        if line.startswith("# END DAW"):
             skipping = False
         continue
     out.append(line)
@@ -752,32 +762,32 @@ while out and not out[-1].strip():
 with open(path, "w", encoding="utf-8") as fh:
     fh.write("\n".join(out) + ("\n" if out else ""))
 PY
-  DDW_GITIGNORE_NOTE="refreshed"
+  DAW_GITIGNORE_NOTE="refreshed"
 fi
-if [ -f "$GITIGNORE" ] && grep -qF "# BEGIN DDW" "$GITIGNORE"; then
-  echo "  ✓ .gitignore             already has the DDW block"
+if [ -f "$GITIGNORE" ] && grep -qF "# BEGIN DAW" "$GITIGNORE"; then
+  echo "  ✓ .gitignore             already has the DAW block"
 else
   { [ -s "$GITIGNORE" ] && printf '\n'
     printf '%s\n' \
-      '# BEGIN DDW — pipeline runtime, NOT committed (managed by DDW)' \
-      '#   .ddw-state.json  = which phase you are in; yours, not the repo'"'"'s' \
-      '#   .ddw-paused/     = paused tickets' \
-      '#   .ddw-sessions/   = live session markers' \
-      '#   .ddw-work/       = scratch the pipeline writes and re-reads (the commit message)' \
-      '#   .ddw-journal.jsonl = transitions that landed; outlives the state file' \
-      '#   .ddw/**/__pycache__/ = bytecode from running the method'"'"'s own scripts' \
-      '.ddw-state.json' \
-      '.ddw-paused/' \
-      '.ddw-sessions/' \
-      '.ddw-work/' \
-      '.ddw-journal.jsonl' \
-      '.ddw/**/__pycache__/' \
-      '# END DDW'
+      '# BEGIN DAW — pipeline runtime, NOT committed (managed by DAW)' \
+      '#   .daw-state.json  = which phase you are in; yours, not the repo'"'"'s' \
+      '#   .daw-paused/     = paused tickets' \
+      '#   .daw-sessions/   = live session markers' \
+      '#   .daw-work/       = scratch the pipeline writes and re-reads (the commit message)' \
+      '#   .daw-journal.jsonl = transitions that landed; outlives the state file' \
+      '#   .daw/**/__pycache__/ = bytecode from running the method'"'"'s own scripts' \
+      '.daw-state.json' \
+      '.daw-paused/' \
+      '.daw-sessions/' \
+      '.daw-work/' \
+      '.daw-journal.jsonl' \
+      '.daw/**/__pycache__/' \
+      '# END DAW'
   } >> "$GITIGNORE"
-  if [ "${DDW_GITIGNORE_NOTE:-}" = "refreshed" ]; then
-    echo "  ✓ .gitignore             DDW block refreshed (the runtime it names has changed)"
+  if [ "${DAW_GITIGNORE_NOTE:-}" = "refreshed" ]; then
+    echo "  ✓ .gitignore             DAW block refreshed (the runtime it names has changed)"
   else
-    echo "  ✓ .gitignore             DDW block added (the state is never committed)"
+    echo "  ✓ .gitignore             DAW block added (the state is never committed)"
   fi
 fi
 
@@ -785,16 +795,16 @@ if [ -n "$COLLISIONS" ]; then
   echo
   echo "  ⚠ These already existed in the repo, so they were left alone (they are yours):"
   echo "${COLLISIONS#,}" | tr ',' '\n' | sed '/^$/d' | sort -u | sed 's/^/      /'
-  echo "    DDW ships its own version of those names. If you want DDW's,"
+  echo "    DAW ships its own version of those names. If you want DAW's,"
   echo "    rename yours and re-run the installer: it is idempotent."
 fi
 
 echo
 echo "$RULE"
 if [ -n "$INSTALLED" ]; then
-  echo "  DDW updated  ·  $TARGET"
+  echo "  DAW updated  ·  $TARGET"
 else
-  echo "  DDW installed  ·  $TARGET"
+  echo "  DAW installed  ·  $TARGET"
 fi
 echo "$RULE"
 echo
@@ -820,10 +830,10 @@ else
 
 NEXT_UPDATE
 fi
-# How to invoke DDW is printed per target above, by the adapter that knows: not
-# every tool exposes skills as /name, and this line used to promise /ddw-status
+# How to invoke DAW is printed per target above, by the adapter that knows: not
+# every tool exposes skills as /name, and this line used to promise /daw-status
 # to all six.
-echo "  The \"try:\" line above shows how to call DDW by hand in your tool."
+echo "  The \"try:\" line above shows how to call DAW by hand in your tool."
 echo
 
 # ── Offer to commit the installation ──────────────────────────────────────────
@@ -831,36 +841,36 @@ echo
 # An installation that is never committed is a bomb with a long fuse: the first
 # closeout's commit gate demands a clean tree, and the first ticket unlucky
 # enough to get there sweeps the WHOLE framework into its feature PR. Measured:
-# 68 files and 16,568 lines of DDW inside a pull request about a web form. The
+# 68 files and 16,568 lines of DAW inside a pull request about a web form. The
 # moment the user can still say no cheaply is now — so ask now, stage exactly
 # what the manifest says was written, and leave anything that was already dirty
 # before this run alone, with a warning naming it.
-DDW_IS_GIT=0
-git -C "$TARGET" rev-parse --is-inside-work-tree >/dev/null 2>&1 && DDW_IS_GIT=1
+DAW_IS_GIT=0
+git -C "$TARGET" rev-parse --is-inside-work-tree >/dev/null 2>&1 && DAW_IS_GIT=1
 # The warning that survives the commit landing: a commit the remote never got
 # rides into the first ticket's pull request. Round 5 proved it the expensive
 # way — the installation was committed on the LOCAL default branch, nobody
 # pushed it, and the ticket's PR showed 66 framework files to its reviewer.
-ddw_warn_unpushed() {
+daw_warn_unpushed() {
   echo "  ⚠ THIS COMMIT IS NOT ON YOUR REMOTE. YOU MUST GET IT ONTO YOUR DEFAULT"
   echo "    BRANCH — push it, or open and merge its PR — BEFORE THE FIRST TICKET"
   echo "    STARTS. A ticket branched off a base the remote does not have drags"
   echo "    every missing commit into its own pull request."
 }
-if [ "$DDW_IS_GIT" = 1 ] && { have_tty || [ -n "${DDW_GIT_FLOW:-}" ]; }; then
-  DDW_COMMIT_PATHS="$(python3 - "$TARGET" "$PREDIRTY" <<'PYPATHS'
+if [ "$DAW_IS_GIT" = 1 ] && { have_tty || [ -n "${DAW_GIT_FLOW:-}" ]; }; then
+  DAW_COMMIT_PATHS="$(python3 - "$TARGET" "$PREDIRTY" <<'PYPATHS'
 import json, os, subprocess, sys
 target, predirty = sys.argv[1], set(filter(None, sys.argv[2].split("\n")))
 paths = set()
-mp = os.path.join(target, ".ddw-installed.json")
+mp = os.path.join(target, ".daw-installed.json")
 if os.path.exists(mp):
     try:
         for key in json.load(open(mp, encoding="utf-8")):
             paths.add(key.split(":", 1)[1] if ":" in key else key)
     except ValueError:
         pass
-    paths.add(".ddw-installed.json")
-# The files DDW writes or edits OUTSIDE the manifest: the activation blocks,
+    paths.add(".daw-installed.json")
+# The files DAW writes or edits OUTSIDE the manifest: the activation blocks,
 # the gitignore block, and the settings the adapter merges rather than copies.
 for extra in ("AGENTS.md", "CLAUDE.md", "GEMINI.md", ".gitignore",
               ".claude/settings.json", "opencode.json"):
@@ -877,28 +887,28 @@ try:
     dirty = {ln[3:].strip().strip('"') for ln in out.stdout.splitlines() if len(ln) > 3}
 except Exception:
     dirty = set()
-# A manifest entry can be a DIRECTORY (`.claude/skills/ddw-commit`): what git
+# A manifest entry can be a DIRECTORY (`.claude/skills/daw-commit`): what git
 # reports dirty is the files beneath it, so the match is by prefix.
 print("\n".join(sorted(p for p in paths
                        if p in dirty or any(d.startswith(p + "/") for d in dirty))))
 PYPATHS
 )"
-  DDW_DID_COMMIT=0
-  # An update committed "install DDW v0.34.0": the log said the wrong thing about
+  DAW_DID_COMMIT=0
+  # An update committed "install DAW v0.34.0": the log said the wrong thing about
   # every refresh this script has ever made.
-  DDW_COMMIT_MSG="🔧 chore(ddw): install DDW v${VERSION:-?} (drop-in)"
-  [ -n "$INSTALLED" ] && DDW_COMMIT_MSG="🔧 chore(ddw): update DDW to v${VERSION:-?} (drop-in)"
-  if [ -n "$DDW_COMMIT_PATHS" ]; then
-    N_PATHS="$(printf '%s\n' "$DDW_COMMIT_PATHS" | sed '/^$/d' | wc -l | tr -d ' ')"
+  DAW_COMMIT_MSG="🔧 chore(daw): install DAW v${VERSION:-?} (drop-in)"
+  [ -n "$INSTALLED" ] && DAW_COMMIT_MSG="🔧 chore(daw): update DAW to v${VERSION:-?} (drop-in)"
+  if [ -n "$DAW_COMMIT_PATHS" ]; then
+    N_PATHS="$(printf '%s\n' "$DAW_COMMIT_PATHS" | sed '/^$/d' | wc -l | tr -d ' ')"
     if [ -n "$PREDIRTY" ]; then
       echo "  ⚠ Left out (they were already modified before this run — review them yourself):"
       printf '%s\n' "$PREDIRTY" | sed '/^$/d' | sed 's/^/      /'
     fi
-    if [ "$DDW_GIT_CHOICE" = "none" ]; then
+    if [ "$DAW_GIT_CHOICE" = "none" ]; then
       echo "  Files landed on $(git -C "$TARGET" rev-parse --abbrev-ref HEAD 2>/dev/null || echo '?'); nothing committed — your choice."
       echo "  Commit the $N_PATHS path(s) yourself before the first ticket closes, or its"
       echo "  PR will carry the framework."
-    elif [ "$DDW_GIT_CHOICE" = "setup" ] || [ "$DDW_GIT_CHOICE" = "current" ]; then
+    elif [ "$DAW_GIT_CHOICE" = "setup" ] || [ "$DAW_GIT_CHOICE" = "current" ]; then
       # The consent was given up front, with the destination named: the choice
       # WAS "installed and committed there". Asking again would be the second
       # signature on the same line.
@@ -906,13 +916,13 @@ PYPATHS
       while IFS= read -r p; do
         [ -z "$p" ] && continue
         git -C "$TARGET" add -- "$p" || ADDED=0
-      done <<EOF_DDW_PATHS
-$DDW_COMMIT_PATHS
-EOF_DDW_PATHS
+      done <<EOF_DAW_PATHS
+$DAW_COMMIT_PATHS
+EOF_DAW_PATHS
       if [ "$ADDED" = 1 ] \
-         && git -C "$TARGET" commit -q -m "$DDW_COMMIT_MSG"; then
-        echo "  ✓ ${DDW_LANDS} committed on $(git -C "$TARGET" rev-parse --abbrev-ref HEAD 2>/dev/null || echo '?'): $N_PATHS path(s) ($(git -C "$TARGET" rev-parse --short HEAD))"
-        DDW_DID_COMMIT=1
+         && git -C "$TARGET" commit -q -m "$DAW_COMMIT_MSG"; then
+        echo "  ✓ ${DAW_LANDS} committed on $(git -C "$TARGET" rev-parse --abbrev-ref HEAD 2>/dev/null || echo '?'): $N_PATHS path(s) ($(git -C "$TARGET" rev-parse --short HEAD))"
+        DAW_DID_COMMIT=1
       else
         echo "  ⚠ The commit did not land (a signing prompt, a hook?). The paths are"
         echo "    staged; commit them yourself before the first ticket closes."
@@ -931,11 +941,11 @@ EOF_DDW_PATHS
           while IFS= read -r p; do
             [ -z "$p" ] && continue
             git -C "$TARGET" add -- "$p" || ADDED=0
-          done <<EOF_DDW_PATHS2
-$DDW_COMMIT_PATHS
-EOF_DDW_PATHS2
+          done <<EOF_DAW_PATHS2
+$DAW_COMMIT_PATHS
+EOF_DAW_PATHS2
           if [ "$ADDED" = 1 ] \
-             && git -C "$TARGET" commit -q -m "$DDW_COMMIT_MSG"; then
+             && git -C "$TARGET" commit -q -m "$DAW_COMMIT_MSG"; then
             # The branch, and the warning that goes with it. This path — the
             # standing offer, taken when the question above was never asked —
             # printed a bare sha: it never said WHERE the commit landed and
@@ -943,7 +953,7 @@ EOF_DDW_PATHS2
             # A commit the remote does not have drags every missing commit into
             # the first ticket's pull request.
             echo "  ✓ Committed on $(git -C "$TARGET" rev-parse --abbrev-ref HEAD 2>/dev/null || echo '?'): $N_PATHS path(s) ($(git -C "$TARGET" rev-parse --short HEAD))"
-            ddw_warn_unpushed
+            daw_warn_unpushed
           else
             echo "  ⚠ The commit did not land (a signing prompt, a hook?). The paths are"
             echo "    staged; commit them yourself before the first ticket closes."
@@ -951,7 +961,7 @@ EOF_DDW_PATHS2
       esac
     fi
     echo
-  elif [ "$DDW_GIT_CHOICE" = "setup" ] && [ -n "$DDW_SETUP_BRANCH" ] && [ -n "$CURBRANCH" ]; then
+  elif [ "$DAW_GIT_CHOICE" = "setup" ] && [ -n "$DAW_SETUP_BRANCH" ] && [ -n "$CURBRANCH" ]; then
     # Nothing was written — a refresh onto the version already there. Without
     # this you are left standing on a branch that was created for a commit that
     # never happened, off the branch you were working on, and the reason is
@@ -959,79 +969,79 @@ EOF_DDW_PATHS2
     # without `-D` refuses to throw away anything that is not merged, so a
     # commit that did land can never be lost here.
     if git -C "$TARGET" checkout -q "$CURBRANCH" 2>/dev/null; then
-      git -C "$TARGET" branch -q --delete "$DDW_SETUP_BRANCH" >/dev/null 2>&1
+      git -C "$TARGET" branch -q --delete "$DAW_SETUP_BRANCH" >/dev/null 2>&1
       echo "  Nothing changed — you already had this version. Back on $CURBRANCH."
       echo
     fi
   fi
-  if [ "$DDW_GIT_CHOICE" = "setup" ] && [ "$DDW_DID_COMMIT" = 1 ]; then
-    PUSHOPT="${DDW_GIT_PUSH:-}"
+  if [ "$DAW_GIT_CHOICE" = "setup" ] && [ "$DAW_DID_COMMIT" = 1 ]; then
+    PUSHOPT="${DAW_GIT_PUSH:-}"
     if [ -z "$PUSHOPT" ]; then
       # Not "a draft PR". `gh pr create` below passes no --draft, and it must
       # not: a draft is one nobody can approve or merge, and the very next thing
       # this prints is that you have to merge it before the first ticket.
-      printf "  Push %s and open a PR? [y/N] " "$DDW_SETUP_BRANCH"
+      printf "  Push %s and open a PR? [y/N] " "$DAW_SETUP_BRANCH"
       { read -r PUSHOPT < /dev/tty; } 2>/dev/null || PUSHOPT=n
     fi
     case "$PUSHOPT" in
       y|Y|yes|YES)
-        if git -C "$TARGET" push -q -u origin "$DDW_SETUP_BRANCH" 2>/dev/null; then
+        if git -C "$TARGET" push -q -u origin "$DAW_SETUP_BRANCH" 2>/dev/null; then
           if (cd "$TARGET" && gh pr create \
-                --title "🔧 Install DDW v${VERSION:-?}" \
-                --body "Drop-in installation of DDW v${VERSION:-?}: the method under .ddw/, the agent wiring, and the activation blocks. Committed by the installer, exactly the paths its manifest names." \
+                --title "🔧 Install DAW v${VERSION:-?}" \
+                --body "Drop-in installation of DAW v${VERSION:-?}: the method under .daw/, the agent wiring, and the activation blocks. Committed by the installer, exactly the paths its manifest names." \
                 >/dev/null 2>&1); then
             echo "  ✓ Pushed and PR opened. Merge that PR into your default branch BEFORE"
             echo "    the first ticket starts — a ticket branched off a base without it"
             echo "    drags the framework into its own pull request."
           else
             echo "  ✓ Pushed. The PR could not be opened (no gh? not authenticated?) —"
-            echo "    open it yourself from $DDW_SETUP_BRANCH and merge it before the"
+            echo "    open it yourself from $DAW_SETUP_BRANCH and merge it before the"
             echo "    first ticket starts."
           fi
         else
           echo "  ⚠ Push failed (no remote? no permission?). The branch stays local:"
-          echo "    git checkout $CURBRANCH && git merge $DDW_SETUP_BRANCH"
-          ddw_warn_unpushed
+          echo "    git checkout $CURBRANCH && git merge $DAW_SETUP_BRANCH"
+          daw_warn_unpushed
         fi ;;
       *)
         echo "  The branch stays local. Merge it when you like:"
-        echo "    git checkout $CURBRANCH && git merge $DDW_SETUP_BRANCH"
-        ddw_warn_unpushed ;;
+        echo "    git checkout $CURBRANCH && git merge $DAW_SETUP_BRANCH"
+        daw_warn_unpushed ;;
     esac
     echo
   fi
-  if [ "$DDW_GIT_CHOICE" = "current" ] && [ "$DDW_DID_COMMIT" = 1 ]; then
+  if [ "$DAW_GIT_CHOICE" = "current" ] && [ "$DAW_DID_COMMIT" = 1 ]; then
     if git -C "$TARGET" remote get-url origin >/dev/null 2>&1; then
-      DDW_CURB="$(git -C "$TARGET" rev-parse --abbrev-ref HEAD 2>/dev/null || echo '?')"
-      PUSHOPT="${DDW_GIT_PUSH:-}"
+      DAW_CURB="$(git -C "$TARGET" rev-parse --abbrev-ref HEAD 2>/dev/null || echo '?')"
+      PUSHOPT="${DAW_GIT_PUSH:-}"
       if [ -z "$PUSHOPT" ]; then
-        printf "  Push %s to origin now? [y/N] " "$DDW_CURB"
+        printf "  Push %s to origin now? [y/N] " "$DAW_CURB"
         { read -r PUSHOPT < /dev/tty; } 2>/dev/null || PUSHOPT=n
       fi
       case "$PUSHOPT" in
         y|Y|yes|YES)
-          if git -C "$TARGET" push -q origin "$DDW_CURB" 2>/dev/null; then
-            echo "  ✓ Pushed: origin/$DDW_CURB now carries the installation."
+          if git -C "$TARGET" push -q origin "$DAW_CURB" 2>/dev/null; then
+            echo "  ✓ Pushed: origin/$DAW_CURB now carries the installation."
           else
             echo "  ⚠ Push failed (no permission? branch protection?)."
-            ddw_warn_unpushed
+            daw_warn_unpushed
           fi ;;
-        *) ddw_warn_unpushed ;;
+        *) daw_warn_unpushed ;;
       esac
       echo
     fi
   fi
-elif [ "$DDW_IS_GIT" = 1 ]; then
+elif [ "$DAW_IS_GIT" = 1 ]; then
   echo "  Note: this repo is git-tracked and the installation is not committed."
   echo "  Commit it before the first ticket closes, or that ticket's PR will carry it."
   echo
 else
-  # Not validated away on purpose: DDW installs fine into a bare directory,
+  # Not validated away on purpose: DAW installs fine into a bare directory,
   # but its pipeline branches, commits and opens pull requests — the first
   # ticket dies at CLASSIFY creating a branch that has nowhere to exist.
   # Installing silently and letting that happen two steps later would blame
   # the pipeline for the installer's silence.
-  echo "  ⚠ This directory is not a git repository. DDW's pipeline branches, commits"
+  echo "  ⚠ This directory is not a git repository. DAW's pipeline branches, commits"
   echo "    and opens pull requests — run \`git init\` (and make a first commit) before"
   echo "    the first ticket, or it will fail at CLASSIFY creating its branch."
   echo

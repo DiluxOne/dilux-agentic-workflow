@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# uninstall.sh — take DDW back out of a repo.
+# uninstall.sh — take DAW back out of a repo.
 #
 #   bash uninstall.sh [/path/to/repo] [--plan] [--force] [--yes]
 #
-# Removes the method (.ddw/), the runtime (.ddw-state.json, .ddw-paused/,
-# .ddw-sessions/, .ddw-work/), each installed tool's wiring, and the DDW block
+# Removes the method (.daw/), the runtime (.daw-state.json, .daw-paused/,
+# .daw-sessions/, .daw-work/), each installed tool's wiring, and the DAW block
 # from the context files and .gitignore.
 #
 # It does NOT remove docs/. The PRDs, specs, threat models and verification
@@ -12,7 +12,7 @@
 # not a reason to lose them.
 #
 # It does NOT remove files you have edited since installing, unless --force.
-# What is DDW's is known from .ddw-installed.json, not guessed from directory
+# What is DAW's is known from .daw-installed.json, not guessed from directory
 # names: `.claude/` is Claude Code's directory, and your own skills live there
 # too.
 #
@@ -34,14 +34,26 @@ while [ $# -gt 0 ]; do
 done
 
 TARGET="$(cd "${TARGET_DIR:-$PWD}" && pwd)"
-[ "$TARGET" = "$SELF" ] && { echo "That is the DDW repo itself, not a repo DDW is installed into." >&2; exit 1; }
+[ "$TARGET" = "$SELF" ] && { echo "That is the DAW repo itself, not a repo DAW is installed into." >&2; exit 1; }
 
-if [ ! -d "$TARGET/.ddw" ] && [ ! -f "$TARGET/.ddw-installed.json" ]; then
-  echo "DDW does not appear to be installed in $TARGET (no .ddw/ and no manifest)."
+# Installed under the product's former name: it moves to DAW's names first
+# (daw/scripts/migrate_legacy.py), so what follows finds and removes it. Not
+# under --plan, which changes nothing: the plan then says so.
+if python3 -c 'import sys; sys.path.insert(0, sys.argv[1]); import migrate_legacy; sys.exit(0 if migrate_legacy.legacy_present(sys.argv[2]) else 1)' \
+     "$SELF/daw/scripts" "$TARGET" 2>/dev/null; then
+  if [ -n "$PLAN" ]; then
+    echo "This project is installed under DAW's former name. Without --plan it is moved to DAW's names first, then uninstalled."
+    exit 0
+  fi
+  python3 "$SELF/daw/scripts/migrate_legacy.py" --repo "$TARGET" || exit 1
+fi
+
+if [ ! -d "$TARGET/.daw" ] && [ ! -f "$TARGET/.daw-installed.json" ]; then
+  echo "DAW does not appear to be installed in $TARGET (no .daw/ and no manifest)."
   exit 0
 fi
 
-echo "DDW → uninstalling from: $TARGET"
+echo "DAW → uninstalling from: $TARGET"
 
 # Show the plan first, always. This deletes files, and the one thing worse than
 # an uninstaller is one that acts before you have read what it is about to do.
@@ -58,18 +70,18 @@ if [ -z "$PLAN" ]; then
     esac
   fi
   HAD_COPILOT=""
-  [ -d "$TARGET/.github/hooks/ddw" ] && HAD_COPILOT=1
+  [ -d "$TARGET/.github/hooks/daw" ] && HAD_COPILOT=1
   python3 "$SELF/scripts/uninstall_repo.py" --repo "$TARGET" --self "$SELF" $FORCE >/dev/null
   # Copilot's hooks are wired once per MACHINE, not per repo, because a
   # repo-level manifest is not read in `copilot -p`. So this uninstall does not
   # remove them: the same file is what gates every other repo here. It is inert
-  # where DDW is gone — the wiring runs the repo's own hook only `if [ -f ]` —
+  # where DAW is gone — the wiring runs the repo's own hook only `if [ -f ]` —
   # but the user is the one who knows whether this was the last repo.
-  [ -n "$HAD_COPILOT" ] && [ -f "$HOME/.copilot/hooks/ddw.json" ] && {
+  [ -n "$HAD_COPILOT" ] && [ -f "$HOME/.copilot/hooks/daw.json" ] && {
     echo
     echo "  Copilot's gates are wired at user level and were left in place:"
-    echo "    ~/.copilot/hooks/ddw.json"
-    echo "  They do nothing in a repo without DDW. If this was the last one,"
+    echo "    ~/.copilot/hooks/daw.json"
+    echo "  They do nothing in a repo without DAW. If this was the last one,"
     echo "  remove that file."
   }
   echo

@@ -6,7 +6,7 @@
   "docs": "https://cursor.com/docs/hooks",
   "skills": {
     "dir": ".cursor/skills",
-    "note": "Cursor's own location. It also reads .agents/skills and other tools' directories for compatibility, but DDW installs into the tool's native path."
+    "note": "Cursor's own location. It also reads .agents/skills and other tools' directories for compatibility, but DAW installs into the tool's native path."
   },
   "agents": {
     "dir": ".cursor/agents",
@@ -23,7 +23,7 @@
   "wiring": [
     {
       "from": "hooks",
-      "to": ".cursor/hooks/ddw",
+      "to": ".cursor/hooks/daw",
       "chmod": "+x"
     }
   ],

@@ -7,7 +7,7 @@ import subprocess
 import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-SCRIPT = os.path.join(ROOT, "ddw/scripts/family_catalog.py")
+SCRIPT = os.path.join(ROOT, "daw/scripts/family_catalog.py")
 
 spec = importlib.util.spec_from_file_location("fc", SCRIPT)
 fc = importlib.util.module_from_spec(spec)
@@ -84,7 +84,7 @@ def test_deriva_y_es_idempotente(tmp_path):
     ws = _family(tmp_path)
     r = _run(ws, "--local", str(tmp_path), "--repos", "ws,alpha,beta,otro")
     assert r.returncode == 0, r.stderr
-    cat = open(os.path.join(ws, "docs/ddw/family-catalog.md"), encoding="utf-8").read()
+    cat = open(os.path.join(ws, "docs/daw/family-catalog.md"), encoding="utf-8").read()
     assert "| alpha |" in cat and "| beta |" in cat and "| otro |" not in cat, \
         "membership is self-declared: the outsider joined, or a member is missing"
     r2 = _run(ws, "--local", str(tmp_path), "--repos", "ws,alpha,beta,otro")
@@ -109,7 +109,7 @@ def test_una_baja_queda_anotada_no_silenciosa(tmp_path):
     b = tmp_path / "beta" / "AGENTS.md"
     b.write_text("# beta se fue de la familia\n", encoding="utf-8")
     _run(ws, "--local", str(tmp_path), "--repos", "ws,alpha,beta")
-    cat = open(os.path.join(ws, "docs/ddw/family-catalog.md"), encoding="utf-8").read()
+    cat = open(os.path.join(ws, "docs/daw/family-catalog.md"), encoding="utf-8").read()
     assert "~~beta~~" in cat and "no longer declares" in cat, \
         "a departure vanished silently instead of being annotated"
 
@@ -117,7 +117,7 @@ def test_una_baja_queda_anotada_no_silenciosa(tmp_path):
 def test_lo_de_afuera_de_los_markers_es_del_usuario(tmp_path):
     ws = _family(tmp_path)
     _run(ws, "--local", str(tmp_path), "--repos", "ws,alpha,beta")
-    p = os.path.join(ws, "docs/ddw/family-catalog.md")
+    p = os.path.join(ws, "docs/daw/family-catalog.md")
     text = open(p, encoding="utf-8").read()
     open(p, "w", encoding="utf-8").write("MI NOTA ARRIBA\n" + text + "\nMI NOTA ABAJO\n")
     a = tmp_path / "alpha" / "AGENTS.md"
@@ -130,7 +130,7 @@ def test_lo_de_afuera_de_los_markers_es_del_usuario(tmp_path):
 
 def _git_family(tmp_path):
     ws = _family(tmp_path)
-    (tmp_path / "ws" / "ddw-family.md").write_text(
+    (tmp_path / "ws" / "daw-family.md").write_text(
         "# Familia\n\n| Repo | Qué hace | Expone | Consumed by | Consume |\n"
         "|---|---|---|---|---|\n"
         "| alpha | api | REST /v1 | beta | none |\n"
@@ -309,7 +309,7 @@ def test_dos_familias_no_se_mezclan(tmp_path):
 def test_consume_no_se_lee_de_la_columna_consumed_by(tmp_path):
     # Consumed-by comes BEFORE Consume in the authored table: a substring
     # header match read Consumes from the wrong cell every time.
-    (tmp_path / "ddw-family.md").write_text(
+    (tmp_path / "daw-family.md").write_text(
         "# Familia\n\n| Repo | Qué hace | Consumed by | Consume |\n"
         "|---|---|---|---|\n"
         "| alpha | api | beta | gamma |\n", encoding="utf-8")
@@ -333,7 +333,7 @@ def test_sin_agents_md_es_standalone_no_caida(tmp_path):
 
 
 def test_bootstrap_write_publica_la_semilla_sin_el_workspace(tmp_path):
-    # --write end to end against a REAL local bare: the seed ddw-family.md
+    # --write end to end against a REAL local bare: the seed daw-family.md
     # lands on a branch at the workspace's origin, WITHOUT the workspace as
     # its own row, and the PR is asked of the forge.
     import base64
@@ -373,7 +373,7 @@ sys.exit(1)
     assert r.returncode == 0, r.stdout + r.stderr
     assert "PR #3" in r.stdout and "--repo acme/ws" in r.stdout, r.stdout
     show = subprocess.run(["git", "-C", str(bare), "show",
-                           "chore/ddw-family-bootstrap:ddw-family.md"],
+                           "chore/daw-family-bootstrap:daw-family.md"],
                           capture_output=True, text=True).stdout
     assert "| api |" in show and "| web |" in show, show
     assert "| ws |" not in show, \
@@ -502,9 +502,9 @@ def _store(tmp_path, rows, fichas):
     d = tmp_path / "store"
     (d / "fichas").mkdir(parents=True, exist_ok=True)
     (d / "renglones.md").write_text(
-        "# Renglones\n\n<!-- BEGIN DDW ROWS -->\n"
+        "# Renglones\n\n<!-- BEGIN DAW ROWS -->\n"
         "| Repo | SHA | Renglón |\n|---|---|---|\n" + "".join(rows) +
-        "<!-- END DDW ROWS -->\n", encoding="utf-8")
+        "<!-- END DAW ROWS -->\n", encoding="utf-8")
     for name, body in fichas.items():
         (d / "fichas" / (name + ".md")).write_text(body, encoding="utf-8")
     return str(d)
@@ -517,10 +517,10 @@ def _facts(tmp_path, repos):
 
 
 def _ficha(repo, sha, claims):
-    return ("# %s\n\n<!-- BEGIN DDW FICHA --><!-- repo: %s · sha: %s -->\n"
+    return ("# %s\n\n<!-- BEGIN DAW FICHA --><!-- repo: %s · sha: %s -->\n"
             "| Afirmación | Archivo |\n|---|---|\n" % (repo, repo, sha) +
             "".join("| %s | %s |\n" % (c, p) for c, p in claims) +
-            "<!-- END DDW FICHA -->\n")
+            "<!-- END DAW FICHA -->\n")
 
 
 ALPHA = {"name": "alpha", "slug": "acme/alpha", "sha": "89abcde",

@@ -32,8 +32,8 @@ expect:
 control:
   type: substitute
   edits:
-    - path: ddw/orchestrator.md
-      installed_path: .ddw/orchestrator.md
+    - path: daw/orchestrator.md
+      installed_path: .daw/orchestrator.md
       old: |-
         extract `phase`, `tier`, `ticket`,
            `title`, `tracker`, `autonomy`, `block`, `discovery`. **`autonomy` absent or null means

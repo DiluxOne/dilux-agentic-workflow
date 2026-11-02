@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Check the method's prose against the method's data.
 
-DDW's product is mostly prompts. That makes a whole class of defect invisible to
+DAW's product is mostly prompts. That makes a whole class of defect invisible to
 ordinary testing: a rule cites a validation ID that no longer exists, a phase
 promises an artifact nothing writes, a skill names a gate the graph never
 carries, two files state different counts of the same thing. Nothing crashes.
@@ -53,7 +53,7 @@ def rel(root, path):
 
 
 def load_graph(root):
-    with open(os.path.join(root, "ddw/rules/transition-graph.json"), encoding="utf-8") as fh:
+    with open(os.path.join(root, "daw/rules/transition-graph.json"), encoding="utf-8") as fh:
         return json.load(fh)
 
 
@@ -92,7 +92,7 @@ def check_gate_names(root, graph):
     that nothing enforces, and the model dutifully tries to set it.
     """
     gates = known_gates(graph)
-    scan = (glob.glob(os.path.join(root, "ddw/**/*.md"), recursive=True)
+    scan = (glob.glob(os.path.join(root, "daw/**/*.md"), recursive=True)
             + glob.glob(os.path.join(root, "adapters/**/*.md"), recursive=True))
     for path in sorted(scan):
         text = read(path)
@@ -111,7 +111,7 @@ def check_rule_ids(root):
     A cited rule that does not exist is an instruction the model cannot follow;
     a catalogued rule nobody cites is a rule that never runs.
     """
-    catalog_path = os.path.join(root, "ddw/rules/validation-rules.instructions.md")
+    catalog_path = os.path.join(root, "daw/rules/validation-rules.instructions.md")
     catalog_text = read(catalog_path)
     pattern = re.compile(r"\b([FW]-[A-Z]+-[A-Z0-9]{2,})\b")
     defined = set(pattern.findall(catalog_text))
@@ -120,7 +120,7 @@ def check_rule_ids(root):
         return
 
     cited = {}
-    for path in sorted(glob.glob(os.path.join(root, "ddw/**/*.md"), recursive=True)):
+    for path in sorted(glob.glob(os.path.join(root, "daw/**/*.md"), recursive=True)):
         if os.path.samefile(path, catalog_path):
             continue
         text = read(path)
@@ -150,19 +150,19 @@ def check_rule_ids(root):
 def method_prose(root):
     """Every file of the method a reader or a model is instructed BY.
 
-    `ddw/**` alone was the scan set, which left out `skills/*/SKILL.md` and
+    `daw/**` alone was the scan set, which left out `skills/*/SKILL.md` and
     `agents/*.md` — the two places that name skills and subagents most, and
     therefore the two most able to name one that does not exist. A linter that
     checks the documents least likely to be wrong is a linter with a green light
     and no beam.
     """
-    return (sorted(glob.glob(os.path.join(root, "ddw/**/*.md"), recursive=True))
+    return (sorted(glob.glob(os.path.join(root, "daw/**/*.md"), recursive=True))
             + sorted(glob.glob(os.path.join(root, "skills/*/SKILL.md")))
             + sorted(glob.glob(os.path.join(root, "agents/*.md"))))
 
 
 def check_paths(root):
-    """A `docs/ddw/...` path in one file must match the rest.
+    """A `docs/daw/...` path in one file must match the rest.
 
     Artifact paths moved once and left citations behind in six places. They are
     derived paths, so nothing breaks loudly — the model just writes the artifact
@@ -170,11 +170,11 @@ def check_paths(root):
     """
     for path in method_prose(root):
         text = read(path)
-        for m in re.finditer(r"docs/(?!ddw/|adr/)([a-z]+)/[A-Za-z0-9{}_./-]+\.[a-z]+", text):
+        for m in re.finditer(r"docs/(?!daw/|adr/)([a-z]+)/[A-Za-z0-9{}_./-]+\.[a-z]+", text):
             line = text[:m.start()].count("\n") + 1
             fail(f"{rel(root, path)}:{line}",
-                 f"writes to `docs/{m.group(1)}/`, outside the `docs/ddw/` namespace. "
-                 "Everything the pipeline produces lives under docs/ddw/ (docs/adr/ excepted, "
+                 f"writes to `docs/{m.group(1)}/`, outside the `docs/daw/` namespace. "
+                 "Everything the pipeline produces lives under docs/daw/ (docs/adr/ excepted, "
                  "deliberately).")
     return None
 
@@ -205,12 +205,12 @@ def check_skill_and_agent_refs(root):
             if m.group(1) not in agents:
                 line = text[:m.start()].count("\n") + 1
                 fail(f"{rel(root, path)}:{line}", f"spawns agent {m.group(1)!r}, which does not exist")
-        for m in re.finditer(r"\.ddw/(rules|scripts)/([A-Za-z0-9_-]+(?:\.[a-z]+)+)", text):
-            target = os.path.join(root, "ddw", m.group(1), m.group(2))
+        for m in re.finditer(r"\.daw/(rules|scripts)/([A-Za-z0-9_-]+(?:\.[a-z]+)+)", text):
+            target = os.path.join(root, "daw", m.group(1), m.group(2))
             if not os.path.exists(target):
                 line = text[:m.start()].count("\n") + 1
                 fail(f"{rel(root, path)}:{line}",
-                     f"points at `.ddw/{m.group(1)}/{m.group(2)}`, which does not exist")
+                     f"points at `.daw/{m.group(1)}/{m.group(2)}`, which does not exist")
 
 
 def check_counts(root):
@@ -221,7 +221,7 @@ def check_counts(root):
     """
     n_skills = len([d for d in glob.glob(os.path.join(root, "skills/*")) if os.path.isdir(d)])
     n_agents = len(glob.glob(os.path.join(root, "agents/*.md")))
-    n_rules = len(glob.glob(os.path.join(root, "ddw/rules/*.instructions.md")))
+    n_rules = len(glob.glob(os.path.join(root, "daw/rules/*.instructions.md")))
     words = {1: "one", 2: "two", 3: "three", 4: "four", 5: "five", 6: "six", 7: "seven",
              8: "eight", 9: "nine", 10: "ten", 11: "eleven", 12: "twelve", 13: "thirteen",
              14: "fourteen", 15: "fifteen", 16: "sixteen", 17: "seventeen", 18: "eighteen",
@@ -229,9 +229,9 @@ def check_counts(root):
 
     # Every markdown that states a total, not just the method's own. Two counts
     # went stale in CHANGELOG.md and adapters/adapter.schema.md while this
-    # scanned ddw/ and README.md alone — and a stale count in a file a reader
+    # scanned daw/ and README.md alone — and a stale count in a file a reader
     # trusts is the same defect wherever it lives.
-    scan = (glob.glob(os.path.join(root, "ddw/**/*.md"), recursive=True)
+    scan = (glob.glob(os.path.join(root, "daw/**/*.md"), recursive=True)
             + glob.glob(os.path.join(root, "adapters/**/*.md"), recursive=True)
             + glob.glob(os.path.join(root, "docs/*.md"))
             + [os.path.join(root, f) for f in ("README.md", "CHANGELOG.md", "CONTRIBUTING.md")])
@@ -296,13 +296,13 @@ def check_history_stamp(root):
     A schema that promises what no instruction asks for is a schema describing a
     file nobody writes.
     """
-    # `ddw/orchestrator.md` too, and not for completeness: it is the file the
+    # `daw/orchestrator.md` too, and not for completeness: it is the file the
     # router loads on every turn, so a history instruction written there
     # arrives before any of the phase ones. The sweep read only
-    # `ddw/rules/*.instructions.md`, so the method's most-read half sat outside
+    # `daw/rules/*.instructions.md`, so the method's most-read half sat outside
     # the check that exists so entries come out stamped.
-    _corpus = (sorted(glob.glob(os.path.join(root, "ddw/rules/*.instructions.md")))
-               + [os.path.join(root, "ddw/orchestrator.md")])
+    _corpus = (sorted(glob.glob(os.path.join(root, "daw/rules/*.instructions.md")))
+               + [os.path.join(root, "daw/orchestrator.md")])
     for path in _corpus:
         if not os.path.exists(path):
             continue
@@ -355,7 +355,7 @@ def check_boot_reads_every_state_field(root):
     """What the boot re-reads from the state has to be everything the schema
     promises is there.
 
-    A new turn, or a compaction, rebuilds the session from `.ddw-state.json` —
+    A new turn, or a compaction, rebuilds the session from `.daw-state.json` —
     and only from the fields the Boot Sequence names. A field not named there
     does not exist for the next turn: `autonomy` was added to the schema and
     left out of that list, so **every compaction forgot the mode** and the
@@ -366,22 +366,22 @@ def check_boot_reads_every_state_field(root):
     second thing that falls behind, which is exactly the defect this check
     exists to catch.
     """
-    schema = os.path.join(root, "ddw/rules/state.instructions.md")
-    orch = os.path.join(root, "ddw/orchestrator.md")
+    schema = os.path.join(root, "daw/rules/state.instructions.md")
+    orch = os.path.join(root, "daw/orchestrator.md")
     if not (os.path.exists(schema) and os.path.exists(orch)):
         return
     fields = [m.group(1) for m in re.finditer(r"^\|\s*`(\w+)`\s*\|", read(schema), re.M)]
     if not fields:
-        fail("ddw/rules/state.instructions.md",
+        fail("daw/rules/state.instructions.md",
              "no state field could be read out of the schema table, so the check below "
              "compared the boot against nothing")
         return
     text = read(orch)
-    m = re.search(r"^1\. Read `\.ddw-state\.json`.*?(?=^\s*\d+\.\s)", text, re.M | re.S)
+    m = re.search(r"^1\. Read `\.daw-state\.json`.*?(?=^\s*\d+\.\s)", text, re.M | re.S)
     boot = m.group(0) if m else ""
     if not boot:
-        fail("ddw/orchestrator.md",
-             "the Boot Sequence no longer starts by reading `.ddw-state.json` — nothing says "
+        fail("daw/orchestrator.md",
+             "the Boot Sequence no longer starts by reading `.daw-state.json` — nothing says "
              "what a new turn recovers")
         return
     # `gates`, `history` and `discovery` are read by the hook itself, not by
@@ -390,7 +390,7 @@ def check_boot_reads_every_state_field(root):
     header = [f for f in fields if f not in ("gates", "history", "discovery")]
     missing = [f for f in header if "`%s`" % f not in boot]
     if missing:
-        fail("ddw/orchestrator.md",
+        fail("daw/orchestrator.md",
              "the Boot Sequence does not recover %s from the state — a field it does not name "
              "does not survive a compaction, and the run carries on as if it had never been set"
              % ", ".join("`%s`" % f for f in missing))
@@ -448,7 +448,7 @@ def check_context_reaches_agents(root):
             continue                      # the block is inside AGENTS.md already
         adapter_dir = os.path.dirname(recipe_path)
         snippet = (os.path.join(adapter_dir, recipe["snippet"]) if "snippet" in recipe
-                   else os.path.join(root, "ddw", "activation.snippet.md"))
+                   else os.path.join(root, "daw", "activation.snippet.md"))
         body = read(snippet) if os.path.exists(snippet) else ""
         if "AGENTS.md" not in body:
             fail(rel(root, snippet),
@@ -458,7 +458,7 @@ def check_context_reaches_agents(root):
 
 
 def check_template_sections_known(root):
-    """Every section the context TEMPLATE ships is one `ddw-context-check` looks for.
+    """Every section the context TEMPLATE ships is one `daw-context-check` looks for.
 
     `check_context_headings` walks one direction — a heading the method cites has
     to be one the skill knows about. This is the other, and it was open: the
@@ -469,18 +469,18 @@ def check_template_sections_known(root):
     method telling every project to quote a heading its own installer does not
     create.
     """
-    tpl = os.path.join(root, "ddw/AGENTS.template.md")
-    skill = os.path.join(root, "skills/ddw-context-check/SKILL.md")
+    tpl = os.path.join(root, "daw/AGENTS.template.md")
+    skill = os.path.join(root, "skills/daw-context-check/SKILL.md")
     if not (os.path.exists(tpl) and os.path.exists(skill)):
         return
     known = read(skill)
     for m in re.finditer(r"^##\s+(.+?)\s*$", read(tpl), re.M):
         heading = m.group(1).strip()
         if heading.lower() in ("language",):
-            continue                      # the template's own instructions, not a section DDW reads
+            continue                      # the template's own instructions, not a section DAW reads
         if heading not in known:
-            fail("ddw/AGENTS.template.md",
-                 f"ships a `## {heading}` section that ddw-context-check never looks for — a "
+            fail("daw/AGENTS.template.md",
+                 f"ships a `## {heading}` section that daw-context-check never looks for — a "
                  "repository missing it is reported as complete")
 
 
@@ -491,26 +491,26 @@ def check_context_headings(root):
     heading the method looks up by name is only there if it happened to be in
     the template the day that repo was installed. Two ordinary situations leave
     it absent — the repo already had its own AGENTS.md, or a later version of
-    DDW started reading a new section — and in both the lookup finds nothing and
+    DAW started reading a new section — and in both the lookup finds nothing and
     says nothing.
 
-    `ddw-context-check` is what reports them, so this is the link that keeps it
+    `daw-context-check` is what reports them, so this is the link that keeps it
     current: cite a new section in a rule and forget to teach the skill about
     it, and the check that would have caught its absence never learns to look.
     """
-    skill = os.path.join(root, "skills/ddw-context-check/SKILL.md")
+    skill = os.path.join(root, "skills/daw-context-check/SKILL.md")
     if not os.path.exists(skill):
-        fail("skills/ddw-context-check/SKILL.md",
+        fail("skills/daw-context-check/SKILL.md",
              "does not exist, so nothing reports a context file missing what the method reads")
         return
     known = read(skill)
 
-    # The SKILLS too, not just `ddw/**`. The two that ask for a coverage floor
+    # The SKILLS too, not just `daw/**`. The two that ask for a coverage floor
     # cite `AGENTS.md, "Testing"` in the document they teach how to write, and
-    # with the corpus limited to `ddw/` that citation was never seen:
+    # with the corpus limited to `daw/` that citation was never seen:
     # `## Testing` could be deleted from the template and the lint stayed
     # green. It is exactly what 87ae703 fixed, and nothing was holding it up.
-    corpus = sorted(glob.glob(os.path.join(root, "ddw/**/*.md"), recursive=True)
+    corpus = sorted(glob.glob(os.path.join(root, "daw/**/*.md"), recursive=True)
                     + glob.glob(os.path.join(root, "skills/*/SKILL.md")))
     cited = {}
     for path in corpus:
@@ -531,20 +531,20 @@ def check_context_headings(root):
                 if name:
                     cited.setdefault(name, f"{rel(root, path)}:{i}")
 
-    template = os.path.join(root, "ddw/AGENTS.template.md")
+    template = os.path.join(root, "daw/AGENTS.template.md")
     shipped = read(template) if os.path.exists(template) else ""
     for name, where in sorted(cited.items()):
         if f"## {name}" not in known:
             fail(where,
-                 f"reads the {name!r} section of AGENTS.md, but ddw-context-check does not list "
+                 f"reads the {name!r} section of AGENTS.md, but daw-context-check does not list "
                  "it — nothing will notice when a repo's context file has no such heading")
         # …and that the template CARRIES it. That the reporter knows how to
         # look for it does not put it in the file: without this, the method
         # tells every project to cite a heading its own installer never writes.
         if shipped and f"## {name}" not in shipped:
             fail(where,
-                 f"reads the {name!r} section of AGENTS.md and ddw/AGENTS.template.md ships no "
-                 f"such heading — every repo DDW installs is told to quote a section its own "
+                 f"reads the {name!r} section of AGENTS.md and daw/AGENTS.template.md ships no "
+                 f"such heading — every repo DAW installs is told to quote a section its own "
                  f"installer never wrote")
 
 
@@ -588,7 +588,7 @@ def check_rule_ranges(root):
     """
     last = _catalog_last(root)
 
-    # `ddw/**` alone left out the skills, which is where most of these ranges
+    # `daw/**` alone left out the skills, which is where most of these ranges
     # are written — the skill IS the thing that runs the catalog. Same scan set
     # as every other prose check.
     for path in method_prose(root):
@@ -630,7 +630,7 @@ _SUMMARY_AREAS = {
 
 def _catalog_last(root):
     """The highest rule number the catalog defines, per family."""
-    text = read(os.path.join(root, "ddw/rules/validation-rules.instructions.md"))
+    text = read(os.path.join(root, "daw/rules/validation-rules.instructions.md"))
     last = {}
     for m in re.finditer(r"^\|\s*([FW]-[A-Z]+)-(\d+)\s*\|", text, re.M):
         family, num = m.group(1), int(m.group(2))
@@ -642,7 +642,7 @@ def check_rule_counts(root):
     """The catalog's own summary must count the rules the catalog defines.
 
     It said 69 FAIL rules and 84 total where the tables define 65 and 80, and
-    `ddw/rules/README.md` repeated the 84. Nobody mis-typed a total: rules were
+    `daw/rules/README.md` repeated the 84. Nobody mis-typed a total: rules were
     removed and merged over three rounds and the summary was never recounted,
     which is exactly the drift `check_counts` exists to stop for skills and
     agents — only this table counts the thing the method is FOR, and a reader
@@ -652,7 +652,7 @@ def check_rule_counts(root):
     Counted from the ID column of the tables, which is the same source
     `check_rule_ids` treats as the definition.
     """
-    path = os.path.join(root, "ddw/rules/validation-rules.instructions.md")
+    path = os.path.join(root, "daw/rules/validation-rules.instructions.md")
     text = read(path)
     actual = {}
     for m in re.finditer(r"^\|\s*([FW])-([A-Z]+)-(\d+)\s*\|", text, re.M):
@@ -693,8 +693,8 @@ def check_rule_counts(root):
              f"Summary has no {area} row — a section nobody totals is a section nobody recounts")
 
     # The one number outside the catalog that restates it. It is the line a
-    # reader of `ddw/rules/` meets first, and it was wrong for the same reason.
-    readme = os.path.join(root, "ddw/rules/README.md")
+    # reader of `daw/rules/` meets first, and it was wrong for the same reason.
+    readme = os.path.join(root, "daw/rules/README.md")
     body = read(readme)
     for m in re.finditer(r"\bThe (\d+) validation rules\b", body):
         if int(m.group(1)) != tot_f + tot_w:
@@ -715,7 +715,7 @@ def check_commit_granularity(root):
     a defect that was real once becomes a check that stops it returning, the
     same bargain `scripts/mutate.py` makes.
     """
-    code = os.path.join(root, "ddw/rules/code.instructions.md")
+    code = os.path.join(root, "daw/rules/code.instructions.md")
     text = read(code)
 
     # 1. The block loop has to actually commit.
@@ -725,20 +725,20 @@ def check_commit_granularity(root):
         fail(rel(root, code),
              "the FEATURE block loop is not where this check expects it; the commit-per-block "
              "claim cannot be verified")
-    elif "ddw-commit" not in text[start:end]:
+    elif "daw-commit" not in text[start:end]:
         fail(f"{rel(root, code)}:{text[:start].count(chr(10)) + 1}",
-             "the block loop never invokes ddw-commit, so blocks are not committed as they close "
+             "the block loop never invokes daw-commit, so blocks are not committed as they close "
              "— but commits.instructions.md states one block = one commit")
 
     # 2. Nothing anywhere may assert the opposite.
-    targets = sorted(glob.glob(os.path.join(root, "ddw/**/*.md"), recursive=True))
+    targets = sorted(glob.glob(os.path.join(root, "daw/**/*.md"), recursive=True))
     for path in targets:
         body = read(path)
         for pat in _ANTI_PER_BLOCK:
             for m in re.finditer(pat, body, re.I):
                 fail(f"{rel(root, path)}:{body[:m.start()].count(chr(10)) + 1}",
                      f"says {m.group(0)!r}, contradicting `one block = one commit` in "
-                     "ddw/rules/commits.instructions.md")
+                     "daw/rules/commits.instructions.md")
 
 
 def check_tiers_documented(root, graph):
@@ -757,9 +757,9 @@ def check_tiers_documented(root, graph):
     """
     tiers = set(graph.get("tiers", {}))
     if not tiers:
-        fail("ddw/rules/transition-graph.json", "defines no tier at all")
+        fail("daw/rules/transition-graph.json", "defines no tier at all")
         return
-    for rel_path in ("ddw/rules/classify.instructions.md", "ddw/rules/state.instructions.md"):
+    for rel_path in ("daw/rules/classify.instructions.md", "daw/rules/state.instructions.md"):
         text = read(os.path.join(root, rel_path))
         missing = sorted(t for t in tiers if t not in text)
         if missing:
@@ -775,7 +775,7 @@ def check_blocked_marks_enforcement(root):
 
     The lists mixed the two: `source code` (refused by the gate, in the gate's
     own wording) sat beside `modifying the PRD` and `writing outside
-    docs/ddw/discovery/` (nobody's hook refuses those — nothing under `docs/` is
+    docs/daw/discovery/` (nobody's hook refuses those — nothing under `docs/` is
     refused in any phase). A reader cannot tell them apart by looking, and this
     whole framework is the argument that the difference matters: "the agent
     politely declines" and "the write is rejected" mean opposite things.
@@ -783,14 +783,14 @@ def check_blocked_marks_enforcement(root):
     So every phase whose rules forbid product source marks it, and the legend
     that explains the mark has to be there to be read.
     """
-    orch = os.path.join(root, "ddw/orchestrator.md")
+    orch = os.path.join(root, "daw/orchestrator.md")
     text = read(orch)
     if "🔒" not in text:
-        fail("ddw/orchestrator.md",
+        fail("daw/orchestrator.md",
              "no Blocked line marks what the hook refuses, so every line reads as enforcement")
         return
     if "refused by the hook" not in text:
-        fail("ddw/orchestrator.md",
+        fail("daw/orchestrator.md",
              "the 🔒 mark is used and never explained — a symbol nobody defines is decoration")
     for m in re.finditer(r"^## Router: Phase `([A-Z-]+)`\n(.*?)(?=^## |\Z)", text, re.M | re.S):
         phase, body = m.group(1), m.group(2)
@@ -821,7 +821,7 @@ def check_autonomy_prose_matches_the_hook(root):
     import importlib.util
     import tempfile
 
-    path = os.path.join(root, "ddw/scripts/validate-transition.py")
+    path = os.path.join(root, "daw/scripts/validate-transition.py")
     if not os.path.exists(path):
         return                              # check_paths owns a missing file
     spec = importlib.util.spec_from_file_location("_vt_autonomy", path)
@@ -834,9 +834,9 @@ def check_autonomy_prose_matches_the_hook(root):
         return
 
     with tempfile.TemporaryDirectory() as tmp:
-        os.makedirs(os.path.join(tmp, ".ddw-sessions"))
+        os.makedirs(os.path.join(tmp, ".daw-sessions"))
         for name in ("turn", "last-arrow"):
-            with open(os.path.join(tmp, ".ddw-sessions", name), "w", encoding="utf-8") as fh:
+            with open(os.path.join(tmp, ".daw-sessions", name), "w", encoding="utf-8") as fh:
                 fh.write("7")               # an arrow already landed in this turn
         nxt = {"phase": "DEFINE", "ticket": "T-1", "tier": "FEATURE", "gates": {}, "history": []}
 
@@ -852,7 +852,7 @@ def check_autonomy_prose_matches_the_hook(root):
             return
         exempt = asked("minimal") is None
 
-    orch = os.path.join(root, "ddw/orchestrator.md")
+    orch = os.path.join(root, "daw/orchestrator.md")
     text = read(orch)
     section = text.split("## Autonomy", 1)[-1] if "## Autonomy" in text else ""
     if not section:
@@ -915,7 +915,7 @@ def check_minimal_exemption_reaches_the_phase_rules(root):
     note under exactly that line; CLASSIFY did not, and read on its own it says
     the arrow waits in every mode.
     """
-    orch = os.path.join(root, "ddw/orchestrator.md")
+    orch = os.path.join(root, "daw/orchestrator.md")
     text = read(orch)
     exempt = []
     for m in re.finditer(r"^## Router: Phase `([A-Z-]+)`\n(.*?)(?=^## |\Z)", text, re.M | re.S):
@@ -926,7 +926,7 @@ def check_minimal_exemption_reaches_the_phase_rules(root):
                               "the mode changes nothing anywhere the phases are described")
         return
     for phase in exempt:
-        rules = os.path.join(root, "ddw/rules/%s.instructions.md" % phase.lower())
+        rules = os.path.join(root, "daw/rules/%s.instructions.md" % phase.lower())
         if not os.path.exists(rules):
             continue                      # check_paths owns the missing file
         body = read(rules)
@@ -945,7 +945,7 @@ def check_minimal_exemption_reaches_the_phase_rules(root):
     # every commit — the exemption existed in the orchestrator and the hook, and
     # the file the model actually had open said to stop. Same defect as CLASSIFY
     # above, one layer over: the exemption has to be readable where the wait is.
-    commit_skill = os.path.join(root, "skills/ddw-commit/SKILL.md")
+    commit_skill = os.path.join(root, "skills/daw-commit/SKILL.md")
     if os.path.exists(commit_skill):
         body = read(commit_skill)
         m = re.search(r"^7\.\s.*$", body, re.M)
@@ -968,7 +968,7 @@ def check_corrective_loops_are_not_asked(root):
     What is still asked is what the corrected artifact SAYS, and that question
     lives at the far end: the re-approval that earns the cleared gate back.
     """
-    catalog = os.path.join(root, "ddw/rules/validation-rules.instructions.md")
+    catalog = os.path.join(root, "daw/rules/validation-rules.instructions.md")
     if "the loop is mandatory" not in read(catalog):
         fail(rel(root, catalog),
              "the catalog no longer says the corrective loop is mandatory, so every prose that "
@@ -1043,7 +1043,7 @@ def check_free_tiers_explained_to_people(root, graph):
 def check_phase_names(root, graph):
     """A phase named in a router must be a phase the graph knows."""
     phases = known_phases(graph) | {"DISCOVERY"}
-    orch = os.path.join(root, "ddw/orchestrator.md")
+    orch = os.path.join(root, "daw/orchestrator.md")
     text = read(orch)
     for m in re.finditer(r"^## Router: Phase `([A-Z-]+)`", text, re.M):
         if m.group(1) not in phases:
@@ -1123,7 +1123,7 @@ def check_compaction_envelopes(root):
 
 def check_ticket_retarget(root):
     """No rule may ORDER what the state machine refuses."""
-    for path in sorted(glob.glob(os.path.join(root, "ddw/rules/*.md"))):
+    for path in sorted(glob.glob(os.path.join(root, "daw/rules/*.md"))):
         for i, line in enumerate(read(path).splitlines(), 1):
             if line.lstrip().startswith(">"):
                 continue                     # quoted: the warning naming the mistake

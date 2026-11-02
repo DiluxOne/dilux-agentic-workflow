@@ -1,7 +1,7 @@
 # Adapter recipe — adding support for a new tool
 
-DDW keeps **one copy of everything**. The orchestrator, the rules, the 20 skills and the 5 agents
-live once, under `ddw/`, written in no tool's dialect. An adapter is not a copy of the framework —
+DAW keeps **one copy of everything**. The orchestrator, the rules, the 20 skills and the 5 agents
+live once, under `daw/`, written in no tool's dialect. An adapter is not a copy of the framework —
 it is a **recipe** that says where this particular tool looks for things and what frontmatter it
 speaks. The installer transpiles at install time.
 
@@ -21,7 +21,7 @@ Answer four questions from the tool's own documentation. Do not guess — a wron
 silently ignores half the framework:
 
 1. **Where does it look for skills — its OWN location?** Several tools also search `.claude/skills`
-   as a compatibility path. Do not use that. DDW never makes one tool depend on another tool's
+   as a compatibility path. Do not use that. DAW never makes one tool depend on another tool's
    directory: OpenCode gets `.opencode/skills`, Copilot gets `.github/skills`. Installing for
    several tools writes the payload into each of their directories, which is what generation *is* —
    the single source stays `skills/`.
@@ -42,7 +42,7 @@ silently ignores half the framework:
 | `skills.dir` | no | This tool's **own** skills directory, repo-relative. Omit the whole `skills` block if the tool has no skill mechanism. |
 | `skills.note` | no | Why that directory. Worth writing down. |
 | `skills_are_slash` | no | `true` when the tool already exposes every skill as `/name` by itself. It suppresses the generated commands below — without it Claude Code ships each skill twice, once as a skill and once as a command that only says to use the skill. |
-| `commands` | no | `{dir, filename, frontmatter, body, note}` — for a tool that discovers skills but does not surface them as `/name`. The installer writes one thin command per skill whose body points at the skill. OpenCode needs it: the installer's own closing line told the user to type `/ddw-status` and the TUI answered that no such command exists. |
+| `commands` | no | `{dir, filename, frontmatter, body, note}` — for a tool that discovers skills but does not surface them as `/name`. The installer writes one thin command per skill whose body points at the skill. OpenCode needs it: the installer's own closing line told the user to type `/daw-status` and the TUI answered that no such command exists. |
 | `agents.dir` | no | Repo-relative directory for subagents. Omit the block if the tool has no subagents. |
 | `agents.filename` | no | Filename template, default `{name}.md`. E.g. Copilot uses `{name}.agent.md`. |
 | `agents.frontmatter` | yes, if `agents` | The tool's dialect. Keys are emitted as YAML; values may be literals or templates over the neutral fields. **Either it carries `model` or the `agents` block carries `_model_note` saying why not** — an omission with no note is how one tool's subagents silently ran on a model the user never chose while three other recipes carried the field (measured live). |
@@ -54,8 +54,8 @@ silently ignores half the framework:
 | `settings_merge.base` | no | Top-level keys to seed when the installer is the one creating that file (Cursor's `hooks.json` carries a schema `version` beside the hooks). |
 | `trust_note` | no | Anything the user must do by hand before enforcement is live. Codex and Gemini both fingerprint project hooks and quarantine them until approved — a recipe that stays silent about that ships a pipeline that looks installed and enforces nothing. |
 | `context_file` | no | The file the activation snippet is appended to (`CLAUDE.md`, `AGENTS.md`, …). |
-| `snippet` | no | Only when the tool needs special syntax. Omit it and the shared, tool-neutral `ddw/activation.snippet.md` is used. |
-| `choice_prompt` | no | `{tool, note}` — what this tool calls the thing that turns a question into options the user picks from. All six have one and each calls it something different, which is exactly the kind of difference this file exists to absorb: the rule that a choice is offered as a choice is written once, in `ddw/orchestrator.md`, and only the name lives here. Omit it and the fallback is a numbered list, which every terminal can render. |
+| `snippet` | no | Only when the tool needs special syntax. Omit it and the shared, tool-neutral `daw/activation.snippet.md` is used. |
+| `choice_prompt` | no | `{tool, note}` — what this tool calls the thing that turns a question into options the user picks from. All six have one and each calls it something different, which is exactly the kind of difference this file exists to absorb: the rule that a choice is offered as a choice is written once, in `daw/orchestrator.md`, and only the name lives here. Omit it and the fallback is a numbered list, which every terminal can render. |
 
 ## Template placeholders
 
@@ -64,7 +64,7 @@ Available inside `agents.frontmatter` values, taken from the neutral frontmatter
 
 | Placeholder | Source |
 |---|---|
-| `{name}` | the agent's id, e.g. `ddw-implementer` |
+| `{name}` | the agent's id, e.g. `daw-implementer` |
 | `{description}` | when the orchestrator should spawn it |
 | `{tools}` | the tool list, e.g. `Read, Grep, Glob, Bash` |
 | `{model}` | the model policy, `inherit` in every source agent — one source of truth, where three recipes used to repeat the literal and a fourth lost the field |
@@ -75,10 +75,10 @@ the agent's tool list (anything holding `Write`/`Edit`/`NotebookEdit` writes). I
 
 ## Worked example
 
-`agents/ddw-arch-auditor.md` declares, once and for every tool:
+`agents/daw-arch-auditor.md` declares, once and for every tool:
 
 ```yaml
-name: ddw-arch-auditor
+name: daw-arch-auditor
 description: Read-only architecture auditor. …
 tools: Read, Grep, Glob, Bash
 writes: false
@@ -110,10 +110,10 @@ Same body, same guarantee, two dialects — and the auditor's prompt exists once
 
 - **Copies of skills or agents.** If you find yourself pasting one into an adapter, the recipe is
   wrong. Fix the recipe.
-- **Method rules.** Phases, gates and the transition graph are `ddw/`'s job and are identical
+- **Method rules.** Phases, gates and the transition graph are `daw/`'s job and are identical
   everywhere. An adapter that changes the method is not an adapter, it is a fork.
 - **A language.** The method is written in English but answers in whatever language the user writes
-  in — see the Language directive in `ddw/AGENTS.template.md`.
+  in — see the Language directive in `daw/AGENTS.template.md`.
 
 ## Enforcement is the part you have to actually write
 
@@ -122,7 +122,7 @@ differently — Claude Code uses `exit 2` from a PreToolUse hook, OpenCode throw
 Copilot CLI returns a deny-JSON. That script is the real work of a new adapter, and it is the one
 piece that must be tested against a live session before you claim the target is supported.
 
-Every adapter calls the same entry point, `.ddw/scripts/hook-gate.py`, which parses that tool's
+Every adapter calls the same entry point, `.daw/scripts/hook-gate.py`, which parses that tool's
 event shape, asks `validate-transition.py` the one question worth asking, and answers in that tool's
 refusal dialect. Nothing about the FSM is reimplemented per tool.
 

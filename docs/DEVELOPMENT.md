@@ -4,18 +4,20 @@ How DAW works on the inside. To install and use it, see **[README.md](../README.
 
 DAW separates **the method** from **the wiring**:
 
-- `ddw/` in this repo installs into your project as `.ddw/` — the tool-agnostic method (orchestrator,
+- `daw/` in this repo installs into your project as `.daw/` — the tool-agnostic method (orchestrator,
   rules, scripts). It never changes between tools.
 - `adapters/<tool>/` is the wiring — hooks, skills, agents and settings for one specific harness.
   `install.sh` copies the one you pick.
 
-**Plugin mode.** `.claude-plugin/plugin.json` declares the packaging,
-`.claude-plugin/marketplace.json` is what makes it installable at all, and
+**Plugin mode.** `.claude-plugin/plugin.json` declares the packaging, the
+organisation's catalog (DiluxOne/diluxone-plugins-ai) is what makes it
+installable at all, listing it from this repository, which is no marketplace of
+its own, and
 `adapters/claude/plugin-hooks.json` carries the same five hooks resolved from the
 plugin root rather than the project.
 
-Every hook resolves the method through `ddw_method` in `adapters/claude/hooks/lib/guard.sh`:
-**the repo's `.ddw/` first, the plugin second.** That sentence used to be here
+Every hook resolves the method through `daw_method` in `adapters/claude/hooks/lib/guard.sh`:
+**the repo's `.daw/` first, the plugin second.** That sentence used to be here
 and was false — two of the five hooks did it, the other three looked only in the
 repo, and `session-start.sh` was one of them. Installed as a plugin, DAW loaded
 its skills and its agents and enforced nothing, which is the failure
@@ -25,56 +27,56 @@ path, which is what anyone tested, never exercised the other branch.
 Two consequences of the method being outside the repo:
 
 - **The session-start hook is not defence in depth any more, it is the only
-  channel.** There is no context file to write an `@.ddw/orchestrator.md` import
+  channel.** There is no context file to write an `@.daw/orchestrator.md` import
   into, so its stdout is the one thing that puts the orchestrator in front of the
-  model. It passes `--method` for that reason: a nudge naming a relative `.ddw/`
+  model. It passes `--method` for that reason: a nudge naming a relative `.daw/`
   points at a file that is not there.
 - **Nothing is written until a pipeline exists.** A plugin at user scope loads in
   every repository you open, including one cloned to read for five minutes.
   `session-boot.py` materialises the state and the gitignore block only when the
-  repo is a drop-in or already has a `.ddw-state.json`. Otherwise it reports and
+  repo is a drop-in or already has a `.daw-state.json`. Otherwise it reports and
   writes nothing.
 
-`/ddw-eject` copies the method into the repo when you want to edit it, after
+`/daw-eject` copies the method into the repo when you want to edit it, after
 which the repo's copy is the one that runs — see the skill for the trade.
 
 ## Activation flow (drop-in, Claude adapter)
 
 ```
-1. bash install.sh <repo> --target claude   ← copies ddw/ → .ddw/, adapters/claude/ → .claude/,
+1. bash install.sh <repo> --target claude   ← copies daw/ → .daw/, adapters/claude/ → .claude/,
                                               wires the hooks, adds the import to CLAUDE.md
-2. Open Claude Code in the repo             ← CLAUDE.md imports @AGENTS.md and @.ddw/orchestrator.md
+2. Open Claude Code in the repo             ← CLAUDE.md imports @AGENTS.md and @.daw/orchestrator.md
 3. The orchestrator enters the context      ← no approval gate (it is an internal import)
-4. The state machine boots                  ← reads .ddw-state.json, applies the phase router,
+4. The state machine boots                  ← reads .daw-state.json, applies the phase router,
                                               emits the status line (IDLE if there is no state)
 ```
 
 `--target` also accepts `codex`, `copilot`, `cursor`, `gemini`, `opencode`, several separated by
 commas, or `all`. Omit it and the installer asks.
 
-The installer is idempotent and records what it wrote in `.ddw-installed.json`. That record is what
+The installer is idempotent and records what it wrote in `.daw-installed.json`. That record is what
 lets it tell its own older copy of a file (→ upgrade it on the next run) from a file you have made
 yours (→ leave it alone and report it). Without it, every difference read as "the user's", and a DAW
 update quietly left the repo running a mix of two versions.
 
 ## The orchestrator
 
-`.ddw/orchestrator.md` is a strict state machine. Its boot sequence (silent, every turn):
+`.daw/orchestrator.md` is a strict state machine. Its boot sequence (silent, every turn):
 
-1. Read `.ddw-state.json`. If it does not exist → assume `phase: IDLE`.
-2. Load `.ddw/rules/state.instructions.md` (the state schema).
+1. Read `.daw-state.json`. If it does not exist → assume `phase: IDLE`.
+2. Load `.daw/rules/state.instructions.md` (the state schema).
 3. Find the "Router: Phase `{phase}`" section and load **only** the files listed there.
 
-Every file reference uses repo-relative paths (`.ddw/...`), which the model resolves with the Read
+Every file reference uses repo-relative paths (`.daw/...`), which the model resolves with the Read
 tool from the project root.
 
 ## Pipeline state
 
-`.ddw-state.json` (per-repo, gitignored). `.ddw/scripts/session-boot.py` materializes it — at
-session start, and again before the first write — and keeps the runtime files out of git. Schema in `.ddw/rules/state.instructions.md`. Transitions are **append-only**
+`.daw-state.json` (per-repo, gitignored). `.daw/scripts/session-boot.py` materializes it — at
+session start, and again before the first write — and keeps the runtime files out of git. Schema in `.daw/rules/state.instructions.md`. Transitions are **append-only**
 over `history` and atomic (phase + gate + history entry in a single `Write`).
 
-The `.ddw/scripts/transition.py` helper builds the next state's JSON for a transition and
+The `.daw/scripts/transition.py` helper builds the next state's JSON for a transition and
 self-validates it with the same `validate()` the hook uses before emitting it. It is read-only: the
 actual write is done by the model with `Write`.
 
@@ -115,7 +117,7 @@ is a nudge, not a gate, and it is documented as one.
 ### One gate, six dialects
 
 Every adapter — Claude Code, Codex CLI, Copilot CLI, Cursor, Gemini CLI, OpenCode — calls the same
-entry point, `.ddw/scripts/hook-gate.py`. It parses that tool's event shape, asks
+entry point, `.daw/scripts/hook-gate.py`. It parses that tool's event shape, asks
 `validate-transition.py` the one question worth asking, and answers in that tool's refusal dialect
 (exit 2 everywhere; a JSON verdict as well, where the harness reads one).
 
@@ -133,11 +135,11 @@ where the repo root comes from, and how that harness spells "no".
 
 ### Shared guard (`hooks/lib/guard.sh`)
 
-`ddw_guard`: exits 0 (silently) if `CLAUDE_PROJECT_DIR` is unset or the directory is not a git repo.
+`daw_guard`: exits 0 (silently) if `CLAUDE_PROJECT_DIR` is unset or the directory is not a git repo.
 There is no master switch: in drop-in mode DAW is active by virtue of its hooks being wired in
 `settings.json`.
 
-### FSM validator (`.ddw/scripts/validate-transition.py`)
+### FSM validator (`.daw/scripts/validate-transition.py`)
 
 Two modes over the same graph and the same `validate()`:
 
@@ -184,21 +186,21 @@ pass: no gate is missing, and the sequencing that is the entire point of a state
 
 | Agent | Role |
 |---|---|
-| `ddw-implementer` | Implements ONE block of the spec in an isolated context (CODE phase) |
-| `ddw-impact-scanner` | Runs the 5 impact checks over the codebase (PLAN phase) |
-| `ddw-arch-auditor` | Architecture auditor (PLAN and CODE phases) |
-| `ddw-sec-auditor` | Security auditor (CODE and VERIFY phases) |
-| `ddw-module-verifier` | Module verifier (VERIFY phase) |
+| `daw-implementer` | Implements ONE block of the spec in an isolated context (CODE phase) |
+| `daw-impact-scanner` | Runs the 5 impact checks over the codebase (PLAN phase) |
+| `daw-arch-auditor` | Architecture auditor (PLAN and CODE phases) |
+| `daw-sec-auditor` | Security auditor (CODE and VERIFY phases) |
+| `daw-module-verifier` | Module verifier (VERIFY phase) |
 
 They are spawned with the `Agent` tool (`subagent_type="<name>"`) and never read as files. They live
 in `.claude/agents/`.
 
-The division of labor is deliberate: `ddw-implementer` writes; the other four never do. Reviewing is
+The division of labor is deliberate: `daw-implementer` writes; the other four never do. Reviewing is
 worth something only when the reviewer is not the author.
 
 ## Rules
 
-Per-phase instructions in `.ddw/rules/`. The orchestrator loads them dynamically based on the
+Per-phase instructions in `.daw/rules/`. The orchestrator loads them dynamically based on the
 current phase. The transition graph lives in `transition-graph.json`.
 
 ## Language
@@ -208,7 +210,7 @@ The method's files are written in English, but they are **prompts**, not documen
 and writes every artifact — in the language the user writes in. A project can pin a fixed working
 language in its own `AGENTS.md`, and that wins.
 
-This means translating `ddw/` is not required to work in another language. Do not hardcode a
+This means translating `daw/` is not required to work in another language. Do not hardcode a
 language into the rules.
 
 ## How to add a new tier
@@ -218,9 +220,9 @@ A tier is **declarative**: the FSM validator indexes by tier generically (`_effe
 
 1. `rules/transition-graph.json` — an entry under `tiers` with its edges and gates.
 2. `rules/classify.instructions.md` — the detection heuristic and the tier→phase mapping.
-3. `ddw/orchestrator.md` — emoji + status-line example + router section.
+3. `daw/orchestrator.md` — emoji + status-line example + router section.
 4. `rules/validation-rules.instructions.md` — the rules' conditionality for that tier.
-5. The skill producing the DEFINE artifact (`skills/ddw-create-prd`), if it uses an artifact other
+5. The skill producing the DEFINE artifact (`skills/daw-create-prd`), if it uses an artifact other
    than the PRD.
 
 **Three ways to reach IDLE.** A **closeout** finishes the work and hands it over and owes the edge's gates —
@@ -282,7 +284,7 @@ The rules it works by:
 The graph, the rule catalog and the filesystem are the three places that hold
 truth. This fails on any claim the prose makes that they do not support: a
 `gates.X` no edge requires, a rule ID that is not in the catalog, a skill or
-agent that does not exist, an artifact path outside `docs/ddw/`, a stated count
+agent that does not exist, an artifact path outside `docs/daw/`, a stated count
 that does not match what is on disk.
 
 It is cheap and it covers a class nothing else can. A renamed gate outlives its

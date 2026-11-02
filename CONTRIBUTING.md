@@ -27,11 +27,11 @@ that provably cannot alter behaviour — and that one gets re-aimed, not deleted
 ## Adding a tool
 
 Write `adapters/<id>/adapter.json` plus that tool's hook scripts. Nothing else
-changes: the installer discovers adapters, and `ddw/` stays byte-identical.
+changes: the installer discovers adapters, and `daw/` stays byte-identical.
 
 An adapter contains **no logic**. It declares two things — where its tool looks
 for skills and agents, and what dialect its hooks speak — and delegates every
-decision to `ddw/scripts/hook-gate.py`. An adapter that decides something is not
+decision to `daw/scripts/hook-gate.py`. An adapter that decides something is not
 an adapter; it is a second copy of the method, and the copies drift.
 
 Every claim a recipe makes about its tool needs the documentation that supports
@@ -59,21 +59,21 @@ five manifests (`.claude-plugin/`, `.codex-plugin/`, `.cursor-plugin/`,
 `gemini-extension.json`, `package.json`), and they must all say the same thing.
 
 That is a decision worth stating, because the tempting alternative is to version
-each wiring on its own. DAW is one product shipped six ways: `ddw/` is
+each wiring on its own. DAW is one product shipped six ways: `daw/` is
 byte-identical everywhere and an adapter is a recipe, not software with a life of
 its own. If Claude read 1.0.5 and Copilot 1.0.2, nothing would tell you they came
 from the same commit, a bug report would stop mapping to a place in the history,
 and someone running two tools would have no way to know they are running the same
 thing. So they move together, even when a change touched only one of them.
 
-**Each rule file's — its own.** Every `ddw/rules/*.instructions.md` carries a
+**Each rule file's — its own.** Every `daw/rules/*.instructions.md` carries a
 `version:` in its frontmatter. Change the file, move the number.
 
 ### What owes a bump
 
 | You changed | Bump |
 |---|---|
-| Anything under `ddw/`, `adapters/`, `skills/`, `agents/`, the installers, a manifest | **The product**, in all five files, plus a `CHANGELOG` entry |
+| Anything under `daw/`, `adapters/`, `skills/`, `agents/`, the installers, a manifest | **The product**, in all five files, plus a `CHANGELOG` entry |
 | A rule file | **That file's own version**, as well as the product's |
 | `scripts/`, `docs/`, `README`, CI | Nothing — editing a test changes nothing anyone installs |
 
@@ -92,7 +92,7 @@ those the promise covers.
 A version nobody checks is worse than no version, because absent tells you
 nothing and stale tells you something false. This repository has been on both
 sides of that: it shipped a rule at `2.0.0` while the product said `1.0.0`, and
-it carried a third number in `ddw/rules/README.md` that no code ever compared to
+it carried a third number in `daw/rules/README.md` that no code ever compared to
 anything, so it drifted for as long as it existed.
 
 And the cost is not only tidiness. Claude Code and Copilot CLI **cache a plugin
@@ -132,6 +132,6 @@ and two rules there catch almost everyone:
 - **Never make a failing check pass by weakening it.** Not `EXPECT_CHECKS`, not a
   deleted mutation, not a softened fixture. A model told to "make CI green" goes
   for exactly this, and it is the one thing this repository cannot tolerate.
-- **No prompt-injection vectors, especially in `ddw/`.** That directory is copied
+- **No prompt-injection vectors, especially in `daw/`.** That directory is copied
   verbatim into other people's repositories and loaded into their agents. There
   is no sandbox between a line you write there and a stranger's session.

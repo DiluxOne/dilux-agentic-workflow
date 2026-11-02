@@ -2,7 +2,7 @@
 #
 # `verify` runs the OFFLINE scenarios on every push: the ones judged by reading
 # an instruction and asking the real gate, without calling anyone. The
-# behavioral ones are the other half — DDW gets installed into a real repo, a
+# behavioral ones are the other half — DAW gets installed into a real repo, a
 # user's turns get sent at it, and then the REPO is asked what happened — and
 # those cost money and minutes. That is why they live here: ON DEMAND only.
 # There was a weekly cron and it was removed: every run charges gateway

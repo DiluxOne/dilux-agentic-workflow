@@ -46,7 +46,7 @@ import tempfile
 #
 # The first version instead listed the extensions the linter DOES read
 # (`.md`, `.json`, `.sh`), and that ate every fault that deletes a DIRECTORY:
-# `delete("skills/ddw-test")` ends in none of the three. The two guards that
+# `delete("skills/daw-test")` ends in none of the three. The two guards that
 # fault exists to light up kept coming out as "nothing provokes them" right
 # after their fault was written, and for twenty minutes the hole looked like
 # the product's. An allowlist filter hides what it did not foresee; a
@@ -128,7 +128,7 @@ def lint_lines(tree, n):
     identifies a site without depending on how its message is written. As a
     bonus, five hundred runs stop paying for five hundred interpreters.
     """
-    mod = load(tree, f"ddw_lint_{n}", "scripts/lint_method.py")
+    mod = load(tree, f"daw_lint_{n}", "scripts/lint_method.py")
     hit = set()
     real = mod.fail
 
@@ -146,17 +146,17 @@ def lint_lines(tree, n):
             mod.main()
     finally:
         sys.argv = argv
-        sys.modules.pop(f"ddw_lint_{n}", None)
+        sys.modules.pop(f"daw_lint_{n}", None)
     return hit
 
 
 def measure(root, sites):
-    mut = load(root, "ddw_mutate", "scripts/mutate.py")
+    mut = load(root, "daw_mutate", "scripts/mutate.py")
     work = tempfile.mkdtemp(prefix="lintmap-")
     tree = os.path.join(work, "tree")
     shutil.copytree(root, tree,
                     ignore=shutil.ignore_patterns(".git", "node_modules", "__pycache__",
-                                                  ".pytest_cache", ".ddw-sessions"))
+                                                  ".pytest_cache", ".daw-sessions"))
     for cmd in (["git", "init", "-q"], ["git", "add", "-A"],
                 ["git", "-c", "user.email=e@x", "-c", "user.name=e",
                  "-c", "commit.gpgsign=false", "commit", "-qm", "base"]):

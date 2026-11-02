@@ -5,10 +5,10 @@
       {
         "hooks": [
           {
-            "name": "ddw-session-start",
+            "name": "daw-session-start",
             "type": "command",
-            "command": "DDW_PLUGIN_ROOT=\"${extensionPath}\" bash \"${extensionPath}/adapters/gemini/hooks/session-start.sh\"",
-            "description": "DDW: boot the pipeline for this session",
+            "command": "DAW_PLUGIN_ROOT=\"${extensionPath}\" bash \"${extensionPath}/adapters/gemini/hooks/session-start.sh\"",
+            "description": "DAW: boot the pipeline for this session",
             "timeout": 10000
           }
         ]
@@ -19,10 +19,10 @@
         "matcher": "write_file|replace",
         "hooks": [
           {
-            "name": "ddw-pre-tool-use",
+            "name": "daw-pre-tool-use",
             "type": "command",
-            "command": "DDW_PLUGIN_ROOT=\"${extensionPath}\" bash \"${extensionPath}/adapters/gemini/hooks/pre-tool-use.sh\"",
-            "description": "DDW: refuse a write the FSM does not allow",
+            "command": "DAW_PLUGIN_ROOT=\"${extensionPath}\" bash \"${extensionPath}/adapters/gemini/hooks/pre-tool-use.sh\"",
+            "description": "DAW: refuse a write the FSM does not allow",
             "timeout": 15000
           }
         ]
@@ -33,10 +33,10 @@
         "matcher": "write_file|replace|run_shell_command",
         "hooks": [
           {
-            "name": "ddw-post-write",
+            "name": "daw-post-write",
             "type": "command",
-            "command": "DDW_PLUGIN_ROOT=\"${extensionPath}\" bash \"${extensionPath}/adapters/gemini/hooks/post-write.sh\"",
-            "description": "DDW: revalidate the state on disk",
+            "command": "DAW_PLUGIN_ROOT=\"${extensionPath}\" bash \"${extensionPath}/adapters/gemini/hooks/post-write.sh\"",
+            "description": "DAW: revalidate the state on disk",
             "timeout": 15000
           }
         ]
@@ -46,10 +46,10 @@
       {
         "hooks": [
           {
-            "name": "ddw-pre-compress",
+            "name": "daw-pre-compress",
             "type": "command",
-            "command": "DDW_PLUGIN_ROOT=\"${extensionPath}\" bash \"${extensionPath}/adapters/gemini/hooks/pre-compact.sh\"",
-            "description": "DDW: re-read the pipeline after compression, never infer it",
+            "command": "DAW_PLUGIN_ROOT=\"${extensionPath}\" bash \"${extensionPath}/adapters/gemini/hooks/pre-compact.sh\"",
+            "description": "DAW: re-read the pipeline after compression, never infer it",
             "timeout": 10000
           }
         ]

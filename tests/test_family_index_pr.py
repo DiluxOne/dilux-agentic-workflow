@@ -5,7 +5,7 @@ direction. What these tests pin is not the convenience — it is the two
 safety properties that make the convenience acceptable:
 
   * the LEASH: `merge` refuses any PR touching a file outside index
-    territory (docs/ddw/** and .gitignore), so the worst a runaway
+    territory (docs/daw/** and .gitignore), so the worst a runaway
     "aprobado" can do is land a document;
   * the LAW: `update-row --status done` refuses without a MERGED child PR
     at the forge — the same rule the family write gate enforces in hooked
@@ -22,7 +22,7 @@ import subprocess
 import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-SCRIPT = os.path.join(ROOT, "ddw/scripts/family_index_pr.py")
+SCRIPT = os.path.join(ROOT, "daw/scripts/family_index_pr.py")
 
 
 def _fake_gh(tmp_path, view_files, merged_children=None, index_b64=None):
@@ -61,13 +61,13 @@ print("{{}}"); sys.exit(0)
 
 
 def _ws_repo(tmp_path):
-    """A minimal workspace clone: ddw-family.md + a git remote pointing at acme/ws."""
+    """A minimal workspace clone: daw-family.md + a git remote pointing at acme/ws."""
     repo = tmp_path / "ws"
     repo.mkdir()
     subprocess.run(["git", "-C", str(repo), "init", "-q", "."], check=True)
     subprocess.run(["git", "-C", str(repo), "remote", "add", "origin",
                     "https://github.com/acme/ws.git"], check=True)
-    (repo / "ddw-family.md").write_text("# familia\n", encoding="utf-8")
+    (repo / "daw-family.md").write_text("# familia\n", encoding="utf-8")
     return str(repo)
 
 
@@ -85,7 +85,7 @@ def _run(args, tmp_path, view_files, merged=None, cwd=None, index_b64=None):
 def test_la_correa_rechaza_un_pr_que_toca_codigo(tmp_path):
     ws = _ws_repo(tmp_path)
     r, calls = _run(["merge", "--pr", "7", "--root", ws], tmp_path,
-                    view_files=["docs/ddw/prd/prd-T-1.md", "app/main.py"])
+                    view_files=["docs/daw/prd/prd-T-1.md", "app/main.py"])
     assert r.returncode == 2, "a PR with code in it was merged by the leash: " + r.stdout
     assert "app/main.py" in r.stderr and "human merge" in r.stderr, r.stderr[:300]
     assert not any(c[:2] == ["pr", "merge"] for c in calls), \
@@ -95,7 +95,7 @@ def test_la_correa_rechaza_un_pr_que_toca_codigo(tmp_path):
 def test_la_correa_deja_pasar_un_pr_de_solo_documentos(tmp_path):
     ws = _ws_repo(tmp_path)
     r, calls = _run(["merge", "--pr", "7", "--root", ws], tmp_path,
-                    view_files=["docs/ddw/prd/prd-T-1.md", ".gitignore"])
+                    view_files=["docs/daw/prd/prd-T-1.md", ".gitignore"])
     assert r.returncode == 0, "the documents-only PR was refused: " + r.stderr[:300]
     assert any(c[:2] == ["pr", "merge"] for c in calls), "merge was never asked of the forge"
 
@@ -210,9 +210,9 @@ def _bare_ws(tmp_path):
     only the forge legs go through the shim."""
     bare = tmp_path / "ws-origin.git"
     seed = tmp_path / "ws-seed"
-    (seed / "docs" / "ddw" / "prd").mkdir(parents=True)
-    (seed / "ddw-family.md").write_text("# familia\n", encoding="utf-8")
-    (seed / "docs" / "ddw" / "prd" / "prd-T-1.md").write_text(
+    (seed / "docs" / "daw" / "prd").mkdir(parents=True)
+    (seed / "daw-family.md").write_text("# familia\n", encoding="utf-8")
+    (seed / "docs" / "daw" / "prd" / "prd-T-1.md").write_text(
         "| Repo | Ticket | Scope | Depends on | Status |\n"
         "|---|---|---|---|---|\n"
         "| acme/child | T-1 | la parte | none | active |\n", encoding="utf-8")
@@ -254,7 +254,7 @@ def test_update_row_de_punta_a_punta_edita_una_fila_y_abre_su_pr(tmp_path):
     import base64
     bare, ws = _bare_ws(tmp_path)
     index_b64 = base64.b64encode(
-        (bare.parent / "ws-seed" / "docs" / "ddw" / "prd" / "prd-T-1.md")
+        (bare.parent / "ws-seed" / "docs" / "daw" / "prd" / "prd-T-1.md")
         .read_bytes()).decode()
     bin_dir, log = _fake_gh(tmp_path, [], [{"number": 5, "headRefName": "feat/T-1-x"}],
                             index_b64)
@@ -282,7 +282,7 @@ if args[:2] == ["pr", "merge"]:''')
     assert r.returncode == 0, r.stdout + r.stderr
     assert "forge confirms" in r.stdout and "#77" in r.stdout, r.stdout
     show = subprocess.run(["git", "-C", str(bare), "show",
-                           "chore/T-1-row-child:docs/ddw/prd/prd-T-1.md"],
+                           "chore/T-1-row-child:docs/daw/prd/prd-T-1.md"],
                           capture_output=True, text=True).stdout
     assert "| done |" in show and "active" not in show, \
         "the row edit never landed on the update branch: " + show

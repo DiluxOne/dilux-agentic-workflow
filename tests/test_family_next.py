@@ -11,12 +11,12 @@ import os
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 spec = importlib.util.spec_from_file_location(
-    "fnx", os.path.join(ROOT, "ddw/scripts/family_next.py"))
+    "fnx", os.path.join(ROOT, "daw/scripts/family_next.py"))
 fnx = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(fnx)
 
 vt_spec = importlib.util.spec_from_file_location(
-    "vt", os.path.join(ROOT, "ddw/scripts/validate-transition.py"))
+    "vt", os.path.join(ROOT, "daw/scripts/validate-transition.py"))
 vt = importlib.util.module_from_spec(vt_spec)
 vt_spec.loader.exec_module(vt)
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Install DDW's wiring for one target, from that target's adapter recipe.
+"""Install DAW's wiring for one target, from that target's adapter recipe.
 
 This engine knows nothing about Claude, OpenCode or Copilot. It reads
 `adapters/<id>/adapter.json` and applies it. Supporting a new tool means adding
@@ -24,8 +24,8 @@ What a recipe declares:
                     is generated per skill so the entry point is the same
                     sentence on every tool.
   skills_are_slash  true when the tool already exposes each skill as `/name`
-                    (Claude Code does). Declaring neither means DDW's skills
-                    exist but there is no `/ddw-status` — which the installer
+                    (Claude Code does). Declaring neither means DAW's skills
+                    exist but there is no `/daw-status` — which the installer
                     now says out loud instead of printing one closing line that
                     promised slash commands everywhere.
   wiring[]          directories to copy verbatim: that tool's hook scripts.
@@ -109,7 +109,7 @@ def occupied_paths(target, recipe):
 
 
 def die(msg):
-    print(f"DDW install: {msg}", file=sys.stderr)
+    print(f"DAW install: {msg}", file=sys.stderr)
     sys.exit(1)
 
 
@@ -151,7 +151,7 @@ def parse_skill(path):
     Deliberately narrow: it handles `key: value` and YAML's folded `key: >`
     block, which is every form the skills actually use. A skill that grows a
     frontmatter shape this cannot read raises rather than yielding a command
-    with an empty description — a `/ddw-status` the TUI lists with no text
+    with an empty description — a `/daw-status` the TUI lists with no text
     beside it is worse than the missing command it replaced.
     """
     text = open(path, encoding="utf-8").read()
@@ -284,20 +284,20 @@ def _fingerprint(path):
 
 
 # The record of what was installed here, and what it looked like. It belongs at
-# the repo root, NOT under .ddw/: `.ddw/` is the method, and the method is
+# the repo root, NOT under .daw/: `.daw/` is the method, and the method is
 # byte-identical in every repo and for every tool. This file is the opposite —
 # it lists the wiring of the tools THIS repo happens to install, so keeping it
-# inside .ddw/ made that directory differ between two installs of the same
-# version. It is committed (unlike .ddw-state.json): a teammate who clones needs
-# it, or their first upgrade reads every DDW file as one of their own.
-MANIFEST = ".ddw-installed.json"
-LEGACY_MANIFEST = os.path.join(".ddw", ".installed.json")
+# inside .daw/ made that directory differ between two installs of the same
+# version. It is committed (unlike .daw-state.json): a teammate who clones needs
+# it, or their first upgrade reads every DAW file as one of their own.
+MANIFEST = ".daw-installed.json"
+LEGACY_MANIFEST = os.path.join(".daw", ".installed.json")
 
 
 def load_manifest(repo):
-    """What DDW installed here last time, and what it looked like.
+    """What DAW installed here last time, and what it looked like.
 
-    Without this the installer could not tell "DDW's own file, from an older
+    Without this the installer could not tell "DAW's own file, from an older
     version" from "a file of yours that happens to share a name" — so it treated
     every difference as yours, refused to touch it, and an upgrade silently left
     the repo running a mix of two versions while reporting a collision that was
@@ -314,13 +314,13 @@ def load_manifest(repo):
     return {}
 
 
-METHOD_DIR = ".ddw"
+METHOD_DIR = ".daw"
 
 
 def record_method(repo, manifest):
     """Fingerprint the method tree into the manifest, file by file.
 
-    A clean install wrote 28 entries and not one of them was under `.ddw/` — so
+    A clean install wrote 28 entries and not one of them was under `.daw/` — so
     the drift check, which is the whole detection half of "prevention where a
     path is visible, detection where it is not", could not see a shell rewriting
     `transition-graph.json`, `validate-transition.py` or `hook-gate.py`.
@@ -333,7 +333,7 @@ def record_method(repo, manifest):
     covers. It did not.
 
     Recorded per FILE rather than as one directory hash: importing the validator
-    creates `.ddw/scripts/__pycache__`, and a directory fingerprint would take
+    creates `.daw/scripts/__pycache__`, and a directory fingerprint would take
     that in and report drift on every install that had ever run. The `method:`
     prefix keeps these apart from a tool's wiring, and `enforcement_drift`
     already splits any `prefix:path` key, so nothing downstream changes.
@@ -356,8 +356,8 @@ def save_manifest(repo, manifest):
             fh.write("\n")
     except OSError:
         return
-    # Installs made before the move left one inside .ddw/. Drop it once it has
-    # been read, or `.ddw/` keeps differing between repos forever.
+    # Installs made before the move left one inside .daw/. Drop it once it has
+    # been read, or `.daw/` keeps differing between repos forever.
     try:
         os.remove(os.path.join(repo, LEGACY_MANIFEST))
     except OSError:
@@ -368,13 +368,13 @@ WIRING_PREFIXES = ("hooks", "plugin", "scripts")
 
 
 def claim(rel, src_path, dst_path, manifest, collisions, label, ours_if_unknown=False):
-    """Decide what to do with one file DDW wants to install.
+    """Decide what to do with one file DAW wants to install.
 
     Returns True when the caller should write it. Three cases, and the middle
     one is the whole reason this exists:
 
       - nothing there                      → write it
-      - there, and it is DDW's own older copy → write it (this is an upgrade)
+      - there, and it is DAW's own older copy → write it (this is an upgrade)
       - there, and it is not ours          → leave it alone and report
     """
     if not os.path.exists(dst_path):
@@ -385,14 +385,14 @@ def claim(rel, src_path, dst_path, manifest, collisions, label, ours_if_unknown=
     if manifest.get(rel) == _fingerprint(dst_path):
         return True                       # ours, untouched, superseded
     if ours_if_unknown:
-        # Only when DDW was already installed here. Versions before the wiring
+        # Only when DAW was already installed here. Versions before the wiring
         # went through claim() copied it without recording anything, so on the
         # first upgrade every hook looked like a file of the user's: left alone,
         # reported as theirs, and the repo ran a new method against old
         # enforcement scripts.
         #
         # The condition matters as much as the rule. On a FIRST install there is
-        # no manifest, and a file already sitting where DDW wants to write is
+        # no manifest, and a file already sitting where DAW wants to write is
         # the user's — that is how a pre-existing session-start.sh survives.
         # Applied unconditionally, this would eat it.
         return True
@@ -401,7 +401,7 @@ def claim(rel, src_path, dst_path, manifest, collisions, label, ours_if_unknown=
 
 
 def _names_installed_file(block, manifest, tool):
-    """Does this settings block run a file the manifest says DDW installed?
+    """Does this settings block run a file the manifest says DAW installed?
 
     The question both the installer and the uninstaller need, and neither had:
     "is this block ours?" was answered by comparing it against what the CURRENT
@@ -409,8 +409,8 @@ def _names_installed_file(block, manifest, tool):
     left behind on upgrade and left behind on uninstall, still naming a script
     that had been removed.
 
-    The manifest is the record of what DDW put on disk, so a block naming one of
-    those paths is DDW's. A block of the user's that happens to sit in the same
+    The manifest is the record of what DAW put on disk, so a block naming one of
+    those paths is DAW's. A block of the user's that happens to sit in the same
     file names a script of theirs, which is not in the manifest.
     """
     text = json.dumps(block, sort_keys=True)
@@ -424,7 +424,7 @@ def _names_installed_file(block, manifest, tool):
 
 
 def copy_tree_no_clobber(src, dst, label, collisions, manifest, key):
-    """Copy each entry of src into dst, upgrading DDW's own files and never
+    """Copy each entry of src into dst, upgrading DAW's own files and never
     touching one the user has made theirs."""
     if not os.path.isdir(src):
         return 0
@@ -483,14 +483,14 @@ def chmod_x(path):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--self", required=True, help="the DDW repo root")
+    ap.add_argument("--self", required=True, help="the DAW repo root")
     ap.add_argument("--target", required=True, help="the repo being installed into")
     ap.add_argument("--id", help="the adapter id (a directory under adapters/)")
     ap.add_argument("--preflight", action="store_true",
                     help="only check that the paths this install needs are free, then exit")
     ap.add_argument("--method-only", action="store_true",
-                    help="record an already-copied .ddw/ in the manifest and do nothing else "
-                         "(what `install.sh --method-only` needs, for /ddw-eject)")
+                    help="record an already-copied .daw/ in the manifest and do nothing else "
+                         "(what `install.sh --method-only` needs, for /daw-eject)")
     args = ap.parse_args()
 
     if args.preflight:
@@ -510,7 +510,7 @@ def main():
         manifest = load_manifest(args.target)
         record_method(args.target, manifest)
         save_manifest(args.target, manifest)
-        print("  ✓ .ddw/                  recorded in the manifest")
+        print("  ✓ .daw/                  recorded in the manifest")
         return 0
     if not args.id:
         die("--id is required unless --method-only is given")
@@ -527,12 +527,12 @@ def main():
 
     collisions = []
     manifest = load_manifest(args.target)
-    # Whether DDW had ever been installed here, decided before this run
+    # Whether DAW had ever been installed here, decided before this run
     # starts adding to it. It is what separates an upgrade from a first
-    # install, and therefore DDW's own older file from one of the user's.
+    # install, and therefore DAW's own older file from one of the user's.
     # …for THIS tool. Asked of the whole manifest, installing a second tool into
-    # a repo that already had DDW answered "upgrade" for a target that had never
-    # been installed — so `ours_if_unknown` fired on files DDW had never written,
+    # a repo that already had DAW answered "upgrade" for a target that had never
+    # been installed — so `ours_if_unknown` fired on files DAW had never written,
     # and the user's own `.codex/hooks/session-start.sh`, `enforce.sh`,
     # `pre-compact.sh` (exactly the names a user of that agent already has) were
     # overwritten with no backup, no warning and exit 0. The installer's central
@@ -546,8 +546,8 @@ def main():
     # "has this tool ever been installed", it stayed true forever — so the day a
     # new version starts shipping a file at a path the user already has one at,
     # the upgrade overwrote it with no backup, no ⚠ and exit 0. Measured: a
-    # `.claude/hooks/audit.sh` of the user's, replaced by DDW's on the second
-    # run. A file DDW never recorded is the user's, on every run after the
+    # `.claude/hooks/audit.sh` of the user's, replaced by DAW's on the second
+    # run. A file DAW never recorded is the user's, on every run after the
     # first as much as on it.
     wiring_dirs = [w["to"].rstrip("/") + "/" for w in recipe.get("wiring", [])]
     recorded_wiring = any(
@@ -606,13 +606,13 @@ def main():
 
     # 3. Commands — a `/name` for each skill, on the tools that need one.
     #
-    #    Claude Code exposes every skill as a slash command by itself, so DDW
+    #    Claude Code exposes every skill as a slash command by itself, so DAW
     #    never had to think about this — and the installer's closing line said
-    #    "Commands: /ddw-status, /ddw-self-check, /ddw-help" to all six targets.
+    #    "Commands: /daw-status, /daw-self-check, /daw-help" to all six targets.
     #    On OpenCode that line is false: skills are discovered and loaded by the
-    #    model, but `/ddw-status` is a different feature living in a different
+    #    model, but `/daw-status` is a different feature living in a different
     #    directory, and typing it returns "command not found". The first user to
-    #    follow DDW's own last line of output on OpenCode hit exactly that.
+    #    follow DAW's own last line of output on OpenCode hit exactly that.
     #
     #    So the entry point is made to exist rather than the promise withdrawn:
     #    one generated command per skill, whose whole body is "use this skill".
@@ -694,16 +694,16 @@ def main():
             `{"hooks": {"PreToolUse": {…}}}` (a mapping where the tool's own
             schema says list), a top-level array. Each of those reached
             `cur.append(blk)` and came out as an AttributeError mid-install —
-            with `.claude/` and `.ddw/` already on disk, no manifest written, and
+            with `.claude/` and `.daw/` already on disk, no manifest written, and
             no hooks wired. A half-install that says "Traceback" is the one
             outcome an installer owes the user a sentence for instead.
             """
-            side = os.path.join(os.path.dirname(dst_path), "ddw-settings.json")
+            side = os.path.join(os.path.dirname(dst_path), "daw-settings.json")
             os.makedirs(os.path.dirname(side), exist_ok=True)
             with open(side, "w", encoding="utf-8") as fh:
                 json.dump(src, fh, indent=2)
-            print(f"  ! {sm['to']} {reason}; wrote ddw-settings.json alongside it. Merge its "
-                  "hooks into your file by hand, or move yours aside and re-run — DDW's hooks "
+            print(f"  ! {sm['to']} {reason}; wrote daw-settings.json alongside it. Merge its "
+                  "hooks into your file by hand, or move yours aside and re-run — DAW's hooks "
                   "are NOT wired until you do.")
 
         dst = {}
@@ -736,15 +736,15 @@ def main():
                              % (key, event, type(cur).__name__))
                     dst = None
                     break
-                # A block DDW wired once and no longer ships is DDW's to take
+                # A block DAW wired once and no longer ships is DAW's to take
                 # out. The merge was add-only in both directions: rename a hook
                 # script between versions and the upgrade left the old block
                 # wired beside the new one — two hooks, one of them pointing at
                 # a script that is about to stop existing — and the uninstall
                 # after it took out only what the CURRENT adapter defines, so
                 # the repo came away configured to run a command that had just
-                # been deleted. A block is DDW's when it names a file this
-                # manifest records as DDW's; anything else is the user's and is
+                # been deleted. A block is DAW's when it names a file this
+                # manifest records as DAW's; anything else is the user's and is
                 # left exactly where it is.
                 shipped = [json.dumps(b, sort_keys=True) for b in blocks]
                 stale = [b for b in cur
@@ -766,18 +766,18 @@ def main():
     # 5. The activation block.
     #
     #    It lives in AGENTS.md, always, whatever tool you installed. That is the
-    #    one file every adapter shares, so "where are DDW's instructions?" has
+    #    one file every adapter shares, so "where are DAW's instructions?" has
     #    one answer instead of six, and porting the pipeline moves nothing.
     #
     #    Claude and Gemini read CLAUDE.md / GEMINI.md rather than AGENTS.md, so
     #    those get a pointer — two imports, no prose. Claude resolves nested
     #    imports (documented, five deep) and could reach the orchestrator through
     #    AGENTS.md alone; Gemini documents `@file.md` but says nothing about
-    #    nesting. So `@.ddw/orchestrator.md` stays in the tool's own file, one
+    #    nesting. So `@.daw/orchestrator.md` stays in the tool's own file, one
     #    hop from the root, where no tool has to nest to find it. Betting the
     #    orchestrator on undocumented behaviour is how you get a pipeline that
     #    boots on one tool and silently does not on another.
-    blocks = [(os.path.join(args.self, "ddw", "activation.snippet.md"), "AGENTS.md")]
+    blocks = [(os.path.join(args.self, "daw", "activation.snippet.md"), "AGENTS.md")]
     if recipe.get("context_file", "AGENTS.md") != "AGENTS.md":
         blocks.append((os.path.join(adapter_dir, recipe["snippet"]), recipe["context_file"]))
 
@@ -787,7 +787,7 @@ def main():
         try:
             existing = open(ctx, encoding="utf-8").read() if os.path.exists(ctx) else ""
         except (OSError, UnicodeDecodeError) as exc:
-            # A context file DDW cannot read is a context file DDW must not
+            # A context file DAW cannot read is a context file DAW must not
             # rewrite: appending to it would mean writing back whatever the
             # replacement characters decoded to, and losing the user's bytes. A
             # Spanish AGENTS.md saved as cp1252 crashed here mid-install, hooks
@@ -798,34 +798,34 @@ def main():
                   "re-run the installer.")
             continue
         # The MARKER, not the words. A context file that merely mentions
-        # "BEGIN DDW" in prose — a README explaining the block, which is exactly
+        # "BEGIN DAW" in prose — a README explaining the block, which is exactly
         # what a project documenting its own setup writes — took this branch and
         # then raised ValueError on the `index` below, mid-install, leaving the
         # repo half-wired.
-        if "<!-- BEGIN DDW" in existing:
+        if "<!-- BEGIN DAW" in existing:
             # Upgrade it in place. Finding the block and leaving it was silent
             # data rot: the block is what loads the orchestrator, so a version
             # that changes it — a new import, a different entry point — would
-            # never reach any repo that already had DDW, and the installer
+            # never reach any repo that already had DAW, and the installer
             # would print a green tick over an install that no longer matched
             # the method it just copied in.
             #
             # Only the span between the markers is replaced. The block says
-            # "managed by DDW" on its first line; everything outside it is the
+            # "managed by DAW" on its first line; everything outside it is the
             # user's file and is not read, not moved and not reformatted.
-            start = existing.index("<!-- BEGIN DDW")
-            end_marker = "<!-- END DDW -->"
+            start = existing.index("<!-- BEGIN DAW")
+            end_marker = "<!-- END DAW -->"
             end = existing.find(end_marker)
             if end == -1:
-                print(f"  ⚠ {ctx_name:<22} has an unterminated DDW block "
-                      "(no END DDW marker) — left alone, fix it by hand")
+                print(f"  ⚠ {ctx_name:<22} has an unterminated DAW block "
+                      "(no END DAW marker) — left alone, fix it by hand")
             elif existing[start:end + len(end_marker)].strip() == snippet.strip():
-                print(f"  ✓ {ctx_name:<22} DDW block already current")
+                print(f"  ✓ {ctx_name:<22} DAW block already current")
             else:
                 with open(ctx, "w", encoding="utf-8") as fh:
                     fh.write(existing[:start] + snippet.strip()
                              + existing[end + len(end_marker):])
-                print(f"  ✓ {ctx_name:<22} DDW block updated "
+                print(f"  ✓ {ctx_name:<22} DAW block updated "
                       "(the rest of the file untouched)")
         else:
             with open(ctx, "a", encoding="utf-8") as fh:
@@ -851,14 +851,14 @@ def main():
         for line in _wrap(note, 74):
             print(f"      {line}")
 
-    # How you actually invoke DDW on THIS tool, said by the recipe that knows.
-    # It replaces install.sh's single closing line, which named `/ddw-status` to
+    # How you actually invoke DAW on THIS tool, said by the recipe that knows.
+    # It replaces install.sh's single closing line, which named `/daw-status` to
     # every target and was true of exactly one of them.
     if cmd or recipe.get("skills_are_slash"):
-        print("  → try: /ddw-status, /ddw-help, /ddw-self-check")
+        print("  → try: /daw-status, /daw-help, /daw-self-check")
     else:
-        print("  → this tool has no /ddw-* commands yet — ask for the skill by "
-              'name ("run the ddw-status skill").')
+        print("  → this tool has no /daw-* commands yet — ask for the skill by "
+              'name ("run the daw-status skill").')
 
 
 if __name__ == "__main__":

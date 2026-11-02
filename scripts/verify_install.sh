@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# verify_install.sh — install DDW into throwaway repos and check the result is
+# verify_install.sh — install DAW into throwaway repos and check the result is
 # actually usable by each tool. Run it before publishing, and after touching any
 # adapter recipe.
 #
@@ -40,7 +40,7 @@ EXPECT_ADAPTERS=6
 # `--check-anchors`, `--cover` and every check in this file green, and the
 # published percentage went on being a percentage of a smaller list. The same
 # reason `EXPECT_CHECKS` exists, one file over.
-EXPECT_MUTATIONS=785
+EXPECT_MUTATIONS=784
 
 SELF="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # EXPORTED, because the Python blocks below anchor their own temporary
@@ -59,7 +59,7 @@ CHECKS=0
 SKIPS=0
 
 ok()   { CHECKS=$((CHECKS+1)); printf '  \033[32m✓\033[0m %s\n' "$1"; }
-# `DDW_STOP_ON_FIRST_FAILURE` stops the run at the first ✗, and it exists for one
+# `DAW_STOP_ON_FIRST_FAILURE` stops the run at the first ✗, and it exists for one
 # caller: `scripts/mutate.py`, which asks a yes/no question — did the suite go
 # red — four hundred times. Answering it costs a full pass today, and most faults
 # die in the first minute of one, so the run spends the rest of the pass proving
@@ -70,8 +70,8 @@ ok()   { CHECKS=$((CHECKS+1)); printf '  \033[32m✓\033[0m %s\n' "$1"; }
 # file refuses to read from the environment.
 bad()  {
   CHECKS=$((CHECKS+1)); FAILS=$((FAILS+1)); printf '  \033[31m✗\033[0m %s\n' "$1"
-  if [ -n "${DDW_STOP_ON_FIRST_FAILURE:-}" ]; then
-    printf '\n\033[31mStopped at the first failure (DDW_STOP_ON_FIRST_FAILURE), after %d checks.\033[0m\n' "$CHECKS"
+  if [ -n "${DAW_STOP_ON_FIRST_FAILURE:-}" ]; then
+    printf '\n\033[31mStopped at the first failure (DAW_STOP_ON_FIRST_FAILURE), after %d checks.\033[0m\n' "$CHECKS"
     printf 'This run answers "did the suite go red", not "how many checks pass". Unset the\n'
     printf 'variable for the full report.\n'
     exit 1
@@ -86,7 +86,7 @@ section() { printf '\n\033[1m%s\033[0m\n' "$1"; }
 # both sides of the idempotency comparison come out as the empty string, so
 # "the second install changed nothing" is true by vacuity and every idempotency
 # check passes without comparing anything.
-ddw_tree_hash() {
+daw_tree_hash() {
   python3 - "$1" <<'PYEOF'
 import hashlib, os, sys
 h = hashlib.sha256()
@@ -133,9 +133,9 @@ n() { local c=0 x; for x in $1; do [ -e "$x" ] && c=$((c+1)); done; echo "$c"; }
 [ "$(n "$SELF/agents/*.md")" = "$EXPECT_AGENTS" ] \
   && ok "$EXPECT_AGENTS agents" \
   || bad "expected $EXPECT_AGENTS agents, found $(n "$SELF/agents/*.md")"
-[ "$(n "$SELF/ddw/rules/*.instructions.md")" = "$EXPECT_RULES" ] \
+[ "$(n "$SELF/daw/rules/*.instructions.md")" = "$EXPECT_RULES" ] \
   && ok "$EXPECT_RULES rule files" \
-  || bad "expected $EXPECT_RULES rule files, found $(n "$SELF/ddw/rules/*.instructions.md") — a deleted rule file leaves a phase with no instructions"
+  || bad "expected $EXPECT_RULES rule files, found $(n "$SELF/daw/rules/*.instructions.md") — a deleted rule file leaves a phase with no instructions"
 [ "$(n "$SELF/adapters/*/adapter.json")" = "$EXPECT_ADAPTERS" ] \
   && ok "$EXPECT_ADAPTERS adapter recipes" \
   || bad "expected $EXPECT_ADAPTERS adapters, found $(n "$SELF/adapters/*/adapter.json")"
@@ -198,11 +198,11 @@ PYEOF
 #
 # The implementer is the exception and the reason the list is spelled out rather
 # than inferred: it writes code, that IS its job, and what stops it from writing
-# DDW's own files is the hook rather than its tool list.
+# DAW's own files is the hook rather than its tool list.
 python3 - "$SELF" <<'PYAGENTTOOLS' && ok "the four agents that only judge cannot write, and the one that implements is the only one that can" || bad "an agent spawned to audit something carries a tool that edits it"
 import glob, os, sys, yaml
 root = sys.argv[1]
-WRITERS = {"ddw-implementer"}
+WRITERS = {"daw-implementer"}
 FORBIDDEN = {"write", "edit", "notebookedit", "multiedit", "apply_patch", "patch"}
 seen = set()
 for path in sorted(glob.glob(os.path.join(root, "agents", "*.md"))):
@@ -222,16 +222,16 @@ assert len(seen - WRITERS) >= 3, \
     "fewer than three read-only agents remain (%s) — this check was written for four" % sorted(seen)
 PYAGENTTOOLS
 
-# `/ddw-eject` told the model to copy the plugin's method into `.ddw/`, and every
-# write to `.ddw/` is refused in every phase — the seal that stops a pipeline
+# `/daw-eject` told the model to copy the plugin's method into `.daw/`, and every
+# write to `.daw/` is refused in every phase — the seal that stops a pipeline
 # editing the rules that stop it, which cannot tell installing the method apart
 # from disarming it. A painted door: the model does exactly what the skill says
 # and is refused, in any phase, with the ticket open. So the skill hands over a
 # command instead, and the command has to exist and work.
-python3 - "$SELF" <<'PYEJECTCMD' && ok "/ddw-eject prescribes a command the user runs, and that command lands the method and records it" || bad "the eject skill orders a write its own enforcement refuses, or prescribes a command that does not work"
+python3 - "$SELF" <<'PYEJECTCMD' && ok "/daw-eject prescribes a command the user runs, and that command lands the method and records it" || bad "the eject skill orders a write its own enforcement refuses, or prescribes a command that does not work"
 import json, os, shutil, subprocess, sys, tempfile
 src = sys.argv[1]
-skill = open(os.path.join(src, "skills/ddw-eject/SKILL.md"), encoding="utf-8").read()
+skill = open(os.path.join(src, "skills/daw-eject/SKILL.md"), encoding="utf-8").read()
 import re as _re
 assert _re.search(r"^\s*bash .*install\.sh.* --method-only", skill, _re.M), \
     ("the eject skill no longer carries the command the user runs. Naming the flag in prose is "
@@ -239,14 +239,14 @@ assert _re.search(r"^\s*bash .*install\.sh.* --method-only", skill, _re.M), \
      "instead is refused by the hook in every phase.")
 
 # The refusal is real, and it is what the skill has to route around: a write to
-# `.ddw/` mid-ticket, judged by the gate every tool runs.
+# `.daw/` mid-ticket, judged by the gate every tool runs.
 work = tempfile.mkdtemp(dir=os.environ["WORK"])
 plug = os.path.join(work, "plugin")
 shutil.copytree(src, plug, symlinks=True, ignore=shutil.ignore_patterns(".git", "__pycache__"))
 repo = os.path.join(work, "repo")
 os.makedirs(repo)
 subprocess.run(["git", "-C", repo, "init", "-q"], check=True)
-state = os.path.join(repo, ".ddw-state.json")
+state = os.path.join(repo, ".daw-state.json")
 json.dump({"phase": "CODE", "ticket": "T-1", "tier": "FEATURE",
            "gates": {"define": True, "spec": True, "threat": True},
            "history": [{"timestamp": "2026-01-01T00:00:00Z", "from": "IDLE", "to": "CLASSIFY",
@@ -255,24 +255,24 @@ json.dump({"phase": "CODE", "ticket": "T-1", "tier": "FEATURE",
                         "action": "b", "tier": "FEATURE", "ticket": "T-1"}]},
           open(state, "w", encoding="utf-8"))
 ev = json.dumps({"tool_name": "Write",
-                 "tool_input": {"file_path": os.path.join(repo, ".ddw/rules/code.instructions.md"),
+                 "tool_input": {"file_path": os.path.join(repo, ".daw/rules/code.instructions.md"),
                                 "content": "x"}})
-r = subprocess.run([sys.executable, os.path.join(plug, "ddw/scripts/hook-gate.py"),
+r = subprocess.run([sys.executable, os.path.join(plug, "daw/scripts/hook-gate.py"),
                     "--dialect", "standard", "--mode", "pre", "--state", state,
-                    "--graph", os.path.join(plug, "ddw/rules/transition-graph.json"),
-                    "--repo", repo, "--method", os.path.join(plug, "ddw")],
+                    "--graph", os.path.join(plug, "daw/rules/transition-graph.json"),
+                    "--repo", repo, "--method", os.path.join(plug, "daw")],
                    input=ev, capture_output=True, text=True)
 assert r.returncode == 2, \
-    "a write into `.ddw/` was allowed — the seal this skill has to route around is gone"
+    "a write into `.daw/` was allowed — the seal this skill has to route around is gone"
 
 # And the way around it lands the method AND records it: an ejected method the
 # drift detector cannot see is the one people go on to edit.
 r = subprocess.run(["bash", os.path.join(plug, "install.sh"), repo, "--method-only"],
                    capture_output=True, text=True)
 assert r.returncode == 0, "install.sh --method-only failed: " + (r.stdout + r.stderr)[-300:]
-assert os.path.isfile(os.path.join(repo, ".ddw/rules/transition-graph.json")), \
-    "the method did not land in .ddw/"
-manifest = json.load(open(os.path.join(repo, ".ddw-installed.json"), encoding="utf-8"))
+assert os.path.isfile(os.path.join(repo, ".daw/rules/transition-graph.json")), \
+    "the method did not land in .daw/"
+manifest = json.load(open(os.path.join(repo, ".daw-installed.json"), encoding="utf-8"))
 assert [k for k in manifest if k.startswith("method:")], \
     "the ejected method is in no manifest, so no drift check can see it change"
 assert not os.path.exists(os.path.join(repo, ".claude")), \
@@ -304,7 +304,7 @@ import glob, json, os, sys
 root = sys.argv[1]
 schema = open(os.path.join(root, "adapters", "adapter.schema.md"), encoding="utf-8").read()
 
-# Free-form by design: their keys are the target tool's dialect, not DDW's.
+# Free-form by design: their keys are the target tool's dialect, not DAW's.
 OPAQUE = {"agents.frontmatter", "agents.when_readonly", "commands.frontmatter"}
 
 def fields(node, prefix=""):
@@ -346,7 +346,7 @@ PYSCHEMA
 python3 - "$SELF" <<'PYDIA' && ok "every dialect a hook passes is one the gate declares, and the CLI takes no other" || bad "a hook passes a dialect the gate never declared — it falls back to the generic envelope in silence"
 import glob, os, re, sys
 root = sys.argv[1]
-gate = open(os.path.join(root, "ddw", "scripts", "hook-gate.py"), encoding="utf-8").read()
+gate = open(os.path.join(root, "daw", "scripts", "hook-gate.py"), encoding="utf-8").read()
 
 block = re.search(r"^DIALECTS = \{(.*?)^\}", gate, re.S | re.M)
 assert block, "DIALECTS is no longer a literal this check can read"
@@ -380,20 +380,22 @@ if missing:
     sys.exit(1)
 PYDIA
 
-# A plugin manifest on its own cannot be installed: Claude Code adds plugins
-# through a MARKETPLACE, and without .claude-plugin/marketplace.json the only
-# thing `/plugin marketplace add` can say is that there is nothing there. The
-# repo is its own marketplace, with one plugin whose source is the root.
-python3 - "$SELF" <<'PYMKT' && ok "the repo is a marketplace, so its plugin can actually be added" || bad "plugin.json exists but nothing can install it — /plugin marketplace add needs marketplace.json"
-import json, os, sys
+# A plugin manifest on its own cannot be installed: Claude Code and Copilot add
+# plugins through a MARKETPLACE. This repository is not one: DAW is published in
+# the organisation's catalog, DiluxOne/diluxone-plugins-ai, which lists it from
+# here (`source: github`). A marketplace.json back here is a second place to
+# install from, and the two drift; every install route has to name the catalog.
+python3 - "$SELF" <<'PYMKT' && ok "the repo is no marketplace of its own, and every plugin install names the catalog" || bad "DAW installs from a second place, or a route does not name diluxone-plugins-ai"
+import os, sys
 root = sys.argv[1]
-m = json.load(open(os.path.join(root, ".claude-plugin", "marketplace.json"), encoding="utf-8"))
-assert m.get("name") and m.get("owner"), "marketplace.json needs a name and an owner"
-names = [p["name"] for p in m["plugins"]]
-assert "ddw" in names, f"marketplace lists {names}, not ddw"
-src = next(p["source"] for p in m["plugins"] if p["name"] == "ddw")
-assert os.path.exists(os.path.join(root, src, ".claude-plugin", "plugin.json")), \
-    f"the marketplace points at {src!r}, where there is no plugin manifest"
+assert not os.path.exists(os.path.join(root, ".claude-plugin", "marketplace.json")), \
+    ".claude-plugin/marketplace.json is back: a marketplace of its own beside the catalog"
+for rel, want in (("README.md", "/plugin install daw@diluxone-plugins-ai"),
+                  ("docs/INSTALL.md", "/plugin install daw@diluxone-plugins-ai"),
+                  (".github/INSTALL.md", "copilot plugin install daw@diluxone-plugins-ai"),
+                  ("install.sh", 'CATALOG="diluxone-plugins-ai"')):
+    text = open(os.path.join(root, rel), encoding="utf-8").read()
+    assert want in text, f"{rel} does not install from the catalog ({want!r})"
 PYMKT
 
 # Claude Code ships the authority on this schema, so use it rather than
@@ -404,19 +406,13 @@ PYMKT
 # with itself is the failure mode this whole repository is built against.
 if command -v claude >/dev/null 2>&1; then
   PV="$WORK/plugin-validate"; rm -rf "$PV"; mkdir -p "$PV"
-  cp -R "$SELF/.claude-plugin" "$SELF/ddw" "$SELF/adapters" "$PV/" 2>/dev/null
-  rm -f "$PV/.claude-plugin/marketplace.json"    # else it validates the marketplace instead
+  cp -R "$SELF/.claude-plugin" "$SELF/daw" "$SELF/adapters" "$PV/" 2>/dev/null
   claude plugin validate "$PV" --strict >/dev/null 2>&1 \
     && ok "the plugin manifest passes Claude Code's own validator (--strict)" \
     || { bad "plugin.json fails the tool's own schema — the plugin will not install"
          claude plugin validate "$PV" --strict 2>&1 | sed 's/^/      /' | head -8; }
-  claude plugin validate "$SELF" --strict >/dev/null 2>&1 \
-    && ok "and so does the marketplace that makes it installable" \
-    || { bad "marketplace.json fails validation — /plugin marketplace add will refuse it"
-         claude plugin validate "$SELF" --strict 2>&1 | sed 's/^/      /' | head -8; }
 else
   skip "claude CLI not on PATH — the plugin manifests were not validated against the real schema"
-  skip "claude CLI not on PATH — the marketplace was not validated either"
 fi
 
 python3 - "$SELF" <<'PYLAYOUT' && ok "the plugin's components sit where the tool discovers them" || bad "plugin layout — see above"
@@ -525,7 +521,7 @@ assert not wrong, (f"{len(wrong)} hook command(s) do not resolve from ${{CLAUDE_
                    f"{wrong[:2]} — they will not run, and nothing reports it")
 PYLAYOUT
 
-for f in "$SELF"/ddw/scripts/*.py "$SELF"/scripts/*.py; do
+for f in "$SELF"/daw/scripts/*.py "$SELF"/scripts/*.py; do
   python3 -m py_compile "$f" 2>/dev/null && ok "compiles: ${f#$SELF/}" || bad "syntax error: ${f#$SELF/}"
 done
 # Both levels spelled out, because `**` is not portable and failing to be is
@@ -567,12 +563,12 @@ for MANIFEST in "$SELF"/adapters/*/adapter.json; do
     && { bad "clean output"; echo "$OUT" | sed 's/^/      /'; } || ok "no errors in output"
 
   # The method, identical for every tool.
-  have "$R/.ddw/orchestrator.md"          ".ddw/orchestrator.md"
-  have "$R/.ddw/rules/transition-graph.json" ".ddw/rules/transition-graph.json"
-  have "$R/.ddw/scripts/transition.py"    ".ddw/scripts/transition.py"
+  have "$R/.daw/orchestrator.md"          ".daw/orchestrator.md"
+  have "$R/.daw/rules/transition-graph.json" ".daw/rules/transition-graph.json"
+  have "$R/.daw/scripts/transition.py"    ".daw/scripts/transition.py"
   have "$R/AGENTS.md"                     "AGENTS.md"
-  [ -d "$R/.ddw/skills" ] && bad ".ddw/skills should NOT exist (adapters place them)" \
-                          || ok ".ddw carries no tool payload"
+  [ -d "$R/.daw/skills" ] && bad ".daw/skills should NOT exist (adapters place them)" \
+                          || ok ".daw carries no tool payload"
 
   # Whatever this tool's recipe promised.
   python3 - "$SELF" "$R" "$T" <<'PY' && ok "recipe honoured (skills, agents, wiring, context)" || bad "recipe NOT honoured"
@@ -616,82 +612,82 @@ for w in r.get("wiring", []):
                 assert os.access(p, os.X_OK), f"{p} not executable"
 if "context_file" in r:
     t = open(os.path.join(repo, r["context_file"]), encoding="utf-8").read()
-    assert "BEGIN DDW" in t and "END DDW" in t, f"{r['context_file']}: no DDW block"
+    assert "BEGIN DAW" in t and "END DAW" in t, f"{r['context_file']}: no DAW block"
 PY
 
   # Idempotency: a second run must change nothing and report no collisions.
-  B="$(ddw_tree_hash "$R")"
+  B="$(daw_tree_hash "$R")"
   OUT2="$(bash "$SELF/install.sh" "$R" --target "$T" 2>&1)"
-  A="$(ddw_tree_hash "$R")"
+  A="$(daw_tree_hash "$R")"
   [ "$B" = "$A" ] && ok "idempotent (second run changes nothing)" || bad "NOT idempotent"
   echo "$OUT2" | grep -q "already existed" && bad "reports false collisions" || ok "no false collisions"
 
   # The state must be gitignored, or it ends up in the user's commits.
   ( cd "$R" && git add -A >/dev/null 2>&1
-    printf '{"phase":"IDLE"}' > .ddw-state.json
+    printf '{"phase":"IDLE"}' > .daw-state.json
     git add -A >/dev/null 2>&1
-    git status --porcelain | grep -q '\.ddw-state\.json' \
-      && exit 1 || exit 0 ) && ok ".ddw-state.json is gitignored" || bad ".ddw-state.json WOULD BE COMMITTED"
+    git status --porcelain | grep -q '\.daw-state\.json' \
+      && exit 1 || exit 0 ) && ok ".daw-state.json is gitignored" || bad ".daw-state.json WOULD BE COMMITTED"
 
-  # Running the method's own scripts leaves bytecode inside .ddw/, and a drop-in
+  # Running the method's own scripts leaves bytecode inside .daw/, and a drop-in
   # is meant to be committed — so with no rule for it the user either commits
   # .pyc files or reads the same `git status` noise forever. Found on the first
   # real session, by the model, which mentioned it twice before anyone looked.
-  ( cd "$R" && mkdir -p .ddw/scripts/__pycache__ \
-    && : > .ddw/scripts/__pycache__/hook-gate.cpython-312.pyc
+  ( cd "$R" && mkdir -p .daw/scripts/__pycache__ \
+    && : > .daw/scripts/__pycache__/hook-gate.cpython-312.pyc
     git status --porcelain | grep -q '__pycache__' \
       && exit 1 || exit 0 ) && ok "and so is the bytecode the method leaves behind when it runs" \
-      || bad "running DDW dirties the user's git status with __pycache__, and a drop-in commits it"
+      || bad "running DAW dirties the user's git status with __pycache__, and a drop-in commits it"
 done
 
 # ── 2. The FSM, which every adapter shares ────────────────────────────────────
 section "Shared FSM (all adapters call this same validator)"
 # A validated phase artifact, the way a PASSED validation leaves it: the document
-# on disk, and the content-hashed receipt in .ddw-sessions/ naming it. Six of the
+# on disk, and the content-hashed receipt in .daw-sessions/ naming it. Six of the
 # eight gates read exactly this pair, and a gate claimed with neither is refused —
 # so a fixture that claims one has to have earned it, or it is refused for the
 # wrong reason and whatever it was testing goes untested.
 #
-#   ddw_earn <repo> <gate> <ticket>
-ddw_earn() {
-  python3 - "$1" "$2" "$3" <<'DDWEARN'
+#   daw_earn <repo> <gate> <ticket>
+daw_earn() {
+  python3 - "$1" "$2" "$3" <<'DAWEARN'
 import hashlib, json, os, sys
 repo, gate, ticket = sys.argv[1:4]
 WHERE = {"define": ("prd", "prd", "prd"), "spec": ("specs", "spec", "spec"),
          "threat": ("security", "threat", "threat"), "verify": ("reports", "verify", "verify"),
          "tests": ("reports", "tests", "tests"), "sast": ("security", "sast", "sast")}
 subdir, stem, receipt = WHERE[gate]
-d = os.path.join(repo, "docs", "ddw", subdir)
+d = os.path.join(repo, "docs", "daw", subdir)
 os.makedirs(d, exist_ok=True)
 path = os.path.join(d, "%s-%s.md" % (stem, ticket))
 if not os.path.exists(path):
     open(path, "w", encoding="utf-8").write("# %s for %s\n" % (stem, ticket))
 text = open(path, encoding="utf-8").read()
-sess = os.path.join(repo, ".ddw-sessions")
+sess = os.path.join(repo, ".daw-sessions")
 os.makedirs(sess, exist_ok=True)
 digest = hashlib.sha256(text.encode("utf-8")).hexdigest()[:12]
 name = "%s-validated-%s" % (receipt, digest)
 open(os.path.join(sess, name), "w").write(os.path.basename(path))
 # …and the journal line a real validator leaves, because the gate asks for both:
 # a receipt nobody's validator is recorded as having written is a forged one.
-with open(os.path.join(repo, ".ddw-journal.jsonl"), "a", encoding="utf-8") as fh:
+with open(os.path.join(repo, ".daw-journal.jsonl"), "a", encoding="utf-8") as fh:
     fh.write(json.dumps({"record": "receipt", "name": name,
                          "file": os.path.basename(path)}, sort_keys=True) + "\n")
-DDWEARN
+DAWEARN
 }
 
 R="$WORK/fsm"; mkdir -p "$R"; git -C "$R" init -q .
 bash "$SELF/install.sh" "$R" --target claude >/dev/null 2>&1
 export CLAUDE_PROJECT_DIR="$R"
-TR="$R/.ddw/scripts/transition.py"; G="$R/.ddw/rules/transition-graph.json"
-for _g in define spec threat tests sast verify; do ddw_earn "$R" "$_g" T-1; done
+TR="$R/.daw/scripts/transition.py"; G="$R/.daw/rules/transition-graph.json"
+for _g in define spec threat tests sast verify; do daw_earn "$R" "$_g" T-1; done
 
 python3 "$TR" --to DEFINE --action x --graph "$G" >/dev/null 2>&1 \
   && bad "IDLE->DEFINE should be rejected" || ok "rejects IDLE->DEFINE (not in graph)"
-python3 "$TR" --to CLASSIFY --action req --ticket T-1 --graph "$G" > "$R/.ddw-state.json" 2>/dev/null \
+python3 "$TR" --to CLASSIFY --action req --ticket T-1 --graph "$G" > "$R/.daw-state.json" 2>/dev/null \
   && ok "accepts IDLE->CLASSIFY" || bad "IDLE->CLASSIFY failed"
 python3 "$TR" --to DEFINE --action c --tier FEATURE --title "the fixture ticket" --graph "$G" > "$R/s" 2>/dev/null \
-  && { cp "$R/s" "$R/.ddw-state.json"; ok "accepts CLASSIFY->DEFINE with a tier"; } || bad "CLASSIFY->DEFINE failed"
+  && { cp "$R/s" "$R/.daw-state.json"; ok "accepts CLASSIFY->DEFINE with a tier"; } || bad "CLASSIFY->DEFINE failed"
 python3 "$TR" --to CODE --action x --graph "$G" >/dev/null 2>&1 \
   && bad "DEFINE->CODE should need gates" || ok "rejects DEFINE->CODE (FEATURE needs PLAN)"
 python3 "$TR" --to PLAN --action p --gate define --graph "$G" >/dev/null 2>&1 \
@@ -735,7 +731,7 @@ PYTIERS
 # that never reach the total this file pins.
 for PAIR in $TIER_DESTS; do
   TIER="${PAIR%%:*}"; DEST="${PAIR##*:}"
-  python3 "$TR" --to CLASSIFY --action req --ticket T-1 --graph "$G" > "$R/.ddw-state.json" 2>/dev/null
+  python3 "$TR" --to CLASSIFY --action req --ticket T-1 --graph "$G" > "$R/.daw-state.json" 2>/dev/null
   # FREE is the one tier whose edge costs the user's own words, quoted. Every
   # other tier takes any action at all, and that asymmetry is the point: the
   # loop would pass just as well with `free: "…"` everywhere, and then nothing
@@ -750,8 +746,8 @@ for PAIR in $TIER_DESTS; do
   fi
 done
 # And the graph must actually enforce each tier's shape, not just accept the tier.
-python3 "$TR" --to CLASSIFY --action req --ticket T-1 --graph "$G" > "$R/.ddw-state.json" 2>/dev/null
-python3 "$TR" --to DEFINE --action c --tier QUICK-FIX --title "the fixture ticket" --graph "$G" > "$R/s" 2>/dev/null && cp "$R/s" "$R/.ddw-state.json"
+python3 "$TR" --to CLASSIFY --action req --ticket T-1 --graph "$G" > "$R/.daw-state.json" 2>/dev/null
+python3 "$TR" --to DEFINE --action c --tier QUICK-FIX --title "the fixture ticket" --graph "$G" > "$R/s" 2>/dev/null && cp "$R/s" "$R/.daw-state.json"
 python3 "$TR" --to PLAN --action x --graph "$G" >/dev/null 2>&1 \
   && bad "QUICK-FIX should have no PLAN phase" || ok "QUICK-FIX: PLAN correctly unreachable"
 python3 "$TR" --to CODE --action x --graph "$G" >/dev/null 2>&1 \
@@ -763,7 +759,7 @@ python3 "$TR" --to CODE --action x --gate define --graph "$G" >/dev/null 2>&1 \
 python3 - "$G" "$R" <<'PY' && ok "extends: FIX inherits FEATURE's edges, no duplication" || bad "extends broken"
 import importlib.util, json, sys
 g = json.load(open(sys.argv[1]))
-s = importlib.util.spec_from_file_location("v", f"{sys.argv[2]}/.ddw/scripts/validate-transition.py")
+s = importlib.util.spec_from_file_location("v", f"{sys.argv[2]}/.daw/scripts/validate-transition.py")
 m = importlib.util.module_from_spec(s); s.loader.exec_module(m)
 assert m._effective_edges(g, "FIX") == m._effective_edges(g, "FEATURE"), "FIX != FEATURE"
 assert "extends" not in json.dumps(g["tiers"]["FEATURE"]), "FEATURE should not extend"
@@ -777,10 +773,10 @@ PY
 CLOSE="$WORK/close"; mkdir -p "$CLOSE"; git -C "$CLOSE" init -q .
 bash "$SELF/install.sh" "$CLOSE" --target claude >/dev/null 2>&1
 export CLAUDE_PROJECT_DIR="$CLOSE"
-TRC="$CLOSE/.ddw/scripts/transition.py"
-for _g in define spec threat tests sast verify; do ddw_earn "$CLOSE" "$_g" T-1; done
-step() { python3 "$TRC" "$@" --graph "$G" > "$CLOSE/s" 2>/dev/null && cp "$CLOSE/s" "$CLOSE/.ddw-state.json"; }
-python3 "$TRC" --to CLASSIFY --action r --ticket T-1 --graph "$G" > "$CLOSE/.ddw-state.json" 2>/dev/null
+TRC="$CLOSE/.daw/scripts/transition.py"
+for _g in define spec threat tests sast verify; do daw_earn "$CLOSE" "$_g" T-1; done
+step() { python3 "$TRC" "$@" --graph "$G" > "$CLOSE/s" 2>/dev/null && cp "$CLOSE/s" "$CLOSE/.daw-state.json"; }
+python3 "$TRC" --to CLASSIFY --action r --ticket T-1 --graph "$G" > "$CLOSE/.daw-state.json" 2>/dev/null
 step --to DEFINE --action c --tier FEATURE --title "the fixture ticket"
 step --to PLAN   --action p --gate define
 step --to CODE   --action x --gate spec --gate threat
@@ -799,14 +795,14 @@ python3 "$TRC" --to IDLE --action done --graph "$G" >/dev/null 2>&1 \
   && bad "closed with commit but no pr" || ok "closeout blocked with commit but no pr"
 python3 - "$CLOSE" <<'PY'
 import json, sys
-p = f"{sys.argv[1]}/.ddw-state.json"; s = json.load(open(p))
+p = f"{sys.argv[1]}/.daw-state.json"; s = json.load(open(p))
 s["gates"].update({"commit": True, "pr": True}); json.dump(s, open(p, "w"))
 PY
 python3 "$TRC" --to IDLE --action done --graph "$G" >/dev/null 2>&1 \
   && ok "closeout accepted with commit+pr" || bad "closeout rejected even with both gates"
 # Abandoning mid-flight stays free — a wrong classification must not trap you —
 # but it has to be DECLARED, so it never gets confused with a closeout.
-python3 "$TRC" --to CLASSIFY --action r --ticket T-1 --graph "$G" > "$CLOSE/.ddw-state.json" 2>/dev/null
+python3 "$TRC" --to CLASSIFY --action r --ticket T-1 --graph "$G" > "$CLOSE/.daw-state.json" 2>/dev/null
 step --to DEFINE --action c --tier FEATURE --title "the fixture ticket"
 step --to PLAN --action p --gate define
 python3 "$TRC" --to IDLE --action "abandon: wrong classification" --graph "$G" >/dev/null 2>&1 \
@@ -814,14 +810,14 @@ python3 "$TRC" --to IDLE --action "abandon: wrong classification" --graph "$G" >
 python3 "$TRC" --to IDLE --action "discarded" --graph "$G" >/dev/null 2>&1 \
   && bad "reached IDLE off-graph without declaring the abandon" || ok "an undeclared exit to IDLE is refused"
 # The tier built for exploring ideas has to let you drop one that did not hold up.
-python3 "$TRC" --to CLASSIFY --action r --ticket T-1 --graph "$G" > "$CLOSE/.ddw-state.json" 2>/dev/null
+python3 "$TRC" --to CLASSIFY --action r --ticket T-1 --graph "$G" > "$CLOSE/.daw-state.json" 2>/dev/null
 step --to DISCOVERY --action d --tier DISCOVERY --title "the fixture ticket"
 python3 "$TRC" --to IDLE --action done --graph "$G" >/dev/null 2>&1 \
   && bad "DISCOVERY closed without commit+pr" || ok "DISCOVERY closeout still needs commit+pr"
 python3 "$TRC" --to IDLE --action "abandon: the idea does not hold up" --graph "$G" >/dev/null 2>&1 \
   && ok "DISCOVERY: a discarded idea can be abandoned" || bad "DISCOVERY traps you in the pipeline"
 # And the closeout fallback must not let a corrective loop reuse stale gates.
-python3 "$TRC" --to CLASSIFY --action r --ticket T-1 --graph "$G" > "$CLOSE/.ddw-state.json" 2>/dev/null
+python3 "$TRC" --to CLASSIFY --action r --ticket T-1 --graph "$G" > "$CLOSE/.daw-state.json" 2>/dev/null
 step --to DEFINE --action c --tier FEATURE --title "the fixture ticket"
 step --to PLAN   --action p --gate define
 step --to CODE   --action x --gate spec --gate threat
@@ -829,7 +825,7 @@ step --to VERIFY --action x --gate tests --gate sast
 step --to CODE   --action "corrective loop"
 python3 - "$CLOSE" <<'PY'
 import json, sys
-p = f"{sys.argv[1]}/.ddw-state.json"; s = json.load(open(p))
+p = f"{sys.argv[1]}/.daw-state.json"; s = json.load(open(p))
 for k in ("tests", "sast"): s["gates"].pop(k, None)
 json.dump(s, open(p, "w"))
 PY
@@ -837,16 +833,16 @@ python3 "$TRC" --to VERIFY --action x --graph "$G" >/dev/null 2>&1 \
   && bad "corrective loop reused cleared gates" || ok "corrective loop must re-earn tests+sast"
 export CLAUDE_PROJECT_DIR="$R"
 
-V="$R/.ddw/scripts/validate-transition.py"
+V="$R/.daw/scripts/validate-transition.py"
 python3 - "$R" > "$R/ev.json" <<'PY'
 import json, sys
 repo = sys.argv[1]
-bad = {"tier":"FEATURE","phase":"CLOSEOUT","gates":{},"history":json.load(open(f"{repo}/.ddw-state.json"))["history"]}
-print(json.dumps({"tool_name":"Write","tool_input":{"file_path":f"{repo}/.ddw-state.json","content":json.dumps(bad)}}))
+bad = {"tier":"FEATURE","phase":"CLOSEOUT","gates":{},"history":json.load(open(f"{repo}/.daw-state.json"))["history"]}
+print(json.dumps({"tool_name":"Write","tool_input":{"file_path":f"{repo}/.daw-state.json","content":json.dumps(bad)}}))
 PY
-python3 "$V" --mode pre --state "$R/.ddw-state.json" --graph "$G" < "$R/ev.json" >/dev/null 2>&1 \
+python3 "$V" --mode pre --state "$R/.daw-state.json" --graph "$G" < "$R/ev.json" >/dev/null 2>&1 \
   && bad "PreToolUse should block a phase jump" || ok "PreToolUse blocks an illegal write (exit 2)"
-python3 "$V" --mode post --state "$R/.ddw-state.json" --graph "$G" </dev/null >/dev/null 2>&1 \
+python3 "$V" --mode post --state "$R/.daw-state.json" --graph "$G" </dev/null >/dev/null 2>&1 \
   && ok "PostToolUse accepts a legal state on disk" || bad "PostToolUse rejects a legal state"
 
 # ── The two Claude hook manifests must stay the same manifest ─────────────────
@@ -858,6 +854,10 @@ import json, sys
 root = sys.argv[1]
 drop = open(f"{root}/adapters/claude/settings.json", encoding="utf-8").read()
 plug = open(f"{root}/adapters/claude/plugin-hooks.json", encoding="utf-8").read()
+# The plugin's copy quotes its root (`claude plugin validate --strict` refuses an
+# unquoted ${CLAUDE_PLUGIN_ROOT}, which a path with a space splits); the drop-in's
+# keeps the commands earlier installs merged into a project's settings.
+plug = plug.replace('\\"', "")
 normalize = lambda t: (t.replace("${CLAUDE_PROJECT_DIR}/.claude/hooks/", "@@")
                         .replace("${CLAUDE_PLUGIN_ROOT}/adapters/claude/hooks/", "@@"))
 a, b = json.loads(normalize(drop)), json.loads(normalize(plug))
@@ -869,30 +869,30 @@ assert a == b, "the hook sets differ once the root variable is normalized"
 PY
 
 # ── Upgrading must upgrade, and must not touch what you made yours ────────────
-# The installer used to read any difference as "the user's file", so a DDW
+# The installer used to read any difference as "the user's file", so a DAW
 # update silently left the repo running a mix of two versions — and blamed the
 # user for a collision they had nothing to do with.
 UP="$WORK/upgrade"; mkdir -p "$UP"; git -C "$UP" init -q .
 bash "$SELF/install.sh" "$UP" --target claude >/dev/null 2>&1
-# Simulating a newer DDW means mutating DDW. That was done in place on $SELF and
+# Simulating a newer DAW means mutating DAW. That was done in place on $SELF and
 # restored afterwards — so an interrupted run (Ctrl-C, a failing check that
 # aborts, two runs at once) left `<!-- upstream change -->` committed into the
 # repo being published, with the backup already gone with $WORK. A test suite
 # must not be able to damage the thing it tests. It mutates a copy now.
-cp -R "$SELF" "$WORK/ddw-newer"
-rm -rf "$WORK/ddw-newer/.git"
-printf '\n<!-- upstream change -->\n' >> "$WORK/ddw-newer/skills/ddw-status/SKILL.md"
-printf '\n<!-- the user made this theirs -->\n' >> "$UP/.claude/skills/ddw-test/SKILL.md"
-bash "$WORK/ddw-newer/install.sh" "$UP" --target claude >/dev/null 2>&1
-grep -q "upstream change" "$UP/.claude/skills/ddw-status/SKILL.md" \
-  && ok "re-installing upgrades DDW's own files" \
-  || bad "a DDW update did not reach the installed copy — the repo runs a mix of versions"
-grep -q "the user made this theirs" "$UP/.claude/skills/ddw-test/SKILL.md" \
+cp -R "$SELF" "$WORK/daw-newer"
+rm -rf "$WORK/daw-newer/.git"
+printf '\n<!-- upstream change -->\n' >> "$WORK/daw-newer/skills/daw-status/SKILL.md"
+printf '\n<!-- the user made this theirs -->\n' >> "$UP/.claude/skills/daw-test/SKILL.md"
+bash "$WORK/daw-newer/install.sh" "$UP" --target claude >/dev/null 2>&1
+grep -q "upstream change" "$UP/.claude/skills/daw-status/SKILL.md" \
+  && ok "re-installing upgrades DAW's own files" \
+  || bad "a DAW update did not reach the installed copy — the repo runs a mix of versions"
+grep -q "the user made this theirs" "$UP/.claude/skills/daw-test/SKILL.md" \
   && ok "re-installing leaves a file the user edited alone" \
   || bad "the installer overwrote the user's edit"
 
 # ── Every adapter must actually refuse ────────────────────────────────────────
-# The claim DDW makes is parity: same method, same enforcement, every tool. Two
+# The claim DAW makes is parity: same method, same enforcement, every tool. Two
 # an adapter can return "allow" on an illegal write indefinitely — each has
 # consumed the event before the validator could read it. Nothing caught it,
 # because the suite tested the validator instead of the hooks that call it.
@@ -903,34 +903,34 @@ bash "$SELF/install.sh" "$ALL" --target all >/dev/null 2>&1
 # that make those claims legal. A negative fixture refused for the wrong reason
 # proves nothing about the rule it was written for.
 for _t in T-1 FEAT-001 EVIL-1 Q-1; do
-  for _g in define spec threat tests sast verify; do ddw_earn "$ALL" "$_g" "$_t"; done
+  for _g in define spec threat tests sast verify; do daw_earn "$ALL" "$_g" "$_t"; done
 done
 
-# The claim the whole "port it to another tool" exercise rests on: `.ddw/` is
+# The claim the whole "port it to another tool" exercise rests on: `.daw/` is
 # byte-identical no matter which tool you installed for. It stopped being true
 # once the install manifest lived inside it — one file, and the demo that proves
 # the method is portable printed a difference at the exact moment it should not.
 section "The method is identical across tools"
 ONE="$WORK/iso-claude"; mkdir -p "$ONE"; git -C "$ONE" init -q .
 bash "$SELF/install.sh" "$ONE" --target claude >/dev/null 2>&1
-diff -r "$ONE/.ddw" "$ALL/.ddw" >/dev/null 2>&1 \
-  && ok ".ddw/ is byte-identical between a claude install and an all install" \
-  || { bad ".ddw/ DIFFERS between two installs — 'the method does not change' is false"
-       diff -r "$ONE/.ddw" "$ALL/.ddw" 2>&1 | head -5 | sed 's/^/      /'; }
-[ -f "$ONE/.ddw-installed.json" ] \
+diff -r "$ONE/.daw" "$ALL/.daw" >/dev/null 2>&1 \
+  && ok ".daw/ is byte-identical between a claude install and an all install" \
+  || { bad ".daw/ DIFFERS between two installs — 'the method does not change' is false"
+       diff -r "$ONE/.daw" "$ALL/.daw" 2>&1 | head -5 | sed 's/^/      /'; }
+[ -f "$ONE/.daw-installed.json" ] \
   && ok "the install manifest sits at the repo root, outside the method" \
-  || bad "no .ddw-installed.json at the root — the installer cannot tell an upgrade from your file"
-[ -f "$ONE/.ddw/.installed.json" ] \
-  && bad "the manifest is still inside .ddw/, which is what made the method differ" \
-  || ok ".ddw/ carries no per-install bookkeeping"
-printf '{"phase":"IDLE","tier":null,"gates":{},"history":[]}' > "$ALL/.ddw-state.json"
+  || bad "no .daw-installed.json at the root — the installer cannot tell an upgrade from your file"
+[ -f "$ONE/.daw/.installed.json" ] \
+  && bad "the manifest is still inside .daw/, which is what made the method differ" \
+  || ok ".daw/ carries no per-install bookkeeping"
+printf '{"phase":"IDLE","tier":null,"gates":{},"history":[]}' > "$ALL/.daw-state.json"
 
 # Written to a file rather than piped: the gate can reach its verdict before
 # draining stdin, and under `pipefail` the writer's EPIPE would be misread as
 # the hook itself having failed.
 EVENT="$WORK/event.json"
-ddw_event() {   # $1 = envelope style, $2 = the state JSON being written
-  python3 - "$1" "$ALL/.ddw-state.json" "$2" > "$EVENT" <<'PY'
+daw_event() {   # $1 = envelope style, $2 = the state JSON being written
+  python3 - "$1" "$ALL/.daw-state.json" "$2" > "$EVENT" <<'PY'
 import json, sys
 style, path, content = sys.argv[1], sys.argv[2], sys.argv[3]
 if style == "camel":
@@ -939,7 +939,7 @@ else:
     print(json.dumps({"tool_name": "write", "tool_input": {"file_path": path, "content": content}}))
 PY
 }
-ddw_event_path() {   # $1 = envelope style, $2 = the file being written
+daw_event_path() {   # $1 = envelope style, $2 = the file being written
   python3 - "$1" "$2" > "$EVENT" <<'PY'
 import json, sys
 style, path = sys.argv[1], sys.argv[2]
@@ -963,46 +963,46 @@ IN_CODE='{"ticket":"T-1","phase":"CODE","tier":"FEATURE","gates":{"define":true,
 check_adapter() {  # $1 = label, $2 = hook dir, $3 = envelope style, $4 = hook filename
   local label="$1" dir="$ALL/$2" style="$3" hook="${4:-pre-tool-use.sh}"
   if [ ! -f "$dir/$hook" ]; then bad "$label: no pre-write hook was installed"; return; fi
-  ddw_event "$style" "$ILLEGAL"
+  daw_event "$style" "$ILLEGAL"
   if (cd "$ALL" && CLAUDE_PROJECT_DIR="$ALL" bash "$dir/$hook" < "$EVENT") >/dev/null 2>&1; then
     bad "$label: an illegal transition was ALLOWED through the tool's own hook"
   else
     ok "$label refuses an illegal transition (exit 2)"
   fi
-  ddw_event "$style" "$LEGAL"
+  daw_event "$style" "$LEGAL"
   if (cd "$ALL" && CLAUDE_PROJECT_DIR="$ALL" bash "$dir/$hook" < "$EVENT") >/dev/null 2>&1; then
     ok "$label lets a legal transition through"
   else
     bad "$label blocks a LEGAL transition — enforcement that cries wolf gets turned off"
   fi
 
-  printf '%s' "$IN_PLAN" > "$ALL/.ddw-state.json"
-  ddw_event_path "$style" "$ALL/src/app.py"
+  printf '%s' "$IN_PLAN" > "$ALL/.daw-state.json"
+  daw_event_path "$style" "$ALL/src/app.py"
   if (cd "$ALL" && CLAUDE_PROJECT_DIR="$ALL" bash "$dir/$hook" < "$EVENT") >/dev/null 2>&1; then
     bad "$label: source code was written in PLAN — 'no approved spec, no code' is not enforced"
   else
     ok "$label refuses product source while in PLAN"
   fi
-  ddw_event_path "$style" "$ALL/docs/ddw/specs/spec-FEAT-001.md"
+  daw_event_path "$style" "$ALL/docs/daw/specs/spec-FEAT-001.md"
   if (cd "$ALL" && CLAUDE_PROJECT_DIR="$ALL" bash "$dir/$hook" < "$EVENT") >/dev/null 2>&1; then
     ok "$label still lets PLAN write its own artifacts"
   else
     bad "$label blocks PLAN from writing its own spec"
   fi
-  printf '%s' "$IN_CODE" > "$ALL/.ddw-state.json"
-  ddw_event_path "$style" "$ALL/src/app.py"
+  printf '%s' "$IN_CODE" > "$ALL/.daw-state.json"
+  daw_event_path "$style" "$ALL/src/app.py"
   if (cd "$ALL" && CLAUDE_PROJECT_DIR="$ALL" bash "$dir/$hook" < "$EVENT") >/dev/null 2>&1; then
     ok "$label lets source through once CODE was reached"
   else
     bad "$label blocks source in CODE — the guard refuses everything, which is its own failure"
   fi
-  printf '%s' "$IDLE_STATE" > "$ALL/.ddw-state.json"
+  printf '%s' "$IDLE_STATE" > "$ALL/.daw-state.json"
 }
 check_adapter "Claude Code"     ".claude/hooks"     snake validate-state-transition.sh
-check_adapter "Codex CLI"       ".codex/hooks/ddw"  snake
-check_adapter "Copilot CLI"     ".github/hooks/ddw" camel
-check_adapter "Cursor"          ".cursor/hooks/ddw" snake
-check_adapter "Gemini CLI"      ".gemini/hooks/ddw" snake
+check_adapter "Codex CLI"       ".codex/hooks/daw"  snake
+check_adapter "Copilot CLI"     ".github/hooks/daw" camel
+check_adapter "Cursor"          ".cursor/hooks/daw" snake
+check_adapter "Gemini CLI"      ".gemini/hooks/daw" snake
 
 # ── The shared gate, driven as the tools drive it ─────────────────────────────
 #
@@ -1014,8 +1014,8 @@ check_adapter "Gemini CLI"      ".gemini/hooks/ddw" snake
 # library.
 section "The shared gate itself"
 
-GATE="$ALL/.ddw/scripts/hook-gate.py"
-GST="$ALL/.ddw-state.json"
+GATE="$ALL/.daw/scripts/hook-gate.py"
+GST="$ALL/.daw-state.json"
 gate_pre() {  # $1 = dialect, stdin = event; echoes the exit code
   python3 "$GATE" --dialect "$1" --mode pre --state "$GST" --graph "$G" --repo "$ALL" \
     >/dev/null 2>&1; echo $?
@@ -1024,7 +1024,7 @@ gate_pre() {  # $1 = dialect, stdin = event; echoes the exit code
 WHOLE_RUN='{"tier":"FEATURE","phase":"CLOSEOUT","ticket":"T-1","gates":{"define":true,"spec":true,"threat":true,"tests":true,"sast":true,"verify":true},"history":[{"timestamp":"2026-07-27T10:00:00Z","from":"IDLE","to":"CLASSIFY","action":"a"},{"timestamp":"2026-07-27T10:00:01Z","from":"CLASSIFY","to":"DEFINE","action":"a"},{"timestamp":"2026-07-27T10:00:02Z","from":"DEFINE","to":"PLAN","action":"a"},{"timestamp":"2026-07-27T10:00:03Z","from":"PLAN","to":"CODE","action":"a"},{"timestamp":"2026-07-27T10:00:04Z","from":"CODE","to":"VERIFY","action":"a"},{"timestamp":"2026-07-27T10:00:05Z","from":"VERIFY","to":"CLOSEOUT","action":"a"}]}'
 
 printf '%s' "$IDLE_STATE" > "$GST"
-ddw_event snake "$WHOLE_RUN"
+daw_event snake "$WHOLE_RUN"
 [ "$(gate_pre standard < "$EVENT")" = "2" ] \
   && ok "one write, one transition — through the gate the tools call" \
   || bad "ONE write declared the whole pipeline: the sequencing the machine exists for is gone"
@@ -1042,12 +1042,12 @@ python3 "$GATE" --mode pre --state "$GST" --graph "$WORK/broken-graph.json" --re
 # the gate did not recognise.
 printf '%s' "$IN_PLAN" > "$GST"
 ln -sfn . "$ALL/selflink"
-ddw_event_path snake "$ALL/selflink/src/app.py"
+daw_event_path snake "$ALL/selflink/src/app.py"
 [ "$(gate_pre standard < "$EVENT")" = "2" ] \
   && ok "a symlinked path cannot smuggle product source past the guard" \
   || bad "a symlink in the path defeated the source guard — resolve with realpath, not abspath"
-ddw_event snake "$WHOLE_RUN"
-python3 - "$ALL/selflink/.ddw-state.json" "$WHOLE_RUN" > "$EVENT" <<'PY'
+daw_event snake "$WHOLE_RUN"
+python3 - "$ALL/selflink/.daw-state.json" "$WHOLE_RUN" > "$EVENT" <<'PY'
 import json, sys
 print(json.dumps({"tool_name": "Write",
                   "tool_input": {"file_path": sys.argv[1], "content": sys.argv[2]}}))
@@ -1081,7 +1081,7 @@ printf '{"tool_name":"Write","tool_input":{"file_path":["src/app.py"],"content":
 # A corrupt state used to read as a fresh IDLE — which defeats append-only:
 # corrupt the file first, then write any history you like over the "empty" one.
 printf 'not json at all' > "$GST"
-ddw_event_path snake "$ALL/src/app.py"
+daw_event_path snake "$ALL/src/app.py"
 [ "$(gate_pre standard < "$EVENT")" = "2" ] \
   && ok "an unreadable state refuses the write instead of assuming IDLE" \
   || bad "a corrupt state disabled the guard — a phase it cannot read is one it cannot vouch for"
@@ -1134,12 +1134,12 @@ state = json.dumps({"tier": None, "phase": "CLASSIFY", "ticket": None, "title": 
                     "tracker": None, "gates": {}, "block": None, "discovery": None,
                     "history": [{"timestamp": "2026-07-29T20:00:00Z", "from": "IDLE",
                                  "to": "CLASSIFY", "action": "abrir"}]}, indent=2)
-patch = ("*** Begin Patch\n*** Add File: .ddw-state.json\n"
+patch = ("*** Begin Patch\n*** Add File: .daw-state.json\n"
          + "\n".join("+" + l for l in state.splitlines()) + "\n*** End Patch")
 print(json.dumps({"toolName": "apply_patch", "toolArgs": patch}))
 PY
-python3 "$SELF/ddw/scripts/hook-gate.py" --dialect copilot --mode pre \
-  --state "$APR/.ddw-state.json" --graph "$SELF/ddw/rules/transition-graph.json" --repo "$APR" \
+python3 "$SELF/daw/scripts/hook-gate.py" --dialect copilot --mode pre \
+  --state "$APR/.daw-state.json" --graph "$SELF/daw/rules/transition-graph.json" --repo "$APR" \
   < "$EVENT" >/dev/null 2>&1
 [ "$?" = "0" ] \
   && ok "and a LEGAL state creation through that envelope is allowed — no shell-heredoc push" \
@@ -1149,8 +1149,8 @@ python3 "$SELF/ddw/scripts/hook-gate.py" --dialect copilot --mode pre \
 # create-prd and validate-prd together and "validated" in prose. The script IS
 # the validation; PASSED writes a content-hashed receipt; the define gate
 # demands it wherever the ticket's PRD exists on disk.
-VP="$WORK/vp"; mkdir -p "$VP/docs/ddw/prd"
-cat > "$VP/docs/ddw/prd/prd-FEAT-001.md" <<'PRDEOF'
+VP="$WORK/vp"; mkdir -p "$VP/docs/daw/prd"
+cat > "$VP/docs/daw/prd/prd-FEAT-001.md" <<'PRDEOF'
 # PRD FEAT-001: Prueba
 
 ## Context and Problem
@@ -1182,28 +1182,28 @@ PRDEOF
 # that matches nothing expands to NOTHING — so `ls dir/prd-validated-*` becomes
 # a bare `ls`, lists the working directory, and exits 0. The check could not
 # fail. compgen expands the pattern itself and returns 1 when nothing matches.
-python3 "$SELF/ddw/scripts/validate_prd.py" "$VP/docs/ddw/prd/prd-FEAT-001.md" --tier FEATURE >/dev/null 2>&1 \
-  && compgen -G "$VP/.ddw-sessions/prd-validated-*" >/dev/null \
+python3 "$SELF/daw/scripts/validate_prd.py" "$VP/docs/daw/prd/prd-FEAT-001.md" --tier FEATURE >/dev/null 2>&1 \
+  && compgen -G "$VP/.daw-sessions/prd-validated-*" >/dev/null \
   && ok "validate_prd.py passes a sound PRD and leaves the content-hashed receipt" \
   || bad "the validator rejects a sound PRD or writes no receipt — validation is back to being prose"
-sed 's/debe exponer/deberia exponer/' "$VP/docs/ddw/prd/prd-FEAT-001.md" > "$VP/broken.md"
-VPOUT="$(python3 "$SELF/ddw/scripts/validate_prd.py" "$VP/broken.md" --tier FEATURE 2>/dev/null || true)"
+sed 's/debe exponer/deberia exponer/' "$VP/docs/daw/prd/prd-FEAT-001.md" > "$VP/broken.md"
+VPOUT="$(python3 "$SELF/daw/scripts/validate_prd.py" "$VP/broken.md" --tier FEATURE 2>/dev/null || true)"
 case "$VPOUT" in
   *"❌ F-PRD-06"*"FR-01"*) ok "and it names the broken rule by ID — the checklist is script output, not model courtesy" ;;
   *) bad "an ambiguous verb sailed through the mechanical validator" ;;
 esac
-printf '%s' '{"tier":"FEATURE","phase":"DEFINE","ticket":"FEAT-001","title":null,"tracker":null,"gates":{},"block":null,"discovery":null,"history":[{"timestamp":"2026-07-29T20:00:00Z","from":"IDLE","to":"CLASSIFY","action":"a"},{"timestamp":"2026-07-29T20:01:00Z","from":"CLASSIFY","to":"DEFINE","action":"b","tier":"FEATURE","ticket":"FEAT-001"}]}' > "$VP/.ddw-state.json"
+printf '%s' '{"tier":"FEATURE","phase":"DEFINE","ticket":"FEAT-001","title":null,"tracker":null,"gates":{},"block":null,"discovery":null,"history":[{"timestamp":"2026-07-29T20:00:00Z","from":"IDLE","to":"CLASSIFY","action":"a"},{"timestamp":"2026-07-29T20:01:00Z","from":"CLASSIFY","to":"DEFINE","action":"b","tier":"FEATURE","ticket":"FEAT-001"}]}' > "$VP/.daw-state.json"
 # Not `sed -i`: BSD sed reads the next argument as a backup suffix, so on macOS
 # this edited nothing, the receipt stayed fresh, and the gate opened — the check
 # reported the defect it exists to prove is gone.
-python3 - "$VP/docs/ddw/prd/prd-FEAT-001.md" <<'PYPRD'
+python3 - "$VP/docs/daw/prd/prd-FEAT-001.md" <<'PYPRD'
 import sys
 p = sys.argv[1]
 t = open(p, encoding="utf-8").read().replace("debe exponer", "deberia exponer")
 open(p, "w", encoding="utf-8").write(t)
 PYPRD
-python3 "$SELF/ddw/scripts/transition.py" --to PLAN --action p --gate define \
-  --state "$VP/.ddw-state.json" --graph "$SELF/ddw/rules/transition-graph.json" >/dev/null 2>&1
+python3 "$SELF/daw/scripts/transition.py" --to PLAN --action p --gate define \
+  --state "$VP/.daw-state.json" --graph "$SELF/daw/rules/transition-graph.json" >/dev/null 2>&1
 [ "$?" = "2" ] \
   && ok "the define gate refuses when the PRD on disk has no fresh receipt — validated is a fact, not a claim" \
   || bad "the define gate opened on an unvalidated PRD; loading two skills as reading material passes again"
@@ -1216,36 +1216,36 @@ VPSTATE='{"tier":"FEATURE","phase":"PLAN","ticket":"FEAT-001","title":null,"trac
 python3 - "$VP" "$VPSTATE" > "$VP/ev.json" <<'PYEV'
 import json, sys
 print(json.dumps({"tool_name": "Write",
-                  "tool_input": {"file_path": sys.argv[1] + "/.ddw-state.json",
+                  "tool_input": {"file_path": sys.argv[1] + "/.daw-state.json",
                                  "content": sys.argv[2]}}))
 PYEV
-python3 "$SELF/ddw/scripts/validate-transition.py" --mode pre --state "$VP/.ddw-state.json" \
-  --graph "$SELF/ddw/rules/transition-graph.json" < "$VP/ev.json" >/dev/null 2>&1
+python3 "$SELF/daw/scripts/validate-transition.py" --mode pre --state "$VP/.daw-state.json" \
+  --graph "$SELF/daw/rules/transition-graph.json" < "$VP/ev.json" >/dev/null 2>&1
 [ "$?" = "2" ] \
   && ok "and the hook refuses it too — the receipt is not optional for a model that writes the state itself" \
   || bad "a plain Write of the same state opens the define gate with no receipt: the guarantee has a way around it"
 
 # The refusal is the most-read sentence this product has, and nothing read it.
-# The reason carried a `DDW: ` of its own while every caller adds one — the
+# The reason carried a `DAW: ` of its own while every caller adds one — the
 # helper stripped it back out by hand, the hook did not, and a live run showed
-# `DDW blocked this write: DDW: the define gate…`. Prefixing belongs to whoever
+# `DAW blocked this write: DAW: the define gate…`. Prefixing belongs to whoever
 # is speaking, once; a workaround in one caller is not a fix in the other.
-VPMSG="$(python3 "$SELF/ddw/scripts/validate-transition.py" --mode pre --state "$VP/.ddw-state.json" \
-  --graph "$SELF/ddw/rules/transition-graph.json" < "$VP/ev.json" 2>&1 >/dev/null)"
+VPMSG="$(python3 "$SELF/daw/scripts/validate-transition.py" --mode pre --state "$VP/.daw-state.json" \
+  --graph "$SELF/daw/rules/transition-graph.json" < "$VP/ev.json" 2>&1 >/dev/null)"
 case "$VPMSG" in
-  *"DDW blocked this write: the "*gate*"validation receipt"*)
+  *"DAW blocked this write: the "*gate*"validation receipt"*)
     ok "and the refusal reads as one sentence — the reason carries no prefix of its own" ;;
-  *"write: DDW:"*|*"DDW: DDW:"*)
-    bad "the refusal doubles its prefix — the user reads 'DDW blocked this write: DDW: …'" ;;
+  *"write: DAW:"*|*"DAW: DAW:"*)
+    bad "the refusal doubles its prefix — the user reads 'DAW blocked this write: DAW: …'" ;;
   *) bad "the refusal no longer names the missing receipt: $VPMSG" ;;
 esac
 
 # The shell never reaches a write tool. Post mode is where that write is caught,
 # and it asks about the edge the journal has not seen yet — never about the ones
 # it already recorded, or editing a PRD two phases later would brick the session.
-printf '%s' "$VPSTATE" > "$VP/.ddw-state.json"
-python3 "$SELF/ddw/scripts/validate-transition.py" --mode post --state "$VP/.ddw-state.json" \
-  --graph "$SELF/ddw/rules/transition-graph.json" >/dev/null 2>&1
+printf '%s' "$VPSTATE" > "$VP/.daw-state.json"
+python3 "$SELF/daw/scripts/validate-transition.py" --mode post --state "$VP/.daw-state.json" \
+  --graph "$SELF/daw/rules/transition-graph.json" >/dev/null 2>&1
 [ "$?" = "2" ] \
   && ok "and a state written through the shell is caught by the post net for the same missing receipt" \
   || bad "jq/sed writes the state, the define gate opens with no receipt, and nothing objects"
@@ -1273,11 +1273,11 @@ h = [e("IDLE", "CLASSIFY", "clasificar: probar"),
 st = {"tier": "FEATURE", "phase": "CLASSIFY", "ticket": "T-1", "title": "t",
       "autonomy": None, "gates": {"define": True}, "block": None,
       "discovery": None, "tracker": None, "history": h}
-with open(os.path.join(repo, ".ddw-state.json"), "w", encoding="utf-8") as fh:
+with open(os.path.join(repo, ".daw-state.json"), "w", encoding="utf-8") as fh:
     json.dump(st, fh)
-r = subprocess.run([sys.executable, os.path.join(self_dir, "ddw/scripts/validate-transition.py"),
-                    "--mode", "post", "--state", os.path.join(repo, ".ddw-state.json"),
-                    "--graph", os.path.join(self_dir, "ddw/rules/transition-graph.json")],
+r = subprocess.run([sys.executable, os.path.join(self_dir, "daw/scripts/validate-transition.py"),
+                    "--mode", "post", "--state", os.path.join(repo, ".daw-state.json"),
+                    "--graph", os.path.join(self_dir, "daw/rules/transition-graph.json")],
                    capture_output=True, text=True)
 assert r.returncode == 2, "the forged claim passed the post net: " + (r.stdout + r.stderr)[:220]
 said = (r.stdout + r.stderr).lower()
@@ -1291,15 +1291,15 @@ PYFORGEDCLAIM
 # The PRD is put back first: what broke the receipt was an edit that ALSO makes
 # the PRD fail validation, so validating the broken one writes no receipt and
 # this would read as "the gate never opens" when nothing was ever offered to it.
-python3 - "$VP/docs/ddw/prd/prd-FEAT-001.md" <<'PYFIX'
+python3 - "$VP/docs/daw/prd/prd-FEAT-001.md" <<'PYFIX'
 import sys
 p = sys.argv[1]
 t = open(p, encoding="utf-8").read().replace("deberia exponer", "debe exponer")
 open(p, "w", encoding="utf-8").write(t)
 PYFIX
-python3 "$SELF/ddw/scripts/validate_prd.py" "$VP/docs/ddw/prd/prd-FEAT-001.md" --tier FEATURE >/dev/null 2>&1
-python3 "$SELF/ddw/scripts/validate-transition.py" --mode post --state "$VP/.ddw-state.json" \
-  --graph "$SELF/ddw/rules/transition-graph.json" >/dev/null 2>&1 \
+python3 "$SELF/daw/scripts/validate_prd.py" "$VP/docs/daw/prd/prd-FEAT-001.md" --tier FEATURE >/dev/null 2>&1
+python3 "$SELF/daw/scripts/validate-transition.py" --mode post --state "$VP/.daw-state.json" \
+  --graph "$SELF/daw/rules/transition-graph.json" >/dev/null 2>&1 \
   && ok "and validating again opens it: the receipt is what the gate is asking for" \
   || bad "the gate stays shut with a fresh receipt on disk — the pipeline cannot proceed at all"
 
@@ -1311,14 +1311,14 @@ python3 "$SELF/ddw/scripts/validate-transition.py" --mode post --state "$VP/.ddw
 # same shape three times: a sound artifact PASSES and leaves a content-hashed
 # receipt, a broken one is refused BY RULE ID, and the gate is shut without the
 # receipt and open with it.
-VS="$VP/docs/ddw/specs"; mkdir -p "$VS"
+VS="$VP/docs/daw/specs"; mkdir -p "$VS"
 cat > "$VS/spec-FEAT-001.md" <<'SPECEOF'
 # Spec FEAT-001: Ingesta
 
 | Field | Value |
 |-------|-------|
 | Ticket | FEAT-001 |
-| PRD | docs/ddw/prd/prd-FEAT-001.md |
+| PRD | docs/daw/prd/prd-FEAT-001.md |
 | Tier | FEATURE |
 
 ## Summary
@@ -1369,8 +1369,8 @@ Pasan los tres tests y el POST devuelve 201.
 ## Rollback
 La tabla se crea vacia y se descarta; no hay migracion inversa.
 SPECEOF
-python3 "$SELF/ddw/scripts/validate_spec.py" "$VS/spec-FEAT-001.md" --tier FEATURE >/dev/null 2>&1 \
-  && compgen -G "$VP/.ddw-sessions/spec-validated-*" >/dev/null \
+python3 "$SELF/daw/scripts/validate_spec.py" "$VS/spec-FEAT-001.md" --tier FEATURE >/dev/null 2>&1 \
+  && compgen -G "$VP/.daw-sessions/spec-validated-*" >/dev/null \
   && ok "validate_spec.py passes a sound spec and leaves the content-hashed receipt" \
   || bad "the spec validator rejects a sound spec or writes no receipt — the spec gate has nothing to rest on"
 python3 - "$VS/spec-FEAT-001.md" "$VS/broken.md" <<'PYSPEC'
@@ -1379,8 +1379,8 @@ t = open(sys.argv[1], encoding="utf-8").read()
 open(sys.argv[2], "w", encoding="utf-8").write(
     re.sub(r"\*\*Required tests\*\*.*?\n\n", "", t, flags=re.S))
 PYSPEC
-VSOUT="$(python3 "$SELF/ddw/scripts/validate_spec.py" "$VS/broken.md" --tier FEATURE \
-        --prd "$VP/docs/ddw/prd/prd-FEAT-001.md" 2>/dev/null || true)"
+VSOUT="$(python3 "$SELF/daw/scripts/validate_spec.py" "$VS/broken.md" --tier FEATURE \
+        --prd "$VP/docs/daw/prd/prd-FEAT-001.md" 2>/dev/null || true)"
 case "$VSOUT" in
   *"❌ F-SPEC-06"*"Block 1"*) ok "and it names the block with no tests by rule ID — the checklist is script output, not model courtesy" ;;
   *) bad "a block with no tests sailed through the mechanical spec validator" ;;
@@ -1398,8 +1398,8 @@ for line in ("- [ ] test_campo_faltante_devuelve_400 — validates AC-02, campo 
     t = t.replace(line, "")
 open(sys.argv[2], "w", encoding="utf-8").write(t)
 PY16
-V16OUT="$(python3 "$SELF/ddw/scripts/validate_spec.py" "$VS/spec-untested-errors.md" --tier FEATURE \
-         --prd "$VP/docs/ddw/prd/prd-FEAT-001.md" 2>/dev/null || true)"
+V16OUT="$(python3 "$SELF/daw/scripts/validate_spec.py" "$VS/spec-untested-errors.md" --tier FEATURE \
+         --prd "$VP/docs/daw/prd/prd-FEAT-001.md" 2>/dev/null || true)"
 case "$V16OUT" in
   *"F-SPEC-16"*"2 error(s), 0 test(s)"*)
     ok "F-SPEC-16 counts a block's documented errors against the tests that name one" ;;
@@ -1416,8 +1416,8 @@ import sys
 t = open(sys.argv[1], encoding="utf-8").read()
 open(sys.argv[2], "w", encoding="utf-8").write(t.replace("Implementa FR-01.", "Implementa el alta."))
 PYWSPEC
-WSPOUT="$(python3 "$SELF/ddw/scripts/validate_spec.py" "$VS/spec-covered-elsewhere.md" --tier FEATURE \
-         --prd "$VP/docs/ddw/prd/prd-FEAT-001.md" 2>/dev/null || true)"
+WSPOUT="$(python3 "$SELF/daw/scripts/validate_spec.py" "$VS/spec-covered-elsewhere.md" --tier FEATURE \
+         --prd "$VP/docs/daw/prd/prd-FEAT-001.md" 2>/dev/null || true)"
 case "$WSPOUT" in
   *"W-SPEC-01"*) bad "W-SPEC-01 warns that a block references no FR while F-SPEC-01 reports that same block covering one" ;;
   *) ok "a block the coverage table maps to an FR raises no warning about referencing none — one output, one answer" ;;
@@ -1456,7 +1456,7 @@ Ninguna: es un solo paso.
 ## Rollback plan
 Revertir el commit; el cambio es de una linea.
 FIXEOF
-python3 "$SELF/ddw/scripts/validate_spec.py" "$VS/fix-FIX-002.md" --tier FIX >/dev/null 2>&1 \
+python3 "$SELF/daw/scripts/validate_spec.py" "$VS/fix-FIX-002.md" --tier FIX >/dev/null 2>&1 \
   && ok "validate_spec.py passes a sound fix-plan: FIX answers to an RCA, not to a PRD" \
   || bad "a sound fix-plan is refused — the FIX tier cannot leave PLAN at all"
 # Built with python3, not `grep -v -A`: that combination prints the WHOLE file
@@ -1470,20 +1470,20 @@ s = open(p, encoding="utf-8").read()
 s = re.sub(r"^## Rollback plan.*?(?=^## |\Z)", "", s, flags=re.S | re.M)
 open(os.path.join(sys.argv[1], "fix-norollback.md"), "w", encoding="utf-8").write(s)
 PYNOROLL
-VFOUT="$(python3 "$SELF/ddw/scripts/validate_spec.py" "$VS/fix-norollback.md" --tier FIX 2>/dev/null || true)"
+VFOUT="$(python3 "$SELF/daw/scripts/validate_spec.py" "$VS/fix-norollback.md" --tier FIX 2>/dev/null || true)"
 case "$VFOUT" in
   *"❌ F-SPEC-15"*) ok "and a fix-plan with no rollback plan is named by its rule ID" ;;
   *) bad "a FIX reached CODE with no rollback plan and nothing said so" ;;
 esac
 
-VTM="$VP/docs/ddw/security"; mkdir -p "$VTM"
+VTM="$VP/docs/daw/security"; mkdir -p "$VTM"
 cat > "$VTM/threat-FEAT-001.md" <<'TMEOF'
 # Threat model FEAT-001
 
 | Field | Value |
 |-------|-------|
 | Ticket | FEAT-001 |
-| Spec | docs/ddw/specs/spec-FEAT-001.md |
+| Spec | docs/daw/specs/spec-FEAT-001.md |
 
 ## Components
 | Component | Source in the spec |
@@ -1515,12 +1515,12 @@ cat > "$VTM/threat-FEAT-001.md" <<'TMEOF'
 ## Supply chain
 Dependencias fijadas en el lockfile.
 TMEOF
-python3 "$SELF/ddw/scripts/validate_threat.py" "$VTM/threat-FEAT-001.md" --tier FEATURE >/dev/null 2>&1 \
-  && compgen -G "$VP/.ddw-sessions/threat-validated-*" >/dev/null \
+python3 "$SELF/daw/scripts/validate_threat.py" "$VTM/threat-FEAT-001.md" --tier FEATURE >/dev/null 2>&1 \
+  && compgen -G "$VP/.daw-sessions/threat-validated-*" >/dev/null \
   && ok "validate_threat.py passes a sound threat model and leaves the content-hashed receipt" \
   || bad "the threat validator rejects a sound model or writes no receipt"
 grep -v 'Repudiation' "$VTM/threat-FEAT-001.md" > "$VTM/broken.md"
-VTOUT="$(python3 "$SELF/ddw/scripts/validate_threat.py" "$VTM/broken.md" --tier FEATURE \
+VTOUT="$(python3 "$SELF/daw/scripts/validate_threat.py" "$VTM/broken.md" --tier FEATURE \
         --spec "$VS/spec-FEAT-001.md" 2>/dev/null || true)"
 # The refusal has to say the category is ABSENT. Asking only for the ID and the
 # name accepted the wrong diagnosis: with the missing-category branch dead the
@@ -1537,7 +1537,7 @@ esac
 # the model's to write and the gate turned true on its say-so. What the receipt
 # attests is the REPORT — categories judged, findings located, the verdict
 # consistent with the severities, suppressions documented and in date — never
-# the code, which DDW does not read.
+# the code, which DAW does not read.
 cat > "$VTM/sast-FEAT-001.md" <<'SASTEOF'
 # SAST FEAT-001
 
@@ -1577,8 +1577,8 @@ Result: PASSED
 | Compensating control | Rate limit por IP en el endpoint público. |
 | Review by | 2026-12-01 |
 SASTEOF
-python3 "$SELF/ddw/scripts/validate_sast.py" "$VTM/sast-FEAT-001.md" --tier FEATURE --today 2026-08-02 >/dev/null 2>&1 \
-  && compgen -G "$VP/.ddw-sessions/sast-validated-*" >/dev/null \
+python3 "$SELF/daw/scripts/validate_sast.py" "$VTM/sast-FEAT-001.md" --tier FEATURE --today 2026-08-02 >/dev/null 2>&1 \
+  && compgen -G "$VP/.daw-sessions/sast-validated-*" >/dev/null \
   && ok "validate_sast.py passes a complete SAST report and leaves the content-hashed receipt" \
   || bad "the SAST validator rejects a complete report or writes no receipt"
 
@@ -1597,9 +1597,9 @@ open(os.path.join(sys.argv[1], "sast-three-low.md"), "w", encoding="utf-8").writ
     s.replace("Total: 16 clean, 1 vulnerability (0 critical, 0 high)",
               "Total: 16 clean, 1 vulnerability (0 critical, 0 high, 3 low)\nLow: 3 sin registrar"))
 PYWSAST
-WSAZ="$(python3 "$SELF/ddw/scripts/validate_sast.py" "$VTM/sast-zero-low.md" --tier FEATURE \
+WSAZ="$(python3 "$SELF/daw/scripts/validate_sast.py" "$VTM/sast-zero-low.md" --tier FEATURE \
        --today 2026-08-02 2>/dev/null || true)"
-WSAT="$(python3 "$SELF/ddw/scripts/validate_sast.py" "$VTM/sast-three-low.md" --tier FEATURE \
+WSAT="$(python3 "$SELF/daw/scripts/validate_sast.py" "$VTM/sast-three-low.md" --tier FEATURE \
        --today 2026-08-02 2>/dev/null || true)"
 case "$WSAZ$WSAT" in
   *"W-SAST-01"*) case "$WSAZ" in
@@ -1619,7 +1619,7 @@ s = open(p, encoding="utf-8").read().replace(
     "| F-SAST-01 | ❌ | app/config.py:9 — API key embebida |")
 open(os.path.join(sys.argv[1], "sast-critical.md"), "w", encoding="utf-8").write(s)
 PYSAST
-VSAOUT="$(python3 "$SELF/ddw/scripts/validate_sast.py" "$VTM/sast-critical.md" --tier FEATURE \
+VSAOUT="$(python3 "$SELF/daw/scripts/validate_sast.py" "$VTM/sast-critical.md" --tier FEATURE \
          --today 2026-08-02 2>/dev/null || true)"
 case "$VSAOUT" in
   *"❌ F-SAST-VERDICT"*) ok "and a Critical finding above a PASSED verdict is refused, by the rule that fixes severities" ;;
@@ -1638,7 +1638,7 @@ s = open(p, encoding="utf-8").read().replace(
     "| F-SAST-01 | ⚠️ | app/config.py:9 — clave embebida, la juzgo un fixture |")
 open(os.path.join(sys.argv[1], "sast-warned.md"), "w", encoding="utf-8").write(s)
 PYSEV
-VSWOUT="$(python3 "$SELF/ddw/scripts/validate_sast.py" "$VTM/sast-warned.md" --tier FEATURE \
+VSWOUT="$(python3 "$SELF/daw/scripts/validate_sast.py" "$VTM/sast-warned.md" --tier FEATURE \
          --today 2026-08-02 2>/dev/null || true)"
 case "$VSWOUT" in
   *"❌ F-SAST-SEVERITY"*) ok "and a Critical filed under a warning marker is refused — a marker does not change a severity" ;;
@@ -1666,7 +1666,7 @@ s = open(p, encoding="utf-8").read() + """
 """
 open(os.path.join(sys.argv[1], "sast-supcrit.md"), "w", encoding="utf-8").write(s)
 PYSUPC
-VSCOUT="$(python3 "$SELF/ddw/scripts/validate_sast.py" "$VTM/sast-supcrit.md" --tier FEATURE \
+VSCOUT="$(python3 "$SELF/daw/scripts/validate_sast.py" "$VTM/sast-supcrit.md" --tier FEATURE \
          --today 2026-08-02 2>/dev/null || true)"
 case "$VSCOUT" in
   *"❌ F-SAST-SUPPRESS"*) ok "and a Critical filed as suppressed is refused — those get fixed, not documented" ;;
@@ -1676,7 +1676,7 @@ esac
 # A category with no verdict was not evaluated, and silence is the shape an
 # unrun check takes. This is the rule the other nineteen were waiting for.
 grep -v 'F-SAST-07' "$VTM/sast-FEAT-001.md" > "$VTM/sast-gap.md"
-VSGOUT="$(python3 "$SELF/ddw/scripts/validate_sast.py" "$VTM/sast-gap.md" --tier FEATURE \
+VSGOUT="$(python3 "$SELF/daw/scripts/validate_sast.py" "$VTM/sast-gap.md" --tier FEATURE \
          --today 2026-08-02 2>/dev/null || true)"
 case "$VSGOUT" in
   *"❌ F-SAST-COVERAGE"*F-SAST-07*) ok "and a category left with no verdict is named, not averaged away" ;;
@@ -1691,7 +1691,7 @@ p = os.path.join(sys.argv[1], "sast-FEAT-001.md")
 s = open(p, encoding="utf-8").read().replace("2026-12-01", "2026-01-01")
 open(os.path.join(sys.argv[1], "sast-expired.md"), "w", encoding="utf-8").write(s)
 PYSUP
-VSEOUT="$(python3 "$SELF/ddw/scripts/validate_sast.py" "$VTM/sast-expired.md" --tier FEATURE \
+VSEOUT="$(python3 "$SELF/daw/scripts/validate_sast.py" "$VTM/sast-expired.md" --tier FEATURE \
          --today 2026-08-02 2>/dev/null || true)"
 case "$VSEOUT" in
   *"❌ F-SAST-19"*) ok "and a suppression past its review date is refused — six months is the catalog's number" ;;
@@ -1707,19 +1707,19 @@ esac
 python3 - "$SELF" "$VTM/sast-FEAT-001.md" <<'PYASOF' && ok "the SAST receipt records the clock its suppressions were aged against, and the gate refuses one earned against another day" || bad "the day the suppressions were judged against is the caller's to pick and nothing records it"
 import datetime, importlib.util, json, os, shutil, subprocess, sys, tempfile
 src, fixture = sys.argv[1], sys.argv[2]
-spec = importlib.util.spec_from_file_location("vt", os.path.join(src, "ddw/scripts/validate-transition.py"))
+spec = importlib.util.spec_from_file_location("vt", os.path.join(src, "daw/scripts/validate-transition.py"))
 vt = importlib.util.module_from_spec(spec); spec.loader.exec_module(vt)
 
 repo = tempfile.mkdtemp(dir=os.environ["WORK"])
 subprocess.run(["git", "init", "-q", repo], check=True)
-os.makedirs(os.path.join(repo, "docs/ddw/security"))
-report = os.path.join(repo, "docs/ddw/security/sast-T-1.md")
+os.makedirs(os.path.join(repo, "docs/daw/security"))
+report = os.path.join(repo, "docs/daw/security/sast-T-1.md")
 shutil.copyfile(fixture, report)
 state = {"phase": "CODE", "ticket": "T-1", "tier": "FEATURE", "gates": {}, "history": []}
 
 
 def validate(*extra):
-    return subprocess.run([sys.executable, os.path.join(src, "ddw/scripts/validate_sast.py"),
+    return subprocess.run([sys.executable, os.path.join(src, "daw/scripts/validate_sast.py"),
                            report, "--tier", "FEATURE", *extra],
                           capture_output=True, text=True, cwd=repo)
 
@@ -1727,9 +1727,9 @@ def validate(*extra):
 other_day = (datetime.date.today() - datetime.timedelta(days=1)).isoformat()
 r = validate("--today", other_day)
 assert r.returncode == 0, "the fixture report no longer passes: " + (r.stdout + r.stderr)[-300:]
-receipts = [f for f in os.listdir(os.path.join(repo, ".ddw-sessions")) if f.startswith("sast-")]
+receipts = [f for f in os.listdir(os.path.join(repo, ".daw-sessions")) if f.startswith("sast-")]
 assert receipts, "no receipt was written, so there is nothing to ask about"
-body = open(os.path.join(repo, ".ddw-sessions", receipts[0]), encoding="utf-8").read()
+body = open(os.path.join(repo, ".daw-sessions", receipts[0]), encoding="utf-8").read()
 assert "asof: %s" % other_day in body, "the receipt does not record the clock it used: " + body
 
 reason = vt.gate_evidence_missing(repo, state, ["sast"])
@@ -1791,17 +1791,17 @@ runner = open(os.path.join(src, "scripts/mutate.py"), encoding="utf-8").read()
 # live: the fault survived, found by its own text.
 _run_one = runner[runner.index("def run_one("):]
 _run_one = _run_one[:_run_one.index("\ndef ", 1)]
-assert 'DDW_STOP_ON_FIRST_FAILURE' in _run_one, \
+assert 'DAW_STOP_ON_FIRST_FAILURE' in _run_one, \
     ("the runner no longer asks the suite to stop at the first failure, so every fault pays the "
      "whole suite after the answer is already known — a cost that shows up as an hour of wall "
      "clock and never as a red check")
 _base = runner[runner.index("def baseline("):]
 _base = _base[:_base.index("\ndef ", 1)]
-assert "DDW_STOP_ON_FIRST_FAILURE" not in _base, \
+assert "DAW_STOP_ON_FIRST_FAILURE" not in _base, \
     ("the baseline stops at the first failure too, so it stops being a baseline: it would report "
      "an already-red suite as red for one reason and never see the others")
 
-needle = "${" + "DDW_STOP_ON_FIRST_FAILURE:-}"
+needle = "${" + "DAW_STOP_ON_FIRST_FAILURE:-}"
 assert suite.count(needle) == 1, \
     "the stop switch is read in %d places; it belongs in `bad` alone" % suite.count(needle)
 body = suite[suite.index("bad()  {"):]
@@ -1823,7 +1823,7 @@ open(victim, "w", encoding="utf-8").write(
     text[:end + 1] + '\nbad "a failure planted by the suite\'s own check on the stop switch"\n'
     + text[end + 1:])
 r = subprocess.run(["bash", victim], capture_output=True, text=True, cwd=probe,
-                   env=dict(os.environ, DDW_STOP_ON_FIRST_FAILURE="1"), timeout=300)
+                   env=dict(os.environ, DAW_STOP_ON_FIRST_FAILURE="1"), timeout=300)
 assert r.returncode != 0, "a run with a planted failure exited 0 under the stop switch"
 assert "Stopped at the first failure" in r.stdout, \
     "the run did not say it had stopped early: " + r.stdout[-300:]
@@ -1864,10 +1864,10 @@ def after_touching(rel):
 
 
 # A validator: only the faults that name it.
-picked = after_touching("ddw/scripts/validate_threat.py")
+picked = after_touching("daw/scripts/validate_threat.py")
 assert 0 < len(picked) < total, \
     "touching one validator selected %d of %d mutations" % (len(picked), total)
-assert all(mut.MUTATIONS[i - 1][1].probe[1] == "ddw/scripts/validate_threat.py"
+assert all(mut.MUTATIONS[i - 1][1].probe[1] == "daw/scripts/validate_threat.py"
            for i in picked if getattr(mut.MUTATIONS[i - 1][1], "probe", None)), \
     "the selection includes faults that name another file"
 
@@ -1894,11 +1894,11 @@ PYCHANGED
 # The state a session materialises has to carry the field, or the mode has
 # nowhere to live: `session-boot.py` writes the first state every repo ever gets.
 SBA="$WORK/autonomy-boot"; mkdir -p "$SBA"; git -C "$SBA" init -q .
-mkdir -p "$SBA/.ddw"
-python3 "$SELF/ddw/scripts/session-boot.py" --repo "$SBA" --session-id a1 >/dev/null 2>&1
+mkdir -p "$SBA/.daw"
+python3 "$SELF/daw/scripts/session-boot.py" --repo "$SBA" --session-id a1 >/dev/null 2>&1
 python3 - "$SBA" <<'PYSB' && ok "a freshly materialised state carries `autonomy`, so the mode has somewhere to live" || bad "the state template dropped the field the whole mode is carried in"
 import json, os, sys
-st = json.load(open(os.path.join(sys.argv[1], ".ddw-state.json"), encoding="utf-8"))
+st = json.load(open(os.path.join(sys.argv[1], ".daw-state.json"), encoding="utf-8"))
 assert "autonomy" in st, "the materialised state has no `autonomy` key"
 assert st["autonomy"] is None, f"a fresh state opts into a mode: {st['autonomy']!r}"
 PYSB
@@ -1930,8 +1930,8 @@ src = sys.argv[1]
 def load(name, path):
     spec = importlib.util.spec_from_file_location(name, os.path.join(src, path))
     m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m); return m
-vt = load("vt", "ddw/scripts/validate-transition.py")
-fnx = load("fnx", "ddw/scripts/family_next.py")
+vt = load("vt", "daw/scripts/validate-transition.py")
+fnx = load("fnx", "daw/scripts/family_next.py")
 def rows(*specs):
     lines = ["| Repo | Ticket | Scope | Depends on | Status |", "|---|---|---|---|---|"]
     for repo, deps, status in specs:
@@ -1976,7 +1976,7 @@ PYWALK
 LSH="$WORK/leash"; mkdir -p "$LSH/ws" "$LSH/bin"; git -C "$LSH/ws" init -q .
 git -C "$LSH/ws" remote add origin https://github.com/acme/ws.git
 # The DEPRECATED map name, on purpose: existing families must keep working
-# while new maps are born as ddw-family.md — this fixture is the fallback's proof.
+# while new maps are born as daw-family.md — this fixture is the fallback's proof.
 printf '# familia\n' > "$LSH/ws/familia.md"
 cat > "$LSH/bin/gh" <<'LSHGH'
 #!/usr/bin/env python3
@@ -1985,7 +1985,7 @@ open(os.environ["LSH_LOG"], "a").write(json.dumps(sys.argv[1:]) + "\n")
 a = sys.argv[1:]
 if a[:2] == ["pr", "view"]:
     print(json.dumps({"state": "OPEN", "baseRefName": "main",
-                      "files": [{"path": "docs/ddw/prd/prd-T-1.md"},
+                      "files": [{"path": "docs/daw/prd/prd-T-1.md"},
                                 {"path": "app/main.py"}]})); sys.exit(0)
 if a[:2] == ["pr", "list"]:
     print("[]"); sys.exit(0)
@@ -1994,7 +1994,7 @@ LSHGH
 chmod +x "$LSH/bin/gh"
 : > "$LSH/calls.log"
 if LSH_LOG="$LSH/calls.log" PATH="$LSH/bin:$PATH" \
-   python3 "$SELF/ddw/scripts/family_index_pr.py" merge --pr 7 --root "$LSH/ws" >/dev/null 2>"$LSH/err"; then
+   python3 "$SELF/daw/scripts/family_index_pr.py" merge --pr 7 --root "$LSH/ws" >/dev/null 2>"$LSH/err"; then
   bad "a PR with app/main.py in it was merged by the one-approve leash"
 else
   grep -q "app/main.py" "$LSH/err" && ! grep -q '"pr", "merge"' "$LSH/calls.log" \
@@ -2003,7 +2003,7 @@ else
 fi
 : > "$LSH/calls.log"
 if LSH_LOG="$LSH/calls.log" PATH="$LSH/bin:$PATH" \
-   python3 "$SELF/ddw/scripts/family_index_pr.py" update-row --ticket T-1 \
+   python3 "$SELF/daw/scripts/family_index_pr.py" update-row --ticket T-1 \
      --repo-row acme/child --status done --root "$LSH/ws" >/dev/null 2>"$LSH/err"; then
   bad "a row said done with no MERGED child PR at the forge"
 else
@@ -2019,7 +2019,7 @@ fi
 # PR (kills "a near-miss ticket satisfies the done-law").
 WLAW="$WORK/wlaw"; mkdir -p "$WLAW/ws" "$WLAW/bin"; git -C "$WLAW/ws" init -q .
 git -C "$WLAW/ws" remote add origin https://github.com/acme/ws.git
-printf '# familia\n' > "$WLAW/ws/ddw-family.md"
+printf '# familia\n' > "$WLAW/ws/daw-family.md"
 cat > "$WLAW/bin/gh" <<'WLAWGH'
 #!/usr/bin/env python3
 import json, sys
@@ -2034,7 +2034,7 @@ chmod +x "$WLAW/bin/gh"
 # Judged by the OUTPUT, not the exit code: under the substring fault the
 # run still dies later at the shim's clone, but "forge confirms" printed
 # for a near-miss IS the law already paid wrong.
-WLAWOUT="$(PATH="$WLAW/bin:$PATH" python3 "$SELF/ddw/scripts/family_index_pr.py" update-row \
+WLAWOUT="$(PATH="$WLAW/bin:$PATH" python3 "$SELF/daw/scripts/family_index_pr.py" update-row \
      --ticket T-1 --repo-row acme/child --status done --root "$WLAW/ws" 2>&1 || true)"
 if echo "$WLAWOUT" | grep -q "forge confirms"; then
   bad "T-11's merge (or the index's own row PR) paid T-1's done-law"
@@ -2062,7 +2062,7 @@ if a[:2] == ["pr", "list"]:
 sys.exit(1)
 WLAW2GH
 chmod +x "$WLAW/bin/gh"
-if WOUT="$(PATH="$WLAW/bin:$PATH" python3 "$SELF/ddw/scripts/family_index_pr.py" update-row      --ticket T-1 --repo-row acme/child --status done --root "$WLAW/ws" 2>&1)"; then :; fi
+if WOUT="$(PATH="$WLAW/bin:$PATH" python3 "$SELF/daw/scripts/family_index_pr.py" update-row      --ticket T-1 --repo-row acme/child --status done --root "$WLAW/ws" 2>&1)"; then :; fi
 echo "$WOUT" | grep -q "forge confirms" && echo "$WOUT" | grep -q "#9"   && ok "the forge is asked with the row's own ticket — a sub-ticket's real merge is recognised"   || bad "the row's merge under its own ticket was not recognised: $(echo "$WOUT" | tail -1)"
 # Door two: the row edit takes the row whose cell IS the name, never one that
 # merely contains it (kills "the row edit grabs whichever row merely contains
@@ -2076,35 +2076,35 @@ src = sys.argv[1]
 def load(name, path):
     spec = importlib.util.spec_from_file_location(name, os.path.join(src, path))
     m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m); return m
-fip = load("fip", "ddw/scripts/family_index_pr.py")
+fip = load("fip", "daw/scripts/family_index_pr.py")
 text = ("| Repo | Ticket | Scope | Depends on | Status |\n|---|---|---|---|---|\n"
         "| acme/tienda-api | T-1 | grande | none | active |\n"
         "| `acme/api` | T-1 | chica | none | pending |\n")
 m = fip._row_pattern("api").search(text)
 assert m and "tienda-api" not in m.group(1), \
     "updating `api` grabbed `tienda-api`'s row: %r" % (m and m.group(1))
-fc = load("fc", "ddw/scripts/family_catalog.py")
-fim = load("fim", "ddw/scripts/family_impact.py")
+fc = load("fc", "daw/scripts/family_catalog.py")
+fim = load("fim", "daw/scripts/family_impact.py")
 tbl = ("| Repo | Qué hace | Consumed by | Consume |\n|---|---|---|---|\n"
        "| alpha | api | beta | gamma |\n")
 tmp = tempfile.mkdtemp(dir=sys.argv[2])
-open(os.path.join(tmp, "ddw-family.md"), "w", encoding="utf-8").write("# f\n\n" + tbl)
+open(os.path.join(tmp, "daw-family.md"), "w", encoding="utf-8").write("# f\n\n" + tbl)
 r1 = fc.familia_map(tmp)[0]
 r2 = fim._parse_familia(tbl)[0]
 for r in (r1, r2):
     assert r["consumed by"] == "beta" and r["consumes"] == "gamma", \
         "a parser read Consume from the Consumed-by column: %r" % r
-rec = load("rec", "ddw/scripts/ddw_receipt.py")
+rec = load("rec", "daw/scripts/daw_receipt.py")
 repo = tempfile.mkdtemp(dir=sys.argv[2]); other = tempfile.mkdtemp(dir=sys.argv[2])
-os.makedirs(os.path.join(repo, ".ddw-work"))
-v = os.path.join(repo, ".ddw-work", "impact-T-1.md")
+os.makedirs(os.path.join(repo, ".daw-work"))
+v = os.path.join(repo, ".daw-work", "impact-T-1.md")
 open(v, "w", encoding="utf-8").write("veredicto\n")
 os.chdir(other)
 rec.write(v, "impact", "veredicto\n")
-assert os.path.isdir(os.path.join(repo, ".ddw-sessions")) and \
-    os.listdir(os.path.join(repo, ".ddw-sessions")), \
+assert os.path.isdir(os.path.join(repo, ".daw-sessions")) and \
+    os.listdir(os.path.join(repo, ".daw-sessions")), \
     "the receipt did not land in the verdict's repo"
-assert not os.path.isdir(os.path.join(other, ".ddw-sessions")), \
+assert not os.path.isdir(os.path.join(other, ".daw-sessions")), \
     "the receipt leaked into the invoker's cwd"
 PYAUDIT
 
@@ -2143,7 +2143,7 @@ if a[:1] == ["api"] and arg.startswith("repos/"):
 sys.exit(1)
 ORGGH
 chmod +x "$ORG/bin/gh"
-if ORGOUT="$(PATH="$ORG/bin:$PATH" python3 "$SELF/ddw/scripts/family_catalog.py" --org acme 2>"$ORG/err")"; then
+if ORGOUT="$(PATH="$ORG/bin:$PATH" python3 "$SELF/daw/scripts/family_catalog.py" --org acme 2>"$ORG/err")"; then
   echo "$ORGOUT" | grep -q "6 repos listados" && echo "$ORGOUT" | grep -q "1 inalcanzables" \
     && echo "$ORGOUT" | grep -q "✗ ghost" && ! echo "$ORGOUT" | grep -q "✗ vacio" \
     && ok "the org sweep accounts for every repo, names the true outage, and never calls a repo without AGENTS.md unreachable" \
@@ -2161,10 +2161,10 @@ fi
 # demands the closing tally on BOTH sides: the auditor writes it, the caller
 # refuses a report without it (kills "the auditor's closing tally quietly
 # disappears").
-grep -q "HALLAZGOS: <N> — lista completa" "$SELF/agents/ddw-arch-auditor.md" \
-  && grep -q "HALLAZGOS: <N> — lista completa" "$SELF/agents/ddw-sec-auditor.md" \
-  && grep -q "HALLAZGOS: <N> — lista completa" "$SELF/ddw/rules/code.instructions.md" \
-  && grep -q "HALLAZGOS: <N> — lista completa" "$SELF/ddw/rules/plan.instructions.md" \
+grep -q "HALLAZGOS: <N> — lista completa" "$SELF/agents/daw-arch-auditor.md" \
+  && grep -q "HALLAZGOS: <N> — lista completa" "$SELF/agents/daw-sec-auditor.md" \
+  && grep -q "HALLAZGOS: <N> — lista completa" "$SELF/daw/rules/code.instructions.md" \
+  && grep -q "HALLAZGOS: <N> — lista completa" "$SELF/daw/rules/plan.instructions.md" \
   && ok "a truncated audit cannot pass as finished: the closing tally is demanded by the auditors and by every caller" \
   || bad "the closing-tally contract is gone from an auditor or a caller — a cut report reads as complete again"
 
@@ -2177,14 +2177,14 @@ WTR="$WORK/worktree"; mkdir -p "$WTR/bin" "$WTR/seed"; git -C "$WTR/seed" init -
 git -C "$WTR/seed" -c user.email=t@t -c user.name=t commit -q --allow-empty -m seed
 git clone -q --bare "$WTR/seed" "$WTR/origin.git" 2>/dev/null
 git clone -q "$WTR/origin.git" "$WTR/repo" 2>/dev/null
-printf '{"ticket": "OLD-1"}\n' > "$WTR/repo/.ddw-state.json"
+printf '{"ticket": "OLD-1"}\n' > "$WTR/repo/.daw-state.json"
 # The standing tree is mid-ticket: a local commit ahead of origin. The new
 # worktree must NOT start there — origin's default is the only honest base
 # (kills "the new worktree starts where the standing tree stands").
 git -C "$WTR/repo" -c user.email=t@t -c user.name=t commit -q --allow-empty -m half-done
 WTT="$WTR/repo--wt-t-9"
-if python3 "$SELF/ddw/scripts/ticket_worktree.py" open --ticket T-9 --root "$WTR/repo" >/dev/null 2>"$WTR/err"; then
-  [ -d "$WTT" ] && [ ! -f "$WTT/.ddw-state.json" ] \
+if python3 "$SELF/daw/scripts/ticket_worktree.py" open --ticket T-9 --root "$WTR/repo" >/dev/null 2>"$WTR/err"; then
+  [ -d "$WTT" ] && [ ! -f "$WTT/.daw-state.json" ] \
     && [ "$(git -C "$WTT" rev-parse HEAD)" = "$(git -C "$WTR/repo" rev-parse origin/HEAD)" ] \
     && ok "a ticket opens its own worktree — fresh at origin's default, no state inherited" \
     || bad "the worktree is missing, inherited the standing state, or did not start at origin"
@@ -2193,7 +2193,7 @@ else
 fi
 # A ticket is a DIRECTORY NAME: ../../pwn opened a worktree wherever the
 # string pointed (kills "the ticket string escapes into the filesystem").
-if python3 "$SELF/ddw/scripts/ticket_worktree.py" open --ticket ../../pwn --root "$WTR/repo" >/dev/null 2>"$WTR/err"; then
+if python3 "$SELF/daw/scripts/ticket_worktree.py" open --ticket ../../pwn --root "$WTR/repo" >/dev/null 2>"$WTR/err"; then
   bad "a path-traversal ticket opened a worktree outside the sibling scheme"
 else
   ok "a ticket that cannot name a directory is refused before it touches the filesystem"
@@ -2201,22 +2201,22 @@ fi
 # A worktree somebody rm -rf'd is pruned and reopened, never promised
 # (kills "a vanished-by-hand worktree still reads as open").
 rm -rf "$WTT"
-if python3 "$SELF/ddw/scripts/ticket_worktree.py" open --ticket T-9 --root "$WTR/repo" >/dev/null 2>"$WTR/err" && [ -d "$WTT" ]; then
+if python3 "$SELF/daw/scripts/ticket_worktree.py" open --ticket T-9 --root "$WTR/repo" >/dev/null 2>"$WTR/err" && [ -d "$WTT" ]; then
   ok "a hand-deleted worktree is pruned from the registry and reopened fresh"
 else
   bad "the stale registration was believed: 'seguí ahí' with no directory there"
 fi
 # `list` reads each tree's OWN state — the panel is only worth reading if
 # it does (kills "the list stops reading each tree's own state").
-printf '{"ticket": "T-9", "phase": "CODE"}\n' > "$WTT/.ddw-state.json"
-if LOUT="$(python3 "$SELF/ddw/scripts/ticket_worktree.py" list --root "$WTR/repo" 2>&1)"; then
+printf '{"ticket": "T-9", "phase": "CODE"}\n' > "$WTT/.daw-state.json"
+if LOUT="$(python3 "$SELF/daw/scripts/ticket_worktree.py" list --root "$WTR/repo" 2>&1)"; then
   echo "$LOUT" | grep -q "repo--wt-t-9" && echo "$LOUT" | grep -q "T-9" && echo "$LOUT" | grep -q "CODE" \
     && ok "list names every worktree with the ticket and phase its own state declares" \
     || bad "list lost a worktree, or stopped reading its state: $(echo "$LOUT" | tail -1)"
 else
   bad "list failed on a healthy pair of trees: $(echo "$LOUT" | tail -1)"
 fi
-rm -f "$WTT/.ddw-state.json"
+rm -f "$WTT/.daw-state.json"
 git -C "$WTR/repo" remote set-url origin https://github.com/acme/child.git
 cat > "$WTR/bin/gh" <<'WTGH'
 #!/usr/bin/env python3
@@ -2224,7 +2224,7 @@ print('[{"number": 7, "headRefName": "feat/T-9-x"}]')
 WTGH
 chmod +x "$WTR/bin/gh"
 echo "x = 1" > "$WTT/avance.py"
-if PATH="$WTR/bin:$PATH" python3 "$SELF/ddw/scripts/ticket_worktree.py" close --ticket T-9 --root "$WTR/repo" >/dev/null 2>"$WTR/err"; then
+if PATH="$WTR/bin:$PATH" python3 "$SELF/daw/scripts/ticket_worktree.py" close --ticket T-9 --root "$WTR/repo" >/dev/null 2>"$WTR/err"; then
   bad "a DIRTY worktree was closed — uncommitted work removed with the forge's blessing"
 else
   grep -q "avance.py" "$WTR/err" && [ -d "$WTT" ] \
@@ -2237,14 +2237,14 @@ cat > "$WTR/bin/gh" <<'WTGH2'
 print("[]")
 WTGH2
 chmod +x "$WTR/bin/gh"
-if PATH="$WTR/bin:$PATH" python3 "$SELF/ddw/scripts/ticket_worktree.py" close --ticket T-9 --root "$WTR/repo" >/dev/null 2>"$WTR/err"; then
+if PATH="$WTR/bin:$PATH" python3 "$SELF/daw/scripts/ticket_worktree.py" close --ticket T-9 --root "$WTR/repo" >/dev/null 2>"$WTR/err"; then
   bad "a clean worktree closed on nobody's word — no merged PR, no drop"
 else
   grep -q "MERGED" "$WTR/err" && grep -q "drop" "$WTR/err" \
     && ok "a worktree does not close on anyone's word: no merged PR, no removal — and the declared out is taught" \
     || bad "the close refusal neither names the missing merge nor teaches the drop: $(tail -1 "$WTR/err")"
 fi
-if PATH="$WTR/bin:$PATH" python3 "$SELF/ddw/scripts/ticket_worktree.py" close --ticket T-9 --drop "se descartó" --root "$WTR/repo" >/dev/null 2>"$WTR/err"; then
+if PATH="$WTR/bin:$PATH" python3 "$SELF/daw/scripts/ticket_worktree.py" close --ticket T-9 --drop "se descartó" --root "$WTR/repo" >/dev/null 2>"$WTR/err"; then
   [ ! -d "$WTT" ] \
     && ok "the declared drop, with its reason, is what removes an unmerged worktree" \
     || bad "the drop said yes but the worktree is still there"
@@ -2252,8 +2252,8 @@ else
   bad "the declared drop was refused on a clean worktree: $(tail -1 "$WTR/err")"
 fi
 
-IMP="$WORK/impact-gate"; mkdir -p "$IMP/.ddw-work" "$IMP/.ddw-sessions"; git -C "$IMP" init -q .
-printf 'Nothing to report.\n' > "$IMP/.ddw-work/context-check-T-1.md"
+IMP="$WORK/impact-gate"; mkdir -p "$IMP/.daw-work" "$IMP/.daw-sessions"; git -C "$IMP" init -q .
+printf 'Nothing to report.\n' > "$IMP/.daw-work/context-check-T-1.md"
 python3 - "$SELF" "$IMP" <<'PYIMPACT' && ok "a family repo owes the impact verdict to leave CLASSIFY, honours its receipt, and shuts on a post-validation edit" || bad "a family repo left CLASSIFY with no impact analysis, or with a verdict its receipt no longer matches"
 import hashlib, json, os, subprocess, sys
 self_dir, repo = sys.argv[1], sys.argv[2]
@@ -2261,7 +2261,7 @@ open(os.path.join(repo, "AGENTS.md"), "w", encoding="utf-8").write(
     "# r\n\n## Repo family\n\n| Field | Value |\n|---|---|\n"
     "| Family | tienda |\n| Workspace | acme/ws |\n| Provides | api |\n"
     "| Consumed by | none |\n| Consumes | none |\n")
-state = os.path.join(repo, ".ddw-state.json")
+state = os.path.join(repo, ".daw-state.json")
 open(state, "w", encoding="utf-8").write(json.dumps({
     "tier": "FEATURE", "phase": "CLASSIFY", "ticket": "T-1", "title": "t",
     "tracker": None, "autonomy": None, "gates": {}, "block": None,
@@ -2272,9 +2272,9 @@ open(state, "w", encoding="utf-8").write(json.dumps({
 START = open(state, encoding="utf-8").read()
 def helper():
     return subprocess.run(
-        [sys.executable, os.path.join(self_dir, "ddw/scripts/transition.py"),
+        [sys.executable, os.path.join(self_dir, "daw/scripts/transition.py"),
          "--state", state, "--graph",
-         os.path.join(self_dir, "ddw/rules/transition-graph.json"),
+         os.path.join(self_dir, "daw/rules/transition-graph.json"),
          "--to", "DEFINE", "--action", "definir", "--write"],
         capture_output=True, text=True, cwd=repo,
         env=dict(os.environ, CLAUDE_PROJECT_DIR=repo))
@@ -2282,27 +2282,27 @@ r = helper()
 assert r.returncode == 2 and "family_impact.py" in r.stderr, \
     "no verdict on disk and the edge opened anyway: " + (r.stderr or r.stdout)[:200]
 verdict = "impacta: este repo. Sin impacto: el resto, porque nadie consume lo nuevo."
-open(os.path.join(repo, ".ddw-work", "impact-T-1.md"), "w", encoding="utf-8").write(verdict)
+open(os.path.join(repo, ".daw-work", "impact-T-1.md"), "w", encoding="utf-8").write(verdict)
 digest = hashlib.sha256(verdict.encode("utf-8")).hexdigest()[:12]
-open(os.path.join(repo, ".ddw-sessions", "impact-validated-" + digest), "w").write("x")
+open(os.path.join(repo, ".daw-sessions", "impact-validated-" + digest), "w").write("x")
 r = helper()
 assert r.returncode == 0, "a validated verdict was refused: " + (r.stderr or r.stdout)[:200]
 open(state, "w", encoding="utf-8").write(START)   # back to CLASSIFY for door three
-open(os.path.join(repo, ".ddw-work", "impact-T-1.md"), "a", encoding="utf-8").write("!")
+open(os.path.join(repo, ".daw-work", "impact-T-1.md"), "a", encoding="utf-8").write("!")
 r = helper()
 assert r.returncode == 2 and "edited after" in r.stderr, \
     "one byte after validation and the edge still opened: " + (r.stderr or r.stdout)[:200]
 PYIMPACT
 
-TKS="$WORK/ticket-shape"; mkdir -p "$TKS/.ddw-work"; git -C "$TKS" init -q .
+TKS="$WORK/ticket-shape"; mkdir -p "$TKS/.daw-work"; git -C "$TKS" init -q .
 # The classify edge's context check — a different gate than the one under test.
-printf 'Nothing to report.\n' > "$TKS/.ddw-work/context-check-T-1.md"
+printf 'Nothing to report.\n' > "$TKS/.daw-work/context-check-T-1.md"
 python3 - "$SELF" "$TKS" <<'PYTICKET' && ok "a `ticket` of the wrong TYPE is refused, like every other header field" || bad "the state header takes a ticket of any type — the one field whose shape nothing checks"
 import json, os, subprocess, sys
 src, repo = sys.argv[1], sys.argv[2]
-graph = os.path.join(src, "ddw/rules/transition-graph.json")
-state = os.path.join(repo, ".ddw-state.json")
-helper = os.path.join(src, "ddw/scripts/transition.py")
+graph = os.path.join(src, "daw/rules/transition-graph.json")
+state = os.path.join(repo, ".daw-state.json")
+helper = os.path.join(src, "daw/scripts/transition.py")
 for args in (["--to", "CLASSIFY", "--action", "classify the request"],
              ["--to", "DEFINE", "--tier", "FEATURE", "--ticket", "T-1", "--action", "a feature",
               "--title", "the fixture ticket"]):
@@ -2314,7 +2314,7 @@ good = json.load(open(state, encoding="utf-8"))
 
 def rc(ticket):
     json.dump(dict(good, ticket=ticket), open(state, "w", encoding="utf-8"))
-    return subprocess.run([sys.executable, os.path.join(src, "ddw/scripts/validate-transition.py"),
+    return subprocess.run([sys.executable, os.path.join(src, "daw/scripts/validate-transition.py"),
                            "--mode", "post", "--state", state, "--graph", graph],
                           capture_output=True, text=True).returncode
 
@@ -2332,9 +2332,9 @@ PYTICKET
 python3 - "$SELF" <<'PYSAYSHOW' && ok "the refusals a run actually hits name the move, not only the fact" || bad "a refusal states what is wrong and nothing about what to do — which is where hand-editing the state starts"
 import importlib.util, json, os, sys
 src = sys.argv[1]
-spec = importlib.util.spec_from_file_location("vt3", os.path.join(src, "ddw/scripts/validate-transition.py"))
+spec = importlib.util.spec_from_file_location("vt3", os.path.join(src, "daw/scripts/validate-transition.py"))
 m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
-g = json.load(open(os.path.join(src, "ddw/rules/transition-graph.json")))
+g = json.load(open(os.path.join(src, "daw/rules/transition-graph.json")))
 
 
 def refusal(old, new):
@@ -2377,7 +2377,7 @@ assert "one in-phase entry" in same.lower() and "--claim" in same, \
 apart = refusal(st("DEFINE", H), st("CODE", H + [{"timestamp": "2026-01-01T00:02:00Z",
                                                   "from": "PLAN", "to": "CODE", "action": "c",
                                                   "tier": "FEATURE", "ticket": "T-1"}]))
-assert "re-read" in apart.lower() and ".ddw-state.json" in apart, \
+assert "re-read" in apart.lower() and ".daw-state.json" in apart, \
     "the mismatch names the two phases and no way back: " + apart[:200]
 PYSAYSHOW
 
@@ -2388,9 +2388,9 @@ PYSAYSHOW
 python3 - "$SELF" <<'PYPAUSE' && ok "CLOSEOUT takes a pause once commit and pr are paid, and still refuses an abandon" || bad "the pause exception at CLOSEOUT is a skeleton key, or it refuses the case it exists for"
 import importlib.util, json, os, sys
 src = sys.argv[1]
-spec = importlib.util.spec_from_file_location("vt", os.path.join(src, "ddw/scripts/validate-transition.py"))
+spec = importlib.util.spec_from_file_location("vt", os.path.join(src, "daw/scripts/validate-transition.py"))
 m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
-g = json.load(open(os.path.join(src, "ddw/rules/transition-graph.json")))
+g = json.load(open(os.path.join(src, "daw/rules/transition-graph.json")))
 EDGES = [("IDLE", "CLASSIFY"), ("CLASSIFY", "DEFINE"), ("DEFINE", "PLAN"), ("PLAN", "CODE"),
          ("CODE", "VERIFY"), ("VERIFY", "CLOSEOUT")]
 H = [{"timestamp": "2026-01-01T00:0%d:00Z" % i, "from": f, "to": t, "action": "x",
@@ -2444,19 +2444,19 @@ assert blocked(idle, kept), \
 import subprocess, tempfile
 paused_disk = out("pause: waiting on review")
 work = tempfile.mkdtemp(dir=os.environ["WORK"])
-state = os.path.join(work, ".ddw-state.json")
+state = os.path.join(work, ".daw-state.json")
 json.dump(paused_disk, open(state, "w", encoding="utf-8"))
 # With the journal the run really has by then: post mode fired on every edge
 # that landed, so the six steps before the pause are recorded. A fixture with an
 # empty journal is not a legal pause being replayed — it is a whole run that
 # reached CLOSEOUT without a single hook seeing it, which post mode is supposed
 # to owe evidence for.
-with open(os.path.join(work, ".ddw-journal.jsonl"), "w", encoding="utf-8") as fh:
+with open(os.path.join(work, ".daw-journal.jsonl"), "w", encoding="utf-8") as fh:
     for entry in paused_disk["history"][:-1]:
         fh.write(json.dumps(entry) + "\n")
-r = subprocess.run([sys.executable, os.path.join(src, "ddw/scripts/validate-transition.py"),
+r = subprocess.run([sys.executable, os.path.join(src, "daw/scripts/validate-transition.py"),
                     "--mode", "post", "--state", state,
-                    "--graph", os.path.join(src, "ddw/rules/transition-graph.json")],
+                    "--graph", os.path.join(src, "daw/rules/transition-graph.json")],
                    capture_output=True, text=True)
 assert r.returncode == 0, \
     "post mode refuses a legal pause at CLOSEOUT, which bricks the repo: " + (r.stdout + r.stderr)[:220]
@@ -2479,12 +2479,12 @@ exit "${GH_STUB_RC:-0}"
 GHEOF
 chmod +x "$PRT/bin/gh"
 PRR="$PRT/repo"; mkdir -p "$PRR"; git -C "$PRR" init -q .
-git -C "$PRR" -c user.email=ddw@test -c user.name=ddw -c commit.gpgsign=false \
+git -C "$PRR" -c user.email=daw@test -c user.name=daw -c commit.gpgsign=false \
   commit -q --allow-empty -m "base"
 python3 - "$SELF" "$PRR" "$PRT/bin" <<'PYPR' && ok "the pr gate refuses a branch with no PR and one whose PR was closed, and never mistakes an error for an answer" || bad "the pr gate reads a network failure as a verdict, or takes a closed PR as an open one"
 import importlib.util, os, subprocess, sys
 src, repo, binpath = sys.argv[1:4]
-spec = importlib.util.spec_from_file_location("vt", os.path.join(src, "ddw/scripts/validate-transition.py"))
+spec = importlib.util.spec_from_file_location("vt", os.path.join(src, "daw/scripts/validate-transition.py"))
 m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
 
 
@@ -2524,7 +2524,7 @@ PYPR
 # when the claim is MADE, so the write under test is the one that turns `pr` on
 # while still in CLOSEOUT, not the closeout that follows it.
 PRS="$PRT/state"; mkdir -p "$PRS"; git -C "$PRS" init -q .
-git -C "$PRS" -c user.email=ddw@test -c user.name=ddw -c commit.gpgsign=false \
+git -C "$PRS" -c user.email=daw@test -c user.name=daw -c commit.gpgsign=false \
   commit -q --allow-empty -m base
 git -C "$PRS" remote add origin https://github.com/example/example.git
 PRHIST='[{"timestamp":"2026-07-29T20:00:00Z","from":"IDLE","to":"CLASSIFY","action":"a"},{"timestamp":"2026-07-29T20:01:00Z","from":"CLASSIFY","to":"DEFINE","action":"b","tier":"FEATURE","ticket":"FEAT-001"},{"timestamp":"2026-07-29T20:02:00Z","from":"DEFINE","to":"PLAN","action":"c","tier":"FEATURE","ticket":"FEAT-001"},{"timestamp":"2026-07-29T20:03:00Z","from":"PLAN","to":"CODE","action":"d","tier":"FEATURE","ticket":"FEAT-001"},{"timestamp":"2026-07-29T20:04:00Z","from":"CODE","to":"VERIFY","action":"e","tier":"FEATURE","ticket":"FEAT-001"},{"timestamp":"2026-07-29T20:05:00Z","from":"VERIFY","to":"CLOSEOUT","action":"f","tier":"FEATURE","ticket":"FEAT-001"}]'
@@ -2535,23 +2535,23 @@ base = {"tier": "FEATURE", "phase": "CLOSEOUT", "ticket": "FEAT-001", "title": N
         "tracker": None, "autonomy": None, "block": None, "discovery": None, "history": hist,
         "gates": {"define": True, "spec": True, "threat": True, "tests": True,
                   "sast": True, "verify": True, "commit": True}}
-json.dump(base, open(os.path.join(repo, ".ddw-state.json"), "w"))
+json.dump(base, open(os.path.join(repo, ".daw-state.json"), "w"))
 claim = dict(base, gates=dict(base["gates"], pr=True))
 json.dump({"tool_name": "Write",
-           "tool_input": {"file_path": os.path.join(repo, ".ddw-state.json"),
+           "tool_input": {"file_path": os.path.join(repo, ".daw-state.json"),
                           "content": json.dumps(claim)}},
           open(os.path.join(repo, "ev.json"), "w"))
 PYPRST
 ( export PATH="$PRT/bin:$PATH" GH_STUB_OUT="[]" GH_STUB_RC=0
-  python3 "$SELF/ddw/scripts/validate-transition.py" --mode pre --state "$PRS/.ddw-state.json" \
-    --graph "$SELF/ddw/rules/transition-graph.json" --repo "$PRS" < "$PRS/ev.json" >/dev/null 2>&1 )
+  python3 "$SELF/daw/scripts/validate-transition.py" --mode pre --state "$PRS/.daw-state.json" \
+    --graph "$SELF/daw/rules/transition-graph.json" --repo "$PRS" < "$PRS/ev.json" >/dev/null 2>&1 )
 [ "$?" = "2" ] \
   && ok "and claiming the pr gate is refused through the gate table, not only by the function" \
   || bad "the pr gate is in the code and the table that consults it does not name it"
 
 # ── The notice about pull requests waiting on a reviewer ─────────────────────
 #
-# It prints on every session start, to every user, and it is the one place DDW
+# It prints on every session start, to every user, and it is the one place DAW
 # speaks about something it cannot see from disk. Every failure of `gh` has to
 # arrive as a sentence saying which failure it was: an empty answer and an
 # unanswerable question are different things, and printing nothing for both is
@@ -2559,7 +2559,7 @@ PYPRST
 python3 - "$SELF" "$PRR" "$PRT/bin" <<'PYAWAIT' && ok "the pending-PR notice reports every way gh can fail, survives a shape it did not expect, and never truncates in silence" || bad "the pending-PR notice crashes the boot, lies about why it could not look, or drops PRs without saying so"
 import importlib.util, os, subprocess, sys
 src, repo, binpath = sys.argv[1:4]
-spec = importlib.util.spec_from_file_location("sb", os.path.join(src, "ddw/scripts/session-boot.py"))
+spec = importlib.util.spec_from_file_location("sb", os.path.join(src, "daw/scripts/session-boot.py"))
 m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
 
 
@@ -2632,8 +2632,8 @@ PYAWAIT
 # Through the BOOT, not through the function — the checks above call
 # `awaiting_review` directly, so deleting the line that calls it was invisible to
 # every one of them. And the boot is where the cost lives: a network round trip
-# on every session start, in every repo DDW is installed in.
-python3 - "$SELF" "$PRT" <<'PYBOOT' && ok "the boot prints what is waiting for review, and asks the forge only when it is going to say something" || bad "the notice never reaches the boot, or the boot calls the forge on quiet runs and in repos that have never run DDW"
+# on every session start, in every repo DAW is installed in.
+python3 - "$SELF" "$PRT" <<'PYBOOT' && ok "the boot prints what is waiting for review, and asks the forge only when it is going to say something" || bad "the notice never reaches the boot, or the boot calls the forge on quiet runs and in repos that have never run DAW"
 import json, os, subprocess, sys
 src, work = sys.argv[1], sys.argv[2]
 binp = os.path.join(work, "boot-bin"); os.makedirs(binp, exist_ok=True)
@@ -2651,12 +2651,12 @@ subprocess.run(["git", "-C", repo, "remote", "add", "origin",
                 "https://github.com/example/example.git"], check=True)
 subprocess.run(["bash", os.path.join(src, "install.sh"), repo, "--target", "claude"],
                capture_output=True, text=True)
-boot = os.path.join(repo, ".ddw", "scripts", "session-boot.py")
+boot = os.path.join(repo, ".daw", "scripts", "session-boot.py")
 
 
 def run(out="[]", quiet=False, sleep="", state=True):
     open(os.path.join(work, "gh-calls"), "w").close()
-    live = os.path.join(repo, ".ddw-state.json")
+    live = os.path.join(repo, ".daw-state.json")
     if state and not os.path.exists(live):
         json.dump({"tier": None, "phase": "IDLE", "ticket": None, "gates": {}, "history": []},
                   open(live, "w"))
@@ -2680,19 +2680,19 @@ assert "#9" in out and "changes requested" in out, \
 # cost — and it is a cost the user cannot see to complain about.
 _, asked = run(quiet=True)
 assert asked == 0, "a --quiet boot still called the forge"
-# And under a plugin — no `.ddw/` in the repo, no state file — DDW has never run
+# And under a plugin — no `.daw/` in the repo, no state file — DAW has never run
 # here and there is nothing of yours to be waiting on. `started` is what says so.
 plain = os.path.join(work, "plainrepo"); os.makedirs(plain, exist_ok=True)
 subprocess.run(["git", "-C", plain, "init", "-q"], check=True)
 subprocess.run(["git", "-C", plain, "remote", "add", "origin",
                 "https://github.com/example/example.git"], check=True)
 open(calls, "w").close()
-subprocess.run([sys.executable, os.path.join(src, "ddw/scripts/session-boot.py"),
+subprocess.run([sys.executable, os.path.join(src, "daw/scripts/session-boot.py"),
                 "--repo", plain, "--session-id", "s"], capture_output=True, text=True,
                env=dict(os.environ, PATH=binp + os.pathsep + os.environ["PATH"],
                         GH_CALLS=calls, GH_STUB_OUT="[]", GH_SLEEP=""))
 assert len(open(calls).read().split()) == 0, \
-    "the boot called the forge in a repo where DDW has never run"
+    "the boot called the forge in a repo where DAW has never run"
 PYBOOT
 
 # The corrective loop's ceiling, which was a number in four documents and a
@@ -2701,14 +2701,14 @@ PYBOOT
 # supposed to hold under `minimal` could never be reached.
 python3 - "$VP" <<'PYLOOP'
 import os, re, sys
-p = os.path.join(sys.argv[1], "docs/ddw/prd/prd-FEAT-001.md")
+p = os.path.join(sys.argv[1], "docs/daw/prd/prd-FEAT-001.md")
 s = open(p, encoding="utf-8").read()
 s = re.sub(r"^\|\s*PRD loops\s*\|.*$", "| PRD loops | 4 |", s, count=1, flags=re.M)
 if "PRD loops" not in s:
     s = s.replace("\n## ", "\n| PRD loops | 4 |\n\n## ", 1)
-open(os.path.join(sys.argv[1], "docs/ddw/prd/prd-looped.md"), "w", encoding="utf-8").write(s)
+open(os.path.join(sys.argv[1], "docs/daw/prd/prd-looped.md"), "w", encoding="utf-8").write(s)
 PYLOOP
-VLOUT="$(python3 "$SELF/ddw/scripts/validate_prd.py" "$VP/docs/ddw/prd/prd-looped.md" --tier FEATURE 2>/dev/null || true)"
+VLOUT="$(python3 "$SELF/daw/scripts/validate_prd.py" "$VP/docs/daw/prd/prd-looped.md" --tier FEATURE 2>/dev/null || true)"
 case "$VLOUT" in
   *"❌ F-PRD-LOOP"*) ok "a PRD past its corrective-loop ceiling is refused — the counter is compared, not just kept" ;;
   *) bad "the loop ceiling is a number nothing measures against, and minimal has one fewer stop" ;;
@@ -2726,8 +2726,8 @@ ROW = r"^\|\s*Loops since (?:the )?last human decision\s*\|"
 # skill with two copies of its template (one in the protocol, one in the example)
 # had the row in one of them, and "it is in the file somewhere" is not what the
 # validator reads — it reads the header of the document that gets written.
-for skill, total in (("ddw-create-prd", r"^\|\s*PRD loops\s*\|"),
-                     ("ddw-create-spec", r"^\|\s*Spec loops\s*\|")):
+for skill, total in (("daw-create-prd", r"^\|\s*PRD loops\s*\|"),
+                     ("daw-create-spec", r"^\|\s*Spec loops\s*\|")):
     t = open(os.path.join(src, "skills", skill, "SKILL.md"), encoding="utf-8").read()
     totals = len(re.findall(total, t, re.M | re.I))
     sinces = len(re.findall(ROW, t, re.M | re.I))
@@ -2743,7 +2743,7 @@ HEADER = ("# PRD\n\n| Field | Value |\n|-------|-------|\n| Ticket | T-1 |\n"
 def loop_row(total, since):
     path = os.path.join(tempfile.mkdtemp(dir=os.environ["WORK"]), "prd-T-1.md")
     open(path, "w", encoding="utf-8").write(HEADER % (total, since))
-    out = subprocess.run([sys.executable, os.path.join(src, "ddw/scripts/validate_prd.py"), path,
+    out = subprocess.run([sys.executable, os.path.join(src, "daw/scripts/validate_prd.py"), path,
                           "--tier", "FEATURE"], capture_output=True, text=True).stdout
     return [l for l in out.splitlines() if "F-PRD-LOOP" in l]
 
@@ -2767,7 +2767,7 @@ PYSINCE
 python3 - "$SELF" <<'PYRENAMED' && ok "no phase carries its old name in the method, the skills or the agents — stem, not word" || bad "a renamed phase is still called by its old name where a user reads it — see above"
 import os, re, sys
 src = sys.argv[1]
-vt = open(os.path.join(src, "ddw/scripts/validate-transition.py"), encoding="utf-8").read()
+vt = open(os.path.join(src, "daw/scripts/validate-transition.py"), encoding="utf-8").read()
 pairs = re.findall(r'"(\w+)":\s*"(\w+)"', re.search(r"RENAMED_PHASES = \{([^}]*)\}", vt).group(1))
 assert pairs, "RENAMED_PHASES is empty — this check has nothing to look for"
 
@@ -2775,14 +2775,14 @@ assert pairs, "RENAMED_PHASES is empty — this check has nothing to look for"
 ALLOWED = (
     "unreleased",                 # Keep a Changelog's own heading
     "deploy / release",           # the gitmoji table: a deploy is not this phase
-    "for one release",            # prose about a version of DDW
+    "for one release",            # prose about a version of DAW
     "`release`)",                 # a git BRANCH called release, in a list of them
 )
 bad = []
 for root, dirs, files in os.walk(src):
     dirs[:] = [d for d in dirs if d not in (".git", "__pycache__", "docs", "scripts", ".github")]
     rel_root = os.path.relpath(root, src)
-    if not (rel_root.startswith("ddw") or rel_root.startswith("agents")
+    if not (rel_root.startswith("daw") or rel_root.startswith("agents")
             or rel_root.startswith("skills") or rel_root.startswith("adapters")):
         continue
     for name in files:
@@ -2807,17 +2807,17 @@ if bad:
 assert not bad, f"{len(bad)} line(s) still name a renamed phase"
 PYRENAMED
 
-# A state written by an older DDW is not a forgery. When a phase is renamed, the
+# A state written by an older DAW is not a forgery. When a phase is renamed, the
 # state that still names the old one fails the graph lookup — and the refusal for
 # that says "you probably wrote it with Bash/jq/sed", which is both wrong and
 # accusatory: it sends someone to fix a state they never touched, with the one
 # explanation that cannot be true.
 OLDP="$WORK/old-phase"; mkdir -p "$OLDP"; git -C "$OLDP" init -q .
-printf '%s' '{"tier":"FEATURE","phase":"RELEASE","ticket":"T-1","title":null,"tracker":null,"gates":{"verify":true},"block":null,"discovery":null,"history":[{"timestamp":"2026-01-01T00:00:00Z","from":"IDLE","to":"CLASSIFY","action":"a"},{"timestamp":"2026-01-01T00:05:00Z","from":"VERIFY","to":"RELEASE","action":"f","tier":"FEATURE","ticket":"T-1"}]}' > "$OLDP/.ddw-state.json"
-OLDOUT="$(python3 "$SELF/ddw/scripts/validate-transition.py" --mode post --state "$OLDP/.ddw-state.json" \
-         --graph "$SELF/ddw/rules/transition-graph.json" 2>&1 || true)"
+printf '%s' '{"tier":"FEATURE","phase":"RELEASE","ticket":"T-1","title":null,"tracker":null,"gates":{"verify":true},"block":null,"discovery":null,"history":[{"timestamp":"2026-01-01T00:00:00Z","from":"IDLE","to":"CLASSIFY","action":"a"},{"timestamp":"2026-01-01T00:05:00Z","from":"VERIFY","to":"RELEASE","action":"f","tier":"FEATURE","ticket":"T-1"}]}' > "$OLDP/.daw-state.json"
+OLDOUT="$(python3 "$SELF/daw/scripts/validate-transition.py" --mode post --state "$OLDP/.daw-state.json" \
+         --graph "$SELF/daw/rules/transition-graph.json" 2>&1 || true)"
 case "$OLDOUT" in
-  *"written by an older DDW"*RELEASE*CLOSEOUT*)
+  *"written by an older DAW"*RELEASE*CLOSEOUT*)
     ok "a state naming a renamed phase is told so, not accused of being forged" ;;
   *) bad "an upgraded user is told they wrote their own state with sed — the one explanation that cannot be true" ;;
 esac
@@ -2833,9 +2833,9 @@ esac
 python3 - "$SELF" <<'PYBACK' && ok "stepping back gives up what that phase granted, and the hook refuses a step that keeps it" || bad "a backward transition can keep its gates — the corrective loop launders a rewritten artifact again"
 import importlib.util, json, os, sys
 src = sys.argv[1]
-spec = importlib.util.spec_from_file_location("vt", os.path.join(src, "ddw/scripts/validate-transition.py"))
+spec = importlib.util.spec_from_file_location("vt", os.path.join(src, "daw/scripts/validate-transition.py"))
 m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
-g = json.load(open(os.path.join(src, "ddw/rules/transition-graph.json")))
+g = json.load(open(os.path.join(src, "daw/rules/transition-graph.json")))
 EDGES = [("IDLE", "CLASSIFY"), ("CLASSIFY", "DEFINE"), ("DEFINE", "PLAN"), ("PLAN", "CODE"),
          ("CODE", "VERIFY"), ("VERIFY", "CLOSEOUT")]
 
@@ -2918,9 +2918,9 @@ PYBACK
 python3 - "$SELF" <<'PYTICK' && ok "a receipt gate cannot be claimed with a null ticket, and naming the ticket is the way back" || bad "clearing the ticket still opens the six receipt gates — the emptiest state claims the most"
 import importlib.util, json, os, sys
 src = sys.argv[1]
-spec = importlib.util.spec_from_file_location("vt", os.path.join(src, "ddw/scripts/validate-transition.py"))
+spec = importlib.util.spec_from_file_location("vt", os.path.join(src, "daw/scripts/validate-transition.py"))
 m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
-g = json.load(open(os.path.join(src, "ddw/rules/transition-graph.json")))
+g = json.load(open(os.path.join(src, "daw/rules/transition-graph.json")))
 H = [{"timestamp": "2026-01-01T00:0%d:00Z" % i, "from": f, "to": t, "action": "x",
       "tier": "FEATURE", "ticket": "T-1"}
      for i, (f, t) in enumerate([("IDLE", "CLASSIFY"), ("CLASSIFY", "DEFINE")])]
@@ -2962,13 +2962,13 @@ PYTICK
 python3 - "$SELF" <<'PYSNAP' && ok "a gate flipped on disk with no transition is caught against the last blessed snapshot" || bad "jq can turn on any gate without writing a transition — post mode has nothing to compare it to"
 import json, os, subprocess, sys, tempfile, hashlib
 src = sys.argv[1]
-vt = os.path.join(src, "ddw/scripts/validate-transition.py")
-graph = os.path.join(src, "ddw/rules/transition-graph.json")
+vt = os.path.join(src, "daw/scripts/validate-transition.py")
+graph = os.path.join(src, "daw/rules/transition-graph.json")
 repo = tempfile.mkdtemp(dir=os.environ["WORK"])
-os.makedirs(os.path.join(repo, "docs/ddw/prd"))
-os.makedirs(os.path.join(repo, ".ddw-sessions"))
-state = os.path.join(repo, ".ddw-state.json")
-prd = os.path.join(repo, "docs/ddw/prd/prd-T-1.md")
+os.makedirs(os.path.join(repo, "docs/daw/prd"))
+os.makedirs(os.path.join(repo, ".daw-sessions"))
+state = os.path.join(repo, ".daw-state.json")
+prd = os.path.join(repo, "docs/daw/prd/prd-T-1.md")
 open(prd, "w", encoding="utf-8").write("# PRD\n")
 H = [{"timestamp": "2026-01-01T00:0%d:00Z" % i, "from": f, "to": t, "action": "x",
       "tier": "FEATURE", "ticket": "T-1"}
@@ -2996,14 +2996,14 @@ assert post() == 0, "post mode refuses a legitimate run that chose an autonomy m
 write(gates={"define": True})
 assert post() == 2, "a gate turned on with no transition and no receipt was accepted"
 digest = hashlib.sha256(open(prd, encoding="utf-8").read().encode("utf-8")).hexdigest()[:12]
-open(os.path.join(repo, ".ddw-sessions", "prd-validated-%s" % digest), "w").write("prd-T-1.md")
-with open(os.path.join(repo, ".ddw-journal.jsonl"), "a", encoding="utf-8") as fh:
+open(os.path.join(repo, ".daw-sessions", "prd-validated-%s" % digest), "w").write("prd-T-1.md")
+with open(os.path.join(repo, ".daw-journal.jsonl"), "a", encoding="utf-8") as fh:
     fh.write(json.dumps({"record": "receipt", "name": "prd-validated-%s" % digest,
                          "file": "prd-T-1.md"}, sort_keys=True) + "\n")
 assert post() == 0, "the same claim with its receipt on disk was refused"
 # The snapshot shares the journal so that removing it costs the transitions too —
 # and a journal that comes back empty makes post mode stricter, never weaker.
-lines = [json.loads(l) for l in open(os.path.join(repo, ".ddw-journal.jsonl"), encoding="utf-8")
+lines = [json.loads(l) for l in open(os.path.join(repo, ".daw-journal.jsonl"), encoding="utf-8")
          if l.strip()]
 assert [e for e in lines if e.get("record") == "gates"], "no gate snapshot was ever recorded"
 assert len([e for e in lines if "from" in e]) == len(H), \
@@ -3019,9 +3019,9 @@ PYSNAP
 python3 - "$SELF" <<'PYRESUME' && ok "a ticket paused before other work resumes, and a pause already picked up cannot be used twice" || bad "pausing only works if you never work on anything else — or one pause resumes forever"
 import importlib.util, json, os, sys
 src = sys.argv[1]
-spec = importlib.util.spec_from_file_location("vt", os.path.join(src, "ddw/scripts/validate-transition.py"))
+spec = importlib.util.spec_from_file_location("vt", os.path.join(src, "daw/scripts/validate-transition.py"))
 m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
-g = json.load(open(os.path.join(src, "ddw/rules/transition-graph.json")))
+g = json.load(open(os.path.join(src, "daw/rules/transition-graph.json")))
 N = [0]
 
 
@@ -3096,10 +3096,10 @@ PYRESUME
 python3 - "$SELF" <<'PYTKFLAG' && ok "transition.py --ticket names the ticket in the header and stamps it on the entry" || bad "the helper cannot name a ticket, so its own output is a state the hook refuses"
 import json, os, subprocess, sys, tempfile
 src = sys.argv[1]
-tr = os.path.join(src, "ddw/scripts/transition.py")
-graph = os.path.join(src, "ddw/rules/transition-graph.json")
+tr = os.path.join(src, "daw/scripts/transition.py")
+graph = os.path.join(src, "daw/rules/transition-graph.json")
 repo = tempfile.mkdtemp(dir=os.environ["WORK"])
-state = os.path.join(repo, ".ddw-state.json")
+state = os.path.join(repo, ".daw-state.json")
 r = subprocess.run([sys.executable, tr, "--to", "CLASSIFY", "--action", "classify",
                     "--tier", "FEATURE", "--ticket", "FEAT-007", "--state", state,
                     "--graph", graph, "--write"], capture_output=True, text=True)
@@ -3120,9 +3120,9 @@ PYTKFLAG
 python3 - "$SELF" <<'PYAUTO' && ok "autonomy is refused outside CLASSIFY, refused unknown, and cleared at IDLE" || bad "the field that removes the human from the loop can be set by the model — see above"
 import importlib.util, json, os, sys
 src = sys.argv[1]
-spec = importlib.util.spec_from_file_location("vt", os.path.join(src, "ddw/scripts/validate-transition.py"))
+spec = importlib.util.spec_from_file_location("vt", os.path.join(src, "daw/scripts/validate-transition.py"))
 m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
-g = json.load(open(os.path.join(src, "ddw/rules/transition-graph.json")))
+g = json.load(open(os.path.join(src, "daw/rules/transition-graph.json")))
 H = [{"timestamp": "2026-01-01T00:00:00Z", "from": "IDLE", "to": "CLASSIFY", "action": "a"},
      {"timestamp": "2026-01-01T00:01:00Z", "from": "CLASSIFY", "to": "DEFINE", "action": "b",
       "ticket": "T-1", "tier": "FEATURE"}]
@@ -3184,7 +3184,7 @@ assert blocked(st("PLAN", "assisted", NXT, {"define": True}),
 # The hook can prove a pause is being resumed. It cannot prove a question was
 # put — so that stop lives in the method, and a stop that lives in prose has to
 # be checked as prose or it quietly stops existing.
-protocol = open(os.path.join(src, "ddw/orchestrator.md"), encoding="utf-8").read()
+protocol = open(os.path.join(src, "daw/orchestrator.md"), encoding="utf-8").read()
 start = protocol.find("When the user wants to resume a paused ticket")
 assert start > 0, "the pause protocol no longer says how to resume"
 resume_protocol = protocol[start:start + 2000].lower()
@@ -3198,7 +3198,7 @@ PYAUTO
 python3 - "$SELF" <<'PYAUTOH' && ok "and the helper sets it, stamps every autonomous edge, and clears it on closeout" || bad "the record that says nobody was watching cannot be written by the sanctioned path"
 import importlib.util, json, os, subprocess, sys, tempfile
 src = sys.argv[1]
-spec = importlib.util.spec_from_file_location("tr", os.path.join(src, "ddw/scripts/transition.py"))
+spec = importlib.util.spec_from_file_location("tr", os.path.join(src, "daw/scripts/transition.py"))
 tr = importlib.util.module_from_spec(spec); spec.loader.exec_module(tr)
 idle = {"tier": None, "phase": "IDLE", "ticket": None, "title": None, "tracker": None,
         "autonomy": None, "gates": {}, "block": None, "discovery": None, "history": []}
@@ -3227,14 +3227,14 @@ h = [{"timestamp": "2026-01-01T00:0%d:00Z" % i, "from": f, "to": t,
 json.dump({"tier": "FEATURE", "phase": "CODE", "ticket": "FEAT-001", "title": "x",
            "tracker": None, "autonomy": None, "gates": {"define": True, "spec": True,
            "threat": True}, "block": None, "discovery": None, "history": h},
-          open(sys.argv[1] + "/.ddw-state.json", "w"), indent=2)
+          open(sys.argv[1] + "/.daw-state.json", "w"), indent=2)
 PYBST
 # The reviews the marker now spends — a different gate than the one under test.
-mkdir -p "$BLK/.ddw-work"
-printf 'verifier: PASSED\narch: PASSED\n' > "$BLK/.ddw-work/review-block-2.md"
-python3 "$SELF/ddw/scripts/transition.py" --block 2/5 --state "$BLK/.ddw-state.json" \
-    --graph "$SELF/ddw/rules/transition-graph.json" --write >/dev/null 2>&1 \
-  && python3 -c "import json,sys; s=json.load(open(sys.argv[1])); sys.exit(0 if s['block']=='2/5' and len(s['history'])==4 else 1)" "$BLK/.ddw-state.json" \
+mkdir -p "$BLK/.daw-work"
+printf 'verifier: PASSED\narch: PASSED\n' > "$BLK/.daw-work/review-block-2.md"
+python3 "$SELF/daw/scripts/transition.py" --block 2/5 --state "$BLK/.daw-state.json" \
+    --graph "$SELF/daw/rules/transition-graph.json" --write >/dev/null 2>&1 \
+  && python3 -c "import json,sys; s=json.load(open(sys.argv[1])); sys.exit(0 if s['block']=='2/5' and len(s['history'])==4 else 1)" "$BLK/.daw-state.json" \
   && ok "--block updates the marker in-phase through the helper: no entry, no phase change" \
   || bad "the sanctioned path for the block marker does not exist or does not land — hand Edits and shell writes are all that is left"
 
@@ -3242,8 +3242,8 @@ python3 "$SELF/ddw/scripts/transition.py" --block 2/5 --state "$BLK/.ddw-state.j
 # and asserting the reason, not the exit code: the first version aimed at an
 # edge whose gates fail anyway, so gutting the guard changed nothing the check
 # could see — the fault survived, and the ledger asked for this sentence.
-BLKOUT="$(python3 "$SELF/ddw/scripts/transition.py" --block 2/5 --to PLAN --action "loop" --write \
-    --state "$BLK/.ddw-state.json" --graph "$SELF/ddw/rules/transition-graph.json" 2>&1 || true)"
+BLKOUT="$(python3 "$SELF/daw/scripts/transition.py" --block 2/5 --to PLAN --action "loop" --write \
+    --state "$BLK/.daw-state.json" --graph "$SELF/daw/rules/transition-graph.json" 2>&1 || true)"
 case "$BLKOUT" in
   *"does not go with --to"*) ok "and --block on an edge is refused with the reason" ;;
   *) bad "--block rode an edge — the edges manage the field themselves and this hides a state change inside a transition" ;;
@@ -3252,12 +3252,12 @@ esac
 python3 - "$SELF" "$BLK" <<'PYBJR'
 import importlib.util, os, sys
 spec = importlib.util.spec_from_file_location(
-    "vt", os.path.join(sys.argv[1], "ddw/scripts/validate-transition.py"))
+    "vt", os.path.join(sys.argv[1], "daw/scripts/validate-transition.py"))
 vt = importlib.util.module_from_spec(spec); spec.loader.exec_module(vt)
-state = os.path.join(sys.argv[2], ".ddw-state.json")
+state = os.path.join(sys.argv[2], ".daw-state.json")
 vt.record_journal(state)
 vt.record_journal(state)   # unchanged: must not repeat
-lines = open(os.path.join(sys.argv[2], ".ddw-journal.jsonl")).read().splitlines()
+lines = open(os.path.join(sys.argv[2], ".daw-journal.jsonl")).read().splitlines()
 blocks = [ln for ln in lines if '"record": "block"' in ln]
 assert len(blocks) == 1, "expected one block record, got %d" % len(blocks)
 assert '"block": "2/5"' in blocks[0], blocks[0]
@@ -3268,7 +3268,7 @@ PYBJR
 
 # The model field is covered or its absence is a decision on file — never a
 # hole. Measured live: three recipes carried `model`, one omitted the key, and
-# the omitted tool ran every DDW subagent on a model the user never chose. The
+# the omitted tool ran every DAW subagent on a model the user never chose. The
 # old frontmatter check validated the output against the same recipe, so this
 # omission could not go red by construction.
 python3 - "$SELF" <<'PYMODEL'
@@ -3308,24 +3308,24 @@ PYMODEL
 # session was gated by nobody (measured live: the probe committed straight from
 # IDLE, exit 0). What its preToolUse can hold, it holds now, and says the rest
 # is Claude's guarantee.
-CPG="$WORK/cp-gate"; mkdir -p "$CPG/.ddw-work"; git -C "$CPG" init -q .
-printf '{"tier": "FEATURE", "phase": "CODE", "ticket": "F-1", "autonomy": null, "gates": {}, "history": []}' > "$CPG/.ddw-state.json"
+CPG="$WORK/cp-gate"; mkdir -p "$CPG/.daw-work"; git -C "$CPG" init -q .
+printf '{"tier": "FEATURE", "phase": "CODE", "ticket": "F-1", "autonomy": null, "gates": {}, "history": []}' > "$CPG/.daw-state.json"
 cpg() {  # $1 = shell command inside a copilot pre envelope
   python3 -c "import json,sys;print(json.dumps({'toolName':'bash','toolArgs':json.dumps({'command':sys.argv[1]})}))" "$1" \
-    | python3 "$SELF/ddw/scripts/hook-gate.py" --mode pre --dialect copilot \
-        --state "$CPG/.ddw-state.json" --graph "$SELF/ddw/rules/transition-graph.json" \
+    | python3 "$SELF/daw/scripts/hook-gate.py" --mode pre --dialect copilot \
+        --state "$CPG/.daw-state.json" --graph "$SELF/daw/rules/transition-graph.json" \
         --repo "$CPG" >/dev/null 2>&1
 }
 cpg 'git add x && git commit -m "test: probe"' \
   && bad "a Copilot commit with -m sailed through — the message never had to come from the shown file" \
   || ok "Copilot's preToolUse holds a commit to the shown file (-F), the part of the gate that needs no seal"
 
-printf 'x feat: y\n\nRefs: F-1\nAI-assisted: yes\n' > "$CPG/.ddw-work/commit-message.txt"
-cpg 'git commit -F .ddw-work/commit-message.txt' \
+printf 'x feat: y\n\nRefs: F-1\nAI-assisted: yes\n' > "$CPG/.daw-work/commit-message.txt"
+cpg 'git commit -F .daw-work/commit-message.txt' \
   && ok "and allows the sanctioned form with a clean proposal — partial is not closed" \
   || bad "the partial gate refuses the exact flow the skill teaches, which pushes models around it"
 
-printf '{"tier": "FEATURE", "phase": "CODE", "ticket": "F-1", "autonomy": "minimal", "gates": {}, "history": []}' > "$CPG/.ddw-state.json"
+printf '{"tier": "FEATURE", "phase": "CODE", "ticket": "F-1", "autonomy": "minimal", "gates": {}, "history": []}' > "$CPG/.daw-state.json"
 cpg 'gh pr merge 2 --squash' \
   && bad "a merge ran in Copilot with no proposal on disk — the one irreversible act, ungated again" \
   || ok "and a merge without its proposal on disk is refused there too, minimal included"
@@ -3336,8 +3336,8 @@ cpg 'gh pr merge 2 --squash' \
 # arrow, so the first arrow of any turn landed free. Now the reason rides a
 # file: `correction:` announces and goes, `ask:` waits for the user's sealed
 # turn, and both leave a record.
-GBK="$WORK/goback"; mkdir -p "$GBK/.ddw-sessions" "$GBK/.ddw-work"; git -C "$GBK" init -q .
-echo 3 > "$GBK/.ddw-sessions/turn"
+GBK="$WORK/goback"; mkdir -p "$GBK/.daw-sessions" "$GBK/.daw-work"; git -C "$GBK" init -q .
+echo 3 > "$GBK/.daw-sessions/turn"
 gbk_state() {  # reset to CODE with spec+threat held
 python3 - "$GBK" <<'PYGBS'
 import json, sys
@@ -3348,12 +3348,12 @@ h = [{"timestamp": "2026-01-01T00:0%d:00Z" % i, "from": f, "to": t,
 json.dump({"tier": "FEATURE", "phase": "CODE", "ticket": "FEAT-001", "title": "x",
            "tracker": None, "autonomy": "assisted", "gates": {"define": True,
            "spec": True, "threat": True}, "block": None, "discovery": None,
-           "history": h}, open(sys.argv[1] + "/.ddw-state.json", "w"), indent=2)
+           "history": h}, open(sys.argv[1] + "/.daw-state.json", "w"), indent=2)
 PYGBS
 }
 gbk_edge() {
-  python3 "$SELF/ddw/scripts/transition.py" --to PLAN --action "loop" --write \
-    --state "$GBK/.ddw-state.json" --graph "$SELF/ddw/rules/transition-graph.json" 2>&1
+  python3 "$SELF/daw/scripts/transition.py" --to PLAN --action "loop" --write \
+    --state "$GBK/.daw-state.json" --graph "$SELF/daw/rules/transition-graph.json" 2>&1
 }
 gbk_state
 GBOUT="$(gbk_edge || true)"
@@ -3363,14 +3363,14 @@ case "$GBOUT" in
   *) bad "the go-back edge landed with nothing on disk showing the user was told — execute-then-ask is back" ;;
 esac
 
-printf 'correction: the block names the wrong file — CODE -> PLAN\n' > "$GBK/.ddw-work/goback-proposal.txt"
+printf 'correction: the block names the wrong file — CODE -> PLAN\n' > "$GBK/.daw-work/goback-proposal.txt"
 gbk_edge >/dev/null 2>&1 \
-  && python3 -c "import json,sys; sys.exit(0 if json.load(open(sys.argv[1]))['phase']=='PLAN' else 1)" "$GBK/.ddw-state.json" \
+  && python3 -c "import json,sys; sys.exit(0 if json.load(open(sys.argv[1]))['phase']=='PLAN' else 1)" "$GBK/.daw-state.json" \
   && ok "and a correction: on file announces and goes — the mandatory loop still never asks permission" \
   || bad "the correction lane is blocked, which turns the mandatory corrective loop into a question again"
 
 gbk_state
-printf 'ask: which of the two stacks stands? CODE -> PLAN\n' > "$GBK/.ddw-work/goback-proposal.txt"
+printf 'ask: which of the two stacks stands? CODE -> PLAN\n' > "$GBK/.daw-work/goback-proposal.txt"
 GBOUT="$(gbk_edge || true)"
 case "$GBOUT" in
   *"has not been in front of the user"*)
@@ -3378,29 +3378,29 @@ case "$GBOUT" in
   *) bad "a question executed the loop before anyone answered it — the measured defect, still open" ;;
 esac
 
-python3 "$SELF/ddw/scripts/hook-gate.py" --mode turn --state "$GBK/.ddw-state.json" \
-  --graph "$SELF/ddw/rules/transition-graph.json" --repo "$GBK" < /dev/null >/dev/null 2>&1 || true
+python3 "$SELF/daw/scripts/hook-gate.py" --mode turn --state "$GBK/.daw-state.json" \
+  --graph "$SELF/daw/rules/transition-graph.json" --repo "$GBK" < /dev/null >/dev/null 2>&1 || true
 gbk_edge >/dev/null 2>&1 \
-  && python3 -c "import json,sys; sys.exit(0 if json.load(open(sys.argv[1]))['phase']=='PLAN' else 1)" "$GBK/.ddw-state.json" \
+  && python3 -c "import json,sys; sys.exit(0 if json.load(open(sys.argv[1]))['phase']=='PLAN' else 1)" "$GBK/.daw-state.json" \
   && ok "and the sealed answer arms the same edge — asked before, taken with the answer in hand" \
   || bad "the user answered and the edge still refuses — the seal is not being read"
 
 # The hook path judges the same thing for a state written with the Write tool.
 gbk_state
-rm -f "$GBK/.ddw-work/goback-proposal.txt"
+rm -f "$GBK/.daw-work/goback-proposal.txt"
 python3 - "$GBK" <<'PYGBE'
 import json, sys
 root = sys.argv[1]
-s = json.load(open(root + "/.ddw-state.json"))
+s = json.load(open(root + "/.daw-state.json"))
 s["phase"] = "PLAN"; s["gates"] = {"define": True}
 s["history"].append({"timestamp": "2026-01-01T00:09:00Z", "from": "CODE", "to": "PLAN",
                      "action": "loop", "tier": "FEATURE", "ticket": "FEAT-001"})
 open(root + "/event.json", "w").write(json.dumps(
-    {"tool_name": "Write", "tool_input": {"file_path": ".ddw-state.json",
+    {"tool_name": "Write", "tool_input": {"file_path": ".daw-state.json",
                                           "content": json.dumps(s)}}))
 PYGBE
-python3 "$SELF/ddw/scripts/hook-gate.py" --mode pre --dialect standard \
-    --state "$GBK/.ddw-state.json" --graph "$SELF/ddw/rules/transition-graph.json" \
+python3 "$SELF/daw/scripts/hook-gate.py" --mode pre --dialect standard \
+    --state "$GBK/.daw-state.json" --graph "$SELF/daw/rules/transition-graph.json" \
     --repo "$GBK" < "$GBK/event.json" >/dev/null 2>&1 \
   && bad "a Write-tool backward edge sailed past the hook with no reason on disk" \
   || ok "and the Write-tool path is held to the same gate as the helper"
@@ -3412,31 +3412,31 @@ python3 "$SELF/ddw/scripts/hook-gate.py" --mode pre --dialect standard \
 # once per ticket, the decisions record CODE's block loop orders per approval,
 # and the two-stage review each block-marker advance spends. Each now leaves a
 # file a gate can ask for. The files are model-written — the receipt's honest
-# bargain, stated in ddw_receipt.py — so what these checks prove is that
+# bargain, stated in daw_receipt.py — so what these checks prove is that
 # skipping the step is no longer SILENT, never that it was done well.
 section "The steps prose alone could not hold now leave files gates demand"
 
-PG="$WORK/prose-gates"; mkdir -p "$PG/.ddw-work" "$PG/docs/ddw/specs"; git -C "$PG" init -q .
+PG="$WORK/prose-gates"; mkdir -p "$PG/.daw-work" "$PG/docs/daw/specs"; git -C "$PG" init -q .
 pg_tr() {
-  python3 "$SELF/ddw/scripts/transition.py" --state "$PG/.ddw-state.json" \
-    --graph "$SELF/ddw/rules/transition-graph.json" "$@" 2>&1
+  python3 "$SELF/daw/scripts/transition.py" --state "$PG/.daw-state.json" \
+    --graph "$SELF/daw/rules/transition-graph.json" "$@" 2>&1
 }
 
-printf '{"phase": "IDLE", "tier": null, "ticket": null, "title": null, "gates": {}, "history": []}\n' > "$PG/.ddw-state.json"
+printf '{"phase": "IDLE", "tier": null, "ticket": null, "title": null, "gates": {}, "history": []}\n' > "$PG/.daw-state.json"
 pg_tr --to CLASSIFY --ticket F-9 --title "prose gates" --action "clasificar" --write >/dev/null \
   || bad "fixture: IDLE->CLASSIFY failed and the three checks below measure nothing"
 PGOUT="$(pg_tr --to DEFINE --tier FEATURE --ticket F-9 --title "prose gates" --action "definir" --write || true)"
 case "$PGOUT" in
-  *ddw-context-check*)
+  *daw-context-check*)
     ok "CLASSIFY does not close without the context check's file — the step prose lost twice" ;;
   *) bad "the classify edge opened with no context check on disk — the twice-measured skip is silent again" ;;
 esac
-printf 'Nothing to report: the context file matches the repo.\n' > "$PG/.ddw-work/context-check-F-9.md"
+printf 'Nothing to report: the context file matches the repo.\n' > "$PG/.daw-work/context-check-F-9.md"
 PGOUT="$(pg_tr --to DEFINE --tier FEATURE --ticket F-9 --title "prose gates" --action "definir" --write 2>&1)" \
   && ok "and opens the moment the file exists" \
   || bad "the context-check gate refuses the edge even with the file on disk"
 case "$PGOUT" in
-  *"── DDW ─ DEFINE"*)
+  *"── DAW ─ DEFINE"*)
     ok "and the landed write prints where the run stands — the status line models kept skipping, now printed by the tool" ;;
   *) bad "the write lands silently; where-are-we is prose again, and prose measured near zero" ;;
 esac
@@ -3452,7 +3452,7 @@ h = [{"timestamp": "2026-01-01T00:0%d:00Z" % i, "from": f, "to": t,
 json.dump({"tier": "FEATURE", "phase": "CODE", "ticket": "F-9", "title": "prose gates",
            "tracker": None, "autonomy": "assisted", "gates": {"define": True,
            "spec": True, "threat": True}, "block": None, "discovery": None,
-           "history": h}, open(sys.argv[1] + "/.ddw-state.json", "w"), indent=2)
+           "history": h}, open(sys.argv[1] + "/.daw-state.json", "w"), indent=2)
 PYPGC
 PGOUT="$(pg_tr --block 1/5 --write || true)"
 case "$PGOUT" in
@@ -3460,7 +3460,7 @@ case "$PGOUT" in
     ok "--block N/M means block N FINISHED, and without its two review verdicts on disk it is refused" ;;
   *) bad "the marker advanced with no review on disk — the measured self-audit collapse is silent again" ;;
 esac
-printf 'verifier: PASSED — matches the spec, TDD evidence shown\narch: PASSED — conventions hold\n' > "$PG/.ddw-work/review-block-1.md"
+printf 'verifier: PASSED — matches the spec, TDD evidence shown\narch: PASSED — conventions hold\n' > "$PG/.daw-work/review-block-1.md"
 pg_tr --block 1/5 --write >/dev/null 2>&1 \
   && ok "and advances once both verdicts are on file" \
   || bad "the review gate refuses the marker even with both verdicts on disk"
@@ -3468,21 +3468,21 @@ pg_tr --block 1/5 --write >/dev/null 2>&1 \
 # CODE does not close without the decisions record — even when the record says
 # there was nothing to record, because \"nobody wrote it\" and \"nothing to
 # write\" have to be different states on disk.
-ddw_earn "$PG" tests F-9
-ddw_earn "$PG" sast F-9
+daw_earn "$PG" tests F-9
+daw_earn "$PG" sast F-9
 python3 - "$PG" <<'PYPGD'
 import json, sys
-s = json.load(open(sys.argv[1] + "/.ddw-state.json"))
+s = json.load(open(sys.argv[1] + "/.daw-state.json"))
 s["gates"].update({"tests": True, "sast": True}); s["block"] = None
-json.dump(s, open(sys.argv[1] + "/.ddw-state.json", "w"), indent=2)
+json.dump(s, open(sys.argv[1] + "/.daw-state.json", "w"), indent=2)
 PYPGD
 PGOUT="$(pg_tr --to VERIFY --action "code cerrado" --write || true)"
 case "$PGOUT" in
   *decisions-F-9.md*)
-    ok "CODE does not close without docs/ddw/specs/decisions-F-9.md — approvals leave the conversation" ;;
+    ok "CODE does not close without docs/daw/specs/decisions-F-9.md — approvals leave the conversation" ;;
   *) bad "CODE closed with every picker-approval unrecorded — the measured hole is open again" ;;
 esac
-printf 'No decisions were approved outside the spec during this ticket.\n' > "$PG/docs/ddw/specs/decisions-F-9.md"
+printf 'No decisions were approved outside the spec during this ticket.\n' > "$PG/docs/daw/specs/decisions-F-9.md"
 pg_tr --to VERIFY --action "code cerrado" --write >/dev/null 2>&1 \
   && ok "and closes with the record on disk, 'nothing' spelled out included" \
   || bad "the decisions gate refuses the edge even with the record on disk"
@@ -3498,27 +3498,27 @@ h = [{"timestamp": "2026-01-01T00:0%d:00Z" % i, "from": f, "to": t,
 state = {"tier": "FEATURE", "phase": "CLASSIFY", "ticket": "F-8", "title": "x",
          "tracker": None, "autonomy": "assisted", "gates": {}, "block": None,
          "discovery": None, "history": h}
-json.dump(state, open(root + "/.ddw-state.json", "w"), indent=2)
+json.dump(state, open(root + "/.daw-state.json", "w"), indent=2)
 new = json.loads(json.dumps(state))
 new["phase"] = "DEFINE"
 new["history"].append({"timestamp": "2026-01-01T00:05:00Z", "from": "CLASSIFY",
                        "to": "DEFINE", "action": "x", "tier": "FEATURE", "ticket": "F-8"})
 open(root + "/event.json", "w").write(json.dumps(
-    {"tool_name": "Write", "tool_input": {"file_path": ".ddw-state.json",
+    {"tool_name": "Write", "tool_input": {"file_path": ".daw-state.json",
                                           "content": json.dumps(new)}}))
 PYPGE
-PGOUT="$(python3 "$SELF/ddw/scripts/hook-gate.py" --mode pre --dialect standard \
-    --state "$PG/.ddw-state.json" --graph "$SELF/ddw/rules/transition-graph.json" \
+PGOUT="$(python3 "$SELF/daw/scripts/hook-gate.py" --mode pre --dialect standard \
+    --state "$PG/.daw-state.json" --graph "$SELF/daw/rules/transition-graph.json" \
     --repo "$PG" < "$PG/event.json" 2>&1 || true)"
 case "$PGOUT" in
-  *ddw-context-check*)
+  *daw-context-check*)
     ok "and the Write-tool path demands the context check like the helper does" ;;
   *) bad "a Write-tool classify edge sailed past the hook with no context check on disk" ;;
 esac
 
 # CODE closing by hand-written Write is held to the decisions record too.
-ddw_earn "$PG" tests F-8
-ddw_earn "$PG" sast F-8
+daw_earn "$PG" tests F-8
+daw_earn "$PG" sast F-8
 python3 - "$PG" <<'PYPGG'
 import json, sys
 root = sys.argv[1]
@@ -3530,17 +3530,17 @@ state = {"tier": "FEATURE", "phase": "CODE", "ticket": "F-8", "title": "x",
          "tracker": None, "autonomy": "assisted", "gates": {"define": True,
          "spec": True, "threat": True, "tests": True, "sast": True},
          "block": None, "discovery": None, "history": h}
-json.dump(state, open(root + "/.ddw-state.json", "w"), indent=2)
+json.dump(state, open(root + "/.daw-state.json", "w"), indent=2)
 new = json.loads(json.dumps(state))
 new["phase"] = "VERIFY"
 new["history"].append({"timestamp": "2026-01-01T00:07:00Z", "from": "CODE",
                        "to": "VERIFY", "action": "x", "tier": "FEATURE", "ticket": "F-8"})
 open(root + "/event.json", "w").write(json.dumps(
-    {"tool_name": "Write", "tool_input": {"file_path": ".ddw-state.json",
+    {"tool_name": "Write", "tool_input": {"file_path": ".daw-state.json",
                                           "content": json.dumps(new)}}))
 PYPGG
-PGOUT="$(python3 "$SELF/ddw/scripts/hook-gate.py" --mode pre --dialect standard \
-    --state "$PG/.ddw-state.json" --graph "$SELF/ddw/rules/transition-graph.json" \
+PGOUT="$(python3 "$SELF/daw/scripts/hook-gate.py" --mode pre --dialect standard \
+    --state "$PG/.daw-state.json" --graph "$SELF/daw/rules/transition-graph.json" \
     --repo "$PG" < "$PG/event.json" 2>&1 || true)"
 case "$PGOUT" in
   *decisions-F-8.md*)
@@ -3551,7 +3551,7 @@ esac
 python3 - "$PG" <<'PYPGF'
 import json, sys
 root = sys.argv[1]
-s = json.load(open(root + "/.ddw-state.json"))
+s = json.load(open(root + "/.daw-state.json"))
 new = json.loads(json.dumps(s))
 new["phase"] = "CODE"; new["block"] = "3/5"
 new["gates"] = {"define": True, "spec": True, "threat": True}
@@ -3561,13 +3561,13 @@ s["history"] = [{"timestamp": "2026-01-01T00:0%d:00Z" % i, "from": f, "to": t,
                 for i, (f, t) in enumerate([("IDLE", "CLASSIFY"), ("CLASSIFY", "DEFINE"),
                                             ("DEFINE", "PLAN"), ("PLAN", "CODE")])]
 new["history"] = list(s["history"])
-json.dump(s, open(root + "/.ddw-state.json", "w"), indent=2)
+json.dump(s, open(root + "/.daw-state.json", "w"), indent=2)
 open(root + "/event.json", "w").write(json.dumps(
-    {"tool_name": "Write", "tool_input": {"file_path": ".ddw-state.json",
+    {"tool_name": "Write", "tool_input": {"file_path": ".daw-state.json",
                                           "content": json.dumps(new)}}))
 PYPGF
-PGOUT="$(python3 "$SELF/ddw/scripts/hook-gate.py" --mode pre --dialect standard \
-    --state "$PG/.ddw-state.json" --graph "$SELF/ddw/rules/transition-graph.json" \
+PGOUT="$(python3 "$SELF/daw/scripts/hook-gate.py" --mode pre --dialect standard \
+    --state "$PG/.daw-state.json" --graph "$SELF/daw/rules/transition-graph.json" \
     --repo "$PG" < "$PG/event.json" 2>&1 || true)"
 case "$PGOUT" in
   *FINISHED*)
@@ -3578,9 +3578,9 @@ esac
 # The state's refusals name the door. The bare finding sent a live model on a
 # six-call hunt through the hook's own source for a way around it; a refusal
 # that names `transition.py --write` is answered with one command instead.
-printf '{"tool_name": "Edit", "tool_input": {"file_path": ".ddw-state.json"}}' > "$PG/event.json"
-PGOUT="$(python3 "$SELF/ddw/scripts/hook-gate.py" --mode pre --dialect standard \
-    --state "$PG/.ddw-state.json" --graph "$SELF/ddw/rules/transition-graph.json" \
+printf '{"tool_name": "Edit", "tool_input": {"file_path": ".daw-state.json"}}' > "$PG/event.json"
+PGOUT="$(python3 "$SELF/daw/scripts/hook-gate.py" --mode pre --dialect standard \
+    --state "$PG/.daw-state.json" --graph "$SELF/daw/rules/transition-graph.json" \
     --repo "$PG" < "$PG/event.json" 2>&1 || true)"
 case "$PGOUT" in
   *transition.py*)
@@ -3596,8 +3596,8 @@ esac
 # repo's child PR merged. Two declared outs, both carrying a reason.
 section "The family index cannot say done without the forge"
 
-FAM="$WORK/family"; mkdir -p "$FAM/docs/ddw/prd" "$FAM/bin"; git -C "$FAM" init -q .
-cat > "$FAM/docs/ddw/prd/prd-CHK-1.md" <<'FAMEOF'
+FAM="$WORK/family"; mkdir -p "$FAM/docs/daw/prd" "$FAM/bin"; git -C "$FAM" init -q .
+cat > "$FAM/docs/daw/prd/prd-CHK-1.md" <<'FAMEOF'
 # Parent PRD: Checkout
 
 | Metric | Value |
@@ -3612,27 +3612,27 @@ cat > "$FAM/docs/ddw/prd/prd-CHK-1.md" <<'FAMEOF'
 | acme/tienda-back | CHK-1 | api de pagos | none | active |
 | acme/tienda-bff | CHK-1 | exponer pagos | tienda-back | pending |
 FAMEOF
-printf '{"phase": "IDLE", "tier": null, "ticket": null, "gates": {}, "history": []}\n' > "$FAM/.ddw-state.json"
+printf '{"phase": "IDLE", "tier": null, "ticket": null, "gates": {}, "history": []}\n' > "$FAM/.daw-state.json"
 
-FAMOUT="$(python3 "$SELF/ddw/scripts/validate_prd.py" "$FAM/docs/ddw/prd/prd-CHK-1.md" --tier FEATURE 2>&1)" \
-  && compgen -G "$FAM/.ddw-sessions/prd-validated-*" >/dev/null \
+FAMOUT="$(python3 "$SELF/daw/scripts/validate_prd.py" "$FAM/docs/daw/prd/prd-CHK-1.md" --tier FEATURE 2>&1)" \
+  && compgen -G "$FAM/.daw-sessions/prd-validated-*" >/dev/null \
   && ok "a well-formed family index passes F-PRD-12 and earns the ordinary receipt" \
   || bad "the healthy multirepo index is refused by its own validator, or earns no receipt: $(echo "$FAMOUT" | tail -2)"
 
 sed 's/| tienda-back | pending |/| tienda-pagos | pending |/' \
-  "$FAM/docs/ddw/prd/prd-CHK-1.md" > "$FAM/docs/ddw/prd/prd-CHK-9.md"
-python3 "$SELF/ddw/scripts/validate_prd.py" "$FAM/docs/ddw/prd/prd-CHK-9.md" --tier FEATURE >/dev/null 2>&1 \
+  "$FAM/docs/daw/prd/prd-CHK-1.md" > "$FAM/docs/daw/prd/prd-CHK-9.md"
+python3 "$SELF/daw/scripts/validate_prd.py" "$FAM/docs/daw/prd/prd-CHK-9.md" --tier FEATURE >/dev/null 2>&1 \
   && bad "a family row depending on a repo no row lists passed validation" \
   || ok "and a dependency outside the table is refused — a row the order cannot schedule"
-rm -f "$FAM/docs/ddw/prd/prd-CHK-9.md"
+rm -f "$FAM/docs/daw/prd/prd-CHK-9.md"
 
-# The map's double close. With ddw-family.md beside the index, F-PRD-12 also
+# The map's double close. With daw-family.md beside the index, F-PRD-12 also
 # holds the split to the FAMILY: a row the map does not know cannot be
 # scheduled, and a member the index forgets — neither row nor exclusion — is
 # the impact analysis failing at DEFINE after passing at CLASSIFY. On a copy,
 # so the fixtures above stay exactly what later checks expect.
 FAM2="$WORK/family-map"; rm -rf "$FAM2"; cp -r "$FAM" "$FAM2"
-cat > "$FAM2/ddw-family.md" <<'MAPEOF'
+cat > "$FAM2/daw-family.md" <<'MAPEOF'
 # Familia
 | Repo | Qué hace | Expone | Consumed by | Consume |
 |---|---|---|---|---|
@@ -3641,16 +3641,16 @@ cat > "$FAM2/ddw-family.md" <<'MAPEOF'
 | acme/tienda-worker | worker | jobs | none | none |
 MAPEOF
 printf '\n## Sin impacto\n- tienda-worker: Sin impacto — no consume nada de esto\n' \
-  >> "$FAM2/docs/ddw/prd/prd-CHK-1.md"
-python3 "$SELF/ddw/scripts/validate_prd.py" "$FAM2/docs/ddw/prd/prd-CHK-1.md" --tier FEATURE >/dev/null 2>&1 \
-  && ok "an index that accounts for every member of ddw-family.md passes the map's double close" \
-  || bad "the honest index was refused the moment ddw-family.md appeared beside it"
+  >> "$FAM2/docs/daw/prd/prd-CHK-1.md"
+python3 "$SELF/daw/scripts/validate_prd.py" "$FAM2/docs/daw/prd/prd-CHK-1.md" --tier FEATURE >/dev/null 2>&1 \
+  && ok "an index that accounts for every member of daw-family.md passes the map's double close" \
+  || bad "the honest index was refused the moment daw-family.md appeared beside it"
 # Ghost the BFF row (its dependency on tienda-back stays satisfiable), so the
 # ONLY rule that can refuse this index is the map's double close — under the
 # "index stops checking the map" fault it passes, and the bad below fires.
-sed 's#| acme/tienda-bff |#| acme/tienda-ghost |#' "$FAM2/docs/ddw/prd/prd-CHK-1.md" \
-  > "$FAM2/docs/ddw/prd/prd-CHK-7.md"
-if MAPOUT="$(python3 "$SELF/ddw/scripts/validate_prd.py" "$FAM2/docs/ddw/prd/prd-CHK-7.md" --tier FEATURE 2>&1)"; then
+sed 's#| acme/tienda-bff |#| acme/tienda-ghost |#' "$FAM2/docs/daw/prd/prd-CHK-1.md" \
+  > "$FAM2/docs/daw/prd/prd-CHK-7.md"
+if MAPOUT="$(python3 "$SELF/daw/scripts/validate_prd.py" "$FAM2/docs/daw/prd/prd-CHK-7.md" --tier FEATURE 2>&1)"; then
   bad "an index scheduling a repo the family map never heard of passed validation: $(echo "$MAPOUT" | tail -1)"
 else
   echo "$MAPOUT" | grep -q "family map" \
@@ -3668,14 +3668,14 @@ fam_write() {  # $1 = the status cell for tienda-back's row
   python3 - "$FAM" "$1" > "$FAM/event.json" <<'FAMEV'
 import json, sys
 root, status = sys.argv[1], sys.argv[2]
-idx = open(root + "/docs/ddw/prd/prd-CHK-1.md", encoding="utf-8").read()
+idx = open(root + "/docs/daw/prd/prd-CHK-1.md", encoding="utf-8").read()
 new = idx.replace("| none | active |", "| none | %s |" % status)
 print(json.dumps({"tool_name": "Write",
-                  "tool_input": {"file_path": "docs/ddw/prd/prd-CHK-1.md",
+                  "tool_input": {"file_path": "docs/daw/prd/prd-CHK-1.md",
                                  "content": new}}))
 FAMEV
-  PATH="$FAM/bin:$PATH" python3 "$SELF/ddw/scripts/hook-gate.py" --mode pre --dialect standard \
-    --state "$FAM/.ddw-state.json" --graph "$SELF/ddw/rules/transition-graph.json" \
+  PATH="$FAM/bin:$PATH" python3 "$SELF/daw/scripts/hook-gate.py" --mode pre --dialect standard \
+    --state "$FAM/.daw-state.json" --graph "$SELF/daw/rules/transition-graph.json" \
     --repo "$FAM" < "$FAM/event.json" 2>&1
 }
 
@@ -3714,14 +3714,14 @@ esac
 
 python3 - "$FAM" > "$FAM/event.json" <<'FAMDEL'
 import json, sys
-idx = open(sys.argv[1] + "/docs/ddw/prd/prd-CHK-1.md", encoding="utf-8").read()
+idx = open(sys.argv[1] + "/docs/daw/prd/prd-CHK-1.md", encoding="utf-8").read()
 new = "\n".join(l for l in idx.splitlines() if "tienda-bff" not in l)
 print(json.dumps({"tool_name": "Write",
-                  "tool_input": {"file_path": "docs/ddw/prd/prd-CHK-1.md",
+                  "tool_input": {"file_path": "docs/daw/prd/prd-CHK-1.md",
                                  "content": new}}))
 FAMDEL
-FAMOUT="$(PATH="$FAM/bin:$PATH" python3 "$SELF/ddw/scripts/hook-gate.py" --mode pre --dialect standard \
-    --state "$FAM/.ddw-state.json" --graph "$SELF/ddw/rules/transition-graph.json" \
+FAMOUT="$(PATH="$FAM/bin:$PATH" python3 "$SELF/daw/scripts/hook-gate.py" --mode pre --dialect standard \
+    --state "$FAM/.daw-state.json" --graph "$SELF/daw/rules/transition-graph.json" \
     --repo "$FAM" < "$FAM/event.json" 2>&1 || true)"
 case "$FAMOUT" in
   *tienda-bff*vanish*|*vanish*tienda-bff*|*tienda-bff*dropped*)
@@ -3731,21 +3731,21 @@ esac
 
 python3 - "$FAM" > "$FAM/event.json" <<'FAMMARK'
 import json, sys
-idx = open(sys.argv[1] + "/docs/ddw/prd/prd-CHK-1.md", encoding="utf-8").read()
+idx = open(sys.argv[1] + "/docs/daw/prd/prd-CHK-1.md", encoding="utf-8").read()
 print(json.dumps({"tool_name": "Write",
-                  "tool_input": {"file_path": "docs/ddw/prd/prd-CHK-1.md",
+                  "tool_input": {"file_path": "docs/daw/prd/prd-CHK-1.md",
                                  "content": idx.replace("| Status | Multirepo split |",
                                                         "| Status | done |")}}))
 FAMMARK
-PATH="$FAM/bin:$PATH" python3 "$SELF/ddw/scripts/hook-gate.py" --mode pre --dialect standard \
-    --state "$FAM/.ddw-state.json" --graph "$SELF/ddw/rules/transition-graph.json" \
+PATH="$FAM/bin:$PATH" python3 "$SELF/daw/scripts/hook-gate.py" --mode pre --dialect standard \
+    --state "$FAM/.daw-state.json" --graph "$SELF/daw/rules/transition-graph.json" \
     --repo "$FAM" < "$FAM/event.json" >/dev/null 2>&1 \
   && bad "the write that removes the Multirepo marker dismissed the judge and landed" \
   || ok "and removing the marker that makes the document judged is itself refused"
 
 # The multirepo pause spends the index's receipt — the orphaned-receipt hole.
-FPP="$WORK/fam-pause"; mkdir -p "$FPP/docs/ddw/prd"; git -C "$FPP" init -q .
-cp "$FAM/docs/ddw/prd/prd-CHK-1.md" "$FPP/docs/ddw/prd/prd-CHK-1.md"
+FPP="$WORK/fam-pause"; mkdir -p "$FPP/docs/daw/prd"; git -C "$FPP" init -q .
+cp "$FAM/docs/daw/prd/prd-CHK-1.md" "$FPP/docs/daw/prd/prd-CHK-1.md"
 python3 - "$FPP" <<'FPPST'
 import json, sys
 h = [{"timestamp": "2026-01-01T00:0%d:00Z" % i, "from": f, "to": t,
@@ -3754,11 +3754,11 @@ h = [{"timestamp": "2026-01-01T00:0%d:00Z" % i, "from": f, "to": t,
 json.dump({"tier": "FEATURE", "phase": "DEFINE", "ticket": "CHK-1", "title": "x",
            "tracker": None, "autonomy": "assisted", "gates": {}, "block": None,
            "discovery": None, "history": h},
-          open(sys.argv[1] + "/.ddw-state.json", "w"), indent=2)
+          open(sys.argv[1] + "/.daw-state.json", "w"), indent=2)
 FPPST
 fpp_pause() {
-  python3 "$SELF/ddw/scripts/transition.py" --state "$FPP/.ddw-state.json" \
-    --graph "$SELF/ddw/rules/transition-graph.json" --to IDLE \
+  python3 "$SELF/daw/scripts/transition.py" --state "$FPP/.daw-state.json" \
+    --graph "$SELF/daw/rules/transition-graph.json" --to IDLE \
     --action "pause: multirepo split into back/bff" --write 2>&1
 }
 FAMOUT="$(fpp_pause || true)"
@@ -3767,7 +3767,7 @@ case "$FAMOUT" in
     ok "a multirepo pause on an index the validator never vouched for is refused" ;;
   *) bad "an unvalidated index went on to govern its repos — the receipt nobody consumes" ;;
 esac
-( cd "$FPP" && python3 "$SELF/ddw/scripts/validate_prd.py" docs/ddw/prd/prd-CHK-1.md --tier FEATURE >/dev/null 2>&1 )
+( cd "$FPP" && python3 "$SELF/daw/scripts/validate_prd.py" docs/daw/prd/prd-CHK-1.md --tier FEATURE >/dev/null 2>&1 )
 fpp_pause >/dev/null 2>&1 \
   && ok "and the validated index's pause goes through — the receipt is what was being asked for" \
   || bad "the pause refuses a receipt that exists, which walls the protocol's own mandated exit"
@@ -3779,20 +3779,20 @@ fpp_pause >/dev/null 2>&1 \
 python3 - "$SELF" "$WORK" <<'PYRDUP'
 import importlib.util, json, os, sys
 spec = importlib.util.spec_from_file_location(
-    "dr", os.path.join(sys.argv[1], "ddw/scripts/ddw_receipt.py"))
+    "dr", os.path.join(sys.argv[1], "daw/scripts/daw_receipt.py"))
 dr = importlib.util.module_from_spec(spec); spec.loader.exec_module(dr)
 root = os.path.join(sys.argv[2], "receipt-dup"); os.makedirs(os.path.join(root, "docs"), exist_ok=True)
-open(os.path.join(root, ".ddw-state.json"), "w").write("{}")
+open(os.path.join(root, ".daw-state.json"), "w").write("{}")
 art = os.path.join(root, "docs", "prd-X.md"); open(art, "w").write("# X\n")
 dr.write(art, "prd", "# X\n", tier="FEATURE")
 dr.write(art, "prd", "# X\n", tier="FEATURE")
-lines = [ln for ln in open(os.path.join(root, ".ddw-journal.jsonl")).read().splitlines() if ln]
+lines = [ln for ln in open(os.path.join(root, ".daw-journal.jsonl")).read().splitlines() if ln]
 assert len(lines) == 1, "expected one receipt record, got %d" % len(lines)
 
 spec2 = importlib.util.spec_from_file_location(
-    "vt", os.path.join(sys.argv[1], "ddw/scripts/validate-transition.py"))
+    "vt", os.path.join(sys.argv[1], "daw/scripts/validate-transition.py"))
 vt = importlib.util.module_from_spec(spec2); spec2.loader.exec_module(vt)
-with open(os.path.join(root, ".ddw-journal.jsonl"), "a") as fh:
+with open(os.path.join(root, ".daw-journal.jsonl"), "a") as fh:
     fh.write(json.dumps({"record": "spent", "gates": ["spec"], "ticket": "FEAT-002",
                          "phase": "PLAN"}) + "\n")
     fh.write(json.dumps({"record": "receipt", "name": "spec-validated-aaa", "file": "s.md"}) + "\n")
@@ -3808,11 +3808,11 @@ PYRDUP
   || bad "the journal duplicates unchanged receipts, or a closed ticket's receipts are spent by a later ticket's loop"
 
 # The test run report. `tests: true` used to be a sentence — no runner, no
-# command, no numbers, no names, nothing anyone could reproduce. DDW still does
+# command, no numbers, no names, nothing anyone could reproduce. DAW still does
 # not run your suite; what it refuses now is the account being absent, vague or
 # arithmetically impossible.
-mkdir -p "$VP/docs/ddw/reports"
-cat > "$VP/docs/ddw/reports/tests-FEAT-001.md" <<'TSTEOF'
+mkdir -p "$VP/docs/daw/reports"
+cat > "$VP/docs/daw/reports/tests-FEAT-001.md" <<'TSTEOF'
 # Test run — FEAT-001
 
 | Field | Value |
@@ -3833,48 +3833,48 @@ cat > "$VP/docs/ddw/reports/tests-FEAT-001.md" <<'TSTEOF'
 - `tests/test_email.py::test_send` — reason: needs network credentials, covered by the fake
 - `tests/test_kb.py::test_big` — reason: 50 MB fixture, runs nightly
 TSTEOF
-python3 "$SELF/ddw/scripts/validate_tests.py" "$VP/docs/ddw/reports/tests-FEAT-001.md" --tier FEATURE >/dev/null 2>&1 \
-  && compgen -G "$VP/.ddw-sessions/tests-validated-*" >/dev/null \
+python3 "$SELF/daw/scripts/validate_tests.py" "$VP/docs/daw/reports/tests-FEAT-001.md" --tier FEATURE >/dev/null 2>&1 \
+  && compgen -G "$VP/.daw-sessions/tests-validated-*" >/dev/null \
   && ok "validate_tests.py passes a complete run report and leaves the content-hashed receipt" \
   || bad "the test-report validator rejects a complete report or writes no receipt"
 
 # Arithmetic is the one thing a report cannot get wrong quietly.
 python3 - "$VP" <<'PYTC'
 import sys, os
-p = os.path.join(sys.argv[1], "docs/ddw/reports/tests-FEAT-001.md")
+p = os.path.join(sys.argv[1], "docs/daw/reports/tests-FEAT-001.md")
 s = open(p, encoding="utf-8").read().replace("| Total | 42 |", "| Total | 50 |")
-open(os.path.join(sys.argv[1], "docs/ddw/reports/tests-bad.md"), "w", encoding="utf-8").write(s)
+open(os.path.join(sys.argv[1], "docs/daw/reports/tests-bad.md"), "w", encoding="utf-8").write(s)
 PYTC
 # A run nobody can reproduce is an anecdote, and this is the rule that says so.
 python3 - "$VP" <<'PYTR'
 import sys, os
-p = os.path.join(sys.argv[1], "docs/ddw/reports/tests-FEAT-001.md")
+p = os.path.join(sys.argv[1], "docs/daw/reports/tests-FEAT-001.md")
 s = open(p, encoding="utf-8").read().replace("| Command | uv run pytest -q --cov=app |\n", "")
-open(os.path.join(sys.argv[1], "docs/ddw/reports/tests-norun.md"), "w", encoding="utf-8").write(s)
+open(os.path.join(sys.argv[1], "docs/daw/reports/tests-norun.md"), "w", encoding="utf-8").write(s)
 PYTR
-VTROUT="$(python3 "$SELF/ddw/scripts/validate_tests.py" "$VP/docs/ddw/reports/tests-norun.md" 2>/dev/null || true)"
+VTROUT="$(python3 "$SELF/daw/scripts/validate_tests.py" "$VP/docs/daw/reports/tests-norun.md" 2>/dev/null || true)"
 case "$VTROUT" in
   *"❌ F-TEST-01"*Command*) ok "and a run report that does not say how it was produced is refused" ;;
   *) bad "a test report with no command earned the tests gate — nobody can re-run it" ;;
 esac
 
-VTCOUT="$(python3 "$SELF/ddw/scripts/validate_tests.py" "$VP/docs/ddw/reports/tests-bad.md" 2>/dev/null || true)"
+VTCOUT="$(python3 "$SELF/daw/scripts/validate_tests.py" "$VP/docs/daw/reports/tests-bad.md" 2>/dev/null || true)"
 case "$VTCOUT" in
   *"❌ F-TEST-02"*"do not add up"*) ok "and counts that do not add up are refused — that is two runs in one report" ;;
   *) bad "a report claiming 50 tests over 40 passed + 0 failed + 2 skipped earned a receipt" ;;
 esac
 
-# The rule the script never had: `ddw-test` says 0 failing tests earns the gate,
+# The rule the script never had: `daw-test` says 0 failing tests earns the gate,
 # and the validator that writes that gate's receipt was not checking it.
 python3 - "$VP" <<'PYRED'
 import sys, os
-p = os.path.join(sys.argv[1], "docs/ddw/reports/tests-FEAT-001.md")
+p = os.path.join(sys.argv[1], "docs/daw/reports/tests-FEAT-001.md")
 s = open(p, encoding="utf-8").read().replace("| Passed | 40 |", "| Passed | 33 |") \
     .replace("| Failed | 0 |", "| Failed | 7 |")
 s += "\n## Failures\n" + "\n".join(f"- `tests/test_x.py::test_{i}` fails" for i in range(7)) + "\n"
-open(os.path.join(sys.argv[1], "docs/ddw/reports/tests-red.md"), "w", encoding="utf-8").write(s)
+open(os.path.join(sys.argv[1], "docs/daw/reports/tests-red.md"), "w", encoding="utf-8").write(s)
 PYRED
-VTDOUT="$(python3 "$SELF/ddw/scripts/validate_tests.py" "$VP/docs/ddw/reports/tests-red.md" 2>/dev/null || true)"
+VTDOUT="$(python3 "$SELF/daw/scripts/validate_tests.py" "$VP/docs/daw/reports/tests-red.md" 2>/dev/null || true)"
 case "$VTDOUT" in
   *"❌ F-TEST-08"*) ok "and a report of a red run does not earn the tests gate, however complete it is" ;;
   *) bad "seven failing tests, named and adding up, earned the gate that claims the suite is green" ;;
@@ -3886,8 +3886,8 @@ printf '%s\n' '## Unit' '| Runner | pytest |' '| Command | pytest -q |' '| Total
   '| Passed | 12 |' '| Failed | 0 |' '| Line coverage | 91% |' '| Branch coverage | 88% |' \
   '| Function coverage | 95% |' '| Coverage floor | 80% (AGENTS.md) |' '' '## Integration' \
   '| Total | 30 |' '| Passed | 25 |' '| Failed | 5 |' '| Line coverage | 44% |' \
-  > "$VP/docs/ddw/reports/tests-multi.md"
-VTMOUT="$(python3 "$SELF/ddw/scripts/validate_tests.py" "$VP/docs/ddw/reports/tests-multi.md" 2>/dev/null || true)"
+  > "$VP/docs/daw/reports/tests-multi.md"
+VTMOUT="$(python3 "$SELF/daw/scripts/validate_tests.py" "$VP/docs/daw/reports/tests-multi.md" 2>/dev/null || true)"
 case "$VTMOUT" in
   *"❌ F-TEST-07"*) ok "and a report describing two runs is refused rather than read as its first one" ;;
   *) bad "a green unit suite above a red integration suite passed as one green run" ;;
@@ -3896,11 +3896,11 @@ esac
 # The floor belongs to the project. A report that picks its own passes itself.
 python3 - "$VP" <<'PYTF'
 import sys, os
-p = os.path.join(sys.argv[1], "docs/ddw/reports/tests-FEAT-001.md")
+p = os.path.join(sys.argv[1], "docs/daw/reports/tests-FEAT-001.md")
 s = open(p, encoding="utf-8").read().replace("| Line coverage | 87% |", "| Line coverage | 61% |")
-open(os.path.join(sys.argv[1], "docs/ddw/reports/tests-low.md"), "w", encoding="utf-8").write(s)
+open(os.path.join(sys.argv[1], "docs/daw/reports/tests-low.md"), "w", encoding="utf-8").write(s)
 PYTF
-VTFOUT="$(python3 "$SELF/ddw/scripts/validate_tests.py" "$VP/docs/ddw/reports/tests-low.md" 2>/dev/null || true)"
+VTFOUT="$(python3 "$SELF/daw/scripts/validate_tests.py" "$VP/docs/daw/reports/tests-low.md" 2>/dev/null || true)"
 case "$VTFOUT" in
   *"❌ F-TEST-04"*"under the floor"*61*) ok "and coverage under the quoted floor is named with its number" ;;
   *) bad "61% line coverage passed a report quoting an 80% floor" ;;
@@ -3908,16 +3908,16 @@ esac
 
 # The floor's SOURCE is read back, not pattern-matched. Measured live
 # (2026-08-25): the project's AGENTS.md declared no floor, and the report wrote
-# "80% (docs/ddw — .ddw/rules/testing.instructions.md)" — an attribution built
+# "80% (docs/daw — .daw/rules/testing.instructions.md)" — an attribution built
 # to contain the substring the old check accepted. Four doors, one check each.
-FLR="$WORK/floor"; mkdir -p "$FLR/docs/ddw/reports"
+FLR="$WORK/floor"; mkdir -p "$FLR/docs/daw/reports"
 printf '# Proj\n\n## Testing\n- Runner: pytest\n' > "$FLR/AGENTS.md"
 floor_report() {  # $1 = floor row value, $2 = output name
   sed "s#| Coverage floor | 80% (AGENTS.md) |#| Coverage floor | $1 |#" \
-    "$VP/docs/ddw/reports/tests-FEAT-001.md" > "$FLR/docs/ddw/reports/$2"
+    "$VP/docs/daw/reports/tests-FEAT-001.md" > "$FLR/docs/daw/reports/$2"
 }
 floor_report "80% (AGENTS.md)" tests-fabricated.md
-FLAOUT="$(python3 "$SELF/ddw/scripts/validate_tests.py" "$FLR/docs/ddw/reports/tests-fabricated.md" 2>/dev/null || true)"
+FLAOUT="$(python3 "$SELF/daw/scripts/validate_tests.py" "$FLR/docs/daw/reports/tests-fabricated.md" 2>/dev/null || true)"
 case "$FLAOUT" in
   *"❌ F-TEST-05"*"does not state that number"*) ok "a floor attributed to an AGENTS.md that never states it is refused" ;;
   *) bad "the report attributes its floor to AGENTS.md, AGENTS.md is silent, and the attribution passes" ;;
@@ -3925,21 +3925,21 @@ esac
 
 printf '# Proj\n\n## Testing\n- Runner: pytest\n- Coverage floor: 85%%\n' > "$FLR/AGENTS.md"
 floor_report "85% (AGENTS.md)" tests-honest.md
-FLBOUT="$(python3 "$SELF/ddw/scripts/validate_tests.py" "$FLR/docs/ddw/reports/tests-honest.md" 2>/dev/null || true)"
+FLBOUT="$(python3 "$SELF/daw/scripts/validate_tests.py" "$FLR/docs/daw/reports/tests-honest.md" 2>/dev/null || true)"
 case "$FLBOUT" in
   *"✅ F-TEST-05"*"read back"*) ok "and one AGENTS.md actually states is verified against the file" ;;
   *) bad "a floor AGENTS.md really declares is not read back as verified" ;;
 esac
 
-floor_report "80% (method default — .ddw/rules/testing.instructions.md)" tests-default.md
-FLCOUT="$(python3 "$SELF/ddw/scripts/validate_tests.py" "$FLR/docs/ddw/reports/tests-default.md" 2>/dev/null || true)"
+floor_report "80% (method default — .daw/rules/testing.instructions.md)" tests-default.md
+FLCOUT="$(python3 "$SELF/daw/scripts/validate_tests.py" "$FLR/docs/daw/reports/tests-default.md" 2>/dev/null || true)"
 case "$FLCOUT" in
   *"✅ F-TEST-05"*"method default"*) ok "the method's own 80 passes named as what it is — the default" ;;
   *) bad "the honest wording for the method default is refused, which pushes reports back to fabricating" ;;
 esac
 
-floor_report "90% (.ddw/rules/testing.instructions.md)" tests-inflated.md
-FLDOUT="$(python3 "$SELF/ddw/scripts/validate_tests.py" "$FLR/docs/ddw/reports/tests-inflated.md" 2>/dev/null || true)"
+floor_report "90% (.daw/rules/testing.instructions.md)" tests-inflated.md
+FLDOUT="$(python3 "$SELF/daw/scripts/validate_tests.py" "$FLR/docs/daw/reports/tests-inflated.md" 2>/dev/null || true)"
 case "$FLDOUT" in
   *"❌ F-TEST-05"*"whose default is 80"*) ok "and a floor the method never set cannot be attributed to it" ;;
   *) bad "90% attributed to a method whose default is 80 passed as sourced" ;;
@@ -3948,7 +3948,7 @@ esac
 # F-VER-03 reads the PROJECT's floor too — the catalog said so and the code
 # said 80, always. AGENTS.md raises it to 90; 85% has to fail.
 printf '# Proj\n\n## Testing\n- Coverage floor: 90%%\n' > "$FLR/AGENTS.md"
-cat > "$FLR/docs/ddw/reports/verify-floor.md" <<'VFLEOF'
+cat > "$FLR/docs/daw/reports/verify-floor.md" <<'VFLEOF'
 # Verification — FEAT-009
 - Line coverage: 85%
 - Branch coverage: 85%
@@ -3956,7 +3956,7 @@ cat > "$FLR/docs/ddw/reports/verify-floor.md" <<'VFLEOF'
 Sad-path testing: invalid inputs covered.
 Lint: clean.
 VFLEOF
-FLVOUT="$(python3 "$SELF/ddw/scripts/validate_verify.py" "$FLR/docs/ddw/reports/verify-floor.md" --tier FEATURE 2>/dev/null || true)"
+FLVOUT="$(python3 "$SELF/daw/scripts/validate_verify.py" "$FLR/docs/daw/reports/verify-floor.md" --tier FEATURE 2>/dev/null || true)"
 case "$FLVOUT" in
   *"❌ F-VER-03"*"below the 90% minimum"*) ok "the verify floor is the project's: 85% fails a repo whose AGENTS.md says 90" ;;
   *) bad "AGENTS.md raised the floor to 90 and validate_verify still measured against 80" ;;
@@ -3968,10 +3968,10 @@ esac
 # ("same table as above" names no constraint); the skill now teaches the shape
 # that passes, and this is the check that the taught shape and the accepted
 # shape are the same bytes.
-TPL="$WORK/spec-teaches"; mkdir -p "$TPL/docs/ddw/specs"
-REUSE="$(sed -n '/^- Reuses /,+1p' "$SELF/skills/ddw-create-spec/SKILL.md" | head -2)"
+TPL="$WORK/spec-teaches"; mkdir -p "$TPL/docs/daw/specs"
+REUSE="$(sed -n '/^- Reuses /,+1p' "$SELF/skills/daw-create-spec/SKILL.md" | head -2)"
 [ -n "$REUSE" ] || REUSE="(the skill no longer contains the reuse sentence)"
-cat > "$TPL/docs/ddw/specs/spec-FEAT-001.md" <<TPLEOF
+cat > "$TPL/docs/daw/specs/spec-FEAT-001.md" <<TPLEOF
 # Spec FEAT-001: harness
 
 | Field | Value |
@@ -4018,7 +4018,7 @@ $REUSE
 **Completion criterion**
 test_listado passes.
 TPLEOF
-TPLOUT="$(python3 "$SELF/ddw/scripts/validate_spec.py" "$TPL/docs/ddw/specs/spec-FEAT-001.md" --tier FEATURE 2>/dev/null || true)"
+TPLOUT="$(python3 "$SELF/daw/scripts/validate_spec.py" "$TPL/docs/daw/specs/spec-FEAT-001.md" --tier FEATURE 2>/dev/null || true)"
 case "$TPLOUT" in
   *"✅ F-SPEC-08"*) ok "the reuse sentence the spec skill teaches is one its own validator accepts" ;;
   *) bad "the spec skill teaches a schema-reuse phrasing that validate_spec rejects — the template its own gate refuses, again" ;;
@@ -4030,7 +4030,7 @@ esac
 # than on a `Lint:` line. Refusing either says "coverage missing" or "no lint
 # result" about a document that has both — which sends the author looking for
 # something that is already there.
-cat > "$VP/docs/ddw/reports/tests-layout.md" <<'TSTLAY'
+cat > "$VP/docs/daw/reports/tests-layout.md" <<'TSTLAY'
 # Test run — FEAT-002
 
 | Field | Value |
@@ -4053,7 +4053,7 @@ cat > "$VP/docs/ddw/reports/tests-layout.md" <<'TSTLAY'
 ## Lint
 ruff clean
 TSTLAY
-VTLOUT="$(python3 "$SELF/ddw/scripts/validate_tests.py" "$VP/docs/ddw/reports/tests-layout.md" 2>/dev/null || true)"
+VTLOUT="$(python3 "$SELF/daw/scripts/validate_tests.py" "$VP/docs/daw/reports/tests-layout.md" 2>/dev/null || true)"
 case "$VTLOUT" in
   *"✅ F-TEST-04"*"line 88%"*"branch 84%"*"function 90%"*)
     ok "and a two-column coverage table is read by its bare metric names, not called missing" ;;
@@ -4064,7 +4064,7 @@ case "$VTLOUT" in
   *) ok "and a lint result under its own heading counts, so W-TEST-01 does not send the reader hunting" ;;
 esac
 
-VRP="$VP/docs/ddw/reports"; mkdir -p "$VRP"
+VRP="$VP/docs/daw/reports"; mkdir -p "$VRP"
 cat > "$VRP/verify-FEAT-001.md" <<'VEREOF'
 # Verify FEAT-001
 
@@ -4088,13 +4088,13 @@ cat > "$VRP/verify-FEAT-001.md" <<'VEREOF'
 ## Lint
 ruff sin errores, mypy sin errores.
 VEREOF
-python3 "$SELF/ddw/scripts/validate_verify.py" "$VRP/verify-FEAT-001.md" --tier FEATURE >/dev/null 2>&1 \
-  && compgen -G "$VP/.ddw-sessions/verify-validated-*" >/dev/null \
+python3 "$SELF/daw/scripts/validate_verify.py" "$VRP/verify-FEAT-001.md" --tier FEATURE >/dev/null 2>&1 \
+  && compgen -G "$VP/.daw-sessions/verify-validated-*" >/dev/null \
   && ok "validate_verify.py passes a complete verdict and leaves the content-hashed receipt" \
   || bad "the verify validator rejects a complete verdict or writes no receipt"
 sed 's/- line: 94%/- line: 61%/' "$VRP/verify-FEAT-001.md" > "$VRP/broken.md"
-VVOUT="$(python3 "$SELF/ddw/scripts/validate_verify.py" "$VRP/broken.md" --tier FEATURE \
-        --prd "$VP/docs/ddw/prd/prd-FEAT-001.md" --spec "$VS/spec-FEAT-001.md" 2>/dev/null || true)"
+VVOUT="$(python3 "$SELF/daw/scripts/validate_verify.py" "$VRP/broken.md" --tier FEATURE \
+        --prd "$VP/docs/daw/prd/prd-FEAT-001.md" --spec "$VS/spec-FEAT-001.md" 2>/dev/null || true)"
 case "$VVOUT" in
   *"❌ F-VER-03"*"61%"*) ok "and coverage under the minimum is named with its number" ;;
   *) bad "a verdict reporting 61% line coverage passed the 80% floor" ;;
@@ -4107,8 +4107,8 @@ esac
 # for: F-VER-01 answered "all AC carry a passing verdict" about a verdict where
 # none did, and the receipt was written. Everything else in this report is
 # sound, so the mark is the only thing under test.
-VFD="$WORK/verify-failed/docs/ddw"; mkdir -p "$VFD/reports" "$VFD/prd" "$VFD/specs"
-cp "$VP/docs/ddw/prd/prd-FEAT-001.md" "$VFD/prd/prd-FEAT-001.md"
+VFD="$WORK/verify-failed/docs/daw"; mkdir -p "$VFD/reports" "$VFD/prd" "$VFD/specs"
+cp "$VP/docs/daw/prd/prd-FEAT-001.md" "$VFD/prd/prd-FEAT-001.md"
 cp "$VS/spec-FEAT-001.md" "$VFD/specs/spec-FEAT-001.md"
 cat > "$VFD/reports/verify-FEAT-001.md" <<'VERFAIL'
 # Verification FEAT-001
@@ -4134,7 +4134,7 @@ cat > "$VFD/reports/verify-FEAT-001.md" <<'VERFAIL'
 
 Result: FAILED
 VERFAIL
-VFOUT="$(python3 "$SELF/ddw/scripts/validate_verify.py" "$VFD/reports/verify-FEAT-001.md" \
+VFOUT="$(python3 "$SELF/daw/scripts/validate_verify.py" "$VFD/reports/verify-FEAT-001.md" \
         --tier FEATURE --prd "$VFD/prd/prd-FEAT-001.md" --spec "$VFD/specs/spec-FEAT-001.md" \
         2>/dev/null || true)"
 case "$VFOUT" in
@@ -4148,7 +4148,7 @@ esac
 # `--spec` at a file with no AC bullets and no `## Block` headings and the run
 # printed "all 0 AC", "all 0 spec block(s)", "all 0 test(s)" and PASSED — three
 # green rules whose subject was empty, and a receipt for them.
-VEMPTY="$WORK/verify-empty/docs/ddw"; mkdir -p "$VEMPTY/reports" "$VEMPTY/prd" "$VEMPTY/specs"
+VEMPTY="$WORK/verify-empty/docs/daw"; mkdir -p "$VEMPTY/reports" "$VEMPTY/prd" "$VEMPTY/specs"
 printf '# Nothing here\n\nA document with no acceptance criteria and no blocks.\n' \
   > "$VEMPTY/prd/prd-FEAT-009.md"
 cp "$VEMPTY/prd/prd-FEAT-009.md" "$VEMPTY/specs/spec-FEAT-009.md"
@@ -4167,7 +4167,7 @@ cat > "$VEMPTY/reports/verify-FEAT-009.md" <<'VEREMPTY'
 
 Result: PASSED
 VEREMPTY
-VEOUT="$(python3 "$SELF/ddw/scripts/validate_verify.py" "$VEMPTY/reports/verify-FEAT-009.md" \
+VEOUT="$(python3 "$SELF/daw/scripts/validate_verify.py" "$VEMPTY/reports/verify-FEAT-009.md" \
         --tier FEATURE --prd "$VEMPTY/prd/prd-FEAT-009.md" \
         --spec "$VEMPTY/specs/spec-FEAT-009.md" 2>/dev/null || true)"
 case "$VEOUT" in
@@ -4175,8 +4175,8 @@ case "$VEOUT" in
     ok "a PRD with no criteria and a spec with no blocks are refused, not counted as all zero of them" ;;
   *) bad "\"all 0 AC\" and \"all 0 spec block(s)\" passed as a complete verdict — the rules were green over nothing" ;;
 esac
-python3 "$SELF/ddw/scripts/validate_verify.py" "$VEMPTY/reports/verify-FEAT-009.md" --tier FEATURE \
-  --prd "$VP/docs/ddw/prd/prd-FEAT-001.md" --spec "$VS/spec-FEAT-001.md" >/dev/null 2>&1
+python3 "$SELF/daw/scripts/validate_verify.py" "$VEMPTY/reports/verify-FEAT-009.md" --tier FEATURE \
+  --prd "$VP/docs/daw/prd/prd-FEAT-001.md" --spec "$VS/spec-FEAT-001.md" >/dev/null 2>&1
 [ "$?" = "3" ] \
   && ok "and a verdict cannot be checked against another ticket's documents" \
   || bad "FEAT-009's verdict was validated against FEAT-001's PRD and spec — the flags were untied from the ticket"
@@ -4192,7 +4192,7 @@ python3 "$SELF/ddw/scripts/validate_verify.py" "$VEMPTY/reports/verify-FEAT-009.
 python3 - "$SELF" "$VP" "$VS" "$VTM" "$VRP" <<'PYRULES' && ok "eight catalogued rules — orphan FRs, unmeasurable NFRs, non-EARS criteria, uncovered FRs, untested ACs, unlisted trust boundaries, untreated threats, unmentioned criteria — each fail on a document that breaks them" || bad "a catalogued rule passes a document that violates it: the rule is implemented and nothing had ever broken it on purpose"
 import os, re, subprocess, sys, tempfile
 src, vp, vs, vtm, vrp = sys.argv[1:6]
-PRD = os.path.join(vp, "docs/ddw/prd/prd-FEAT-001.md")
+PRD = os.path.join(vp, "docs/daw/prd/prd-FEAT-001.md")
 SPEC = os.path.join(vs, "spec-FEAT-001.md")
 TM = os.path.join(vtm, "threat-FEAT-001.md")
 VER = os.path.join(vrp, "verify-FEAT-001.md")
@@ -4200,7 +4200,7 @@ tmp = tempfile.mkdtemp(dir=os.environ["WORK"])
 
 
 def run(script, path, *extra):
-    return subprocess.run([sys.executable, os.path.join(src, "ddw/scripts", script), path,
+    return subprocess.run([sys.executable, os.path.join(src, "daw/scripts", script), path,
                            "--tier", "FEATURE", *extra],
                           capture_output=True, text=True).stdout
 
@@ -4273,13 +4273,13 @@ PYRULES
 # The CODE->VERIFY rows land that edge, which now also demands the decisions
 # record — a different gate than the one under test here, satisfied up front.
 printf 'No decisions were approved outside the spec during this ticket.\n' \
-  > "$VP/docs/ddw/specs/decisions-FEAT-001.md"
+  > "$VP/docs/daw/specs/decisions-FEAT-001.md"
 for RCP_ROW in spec:specs:spec:PLAN:CODE threat:security:threat:PLAN:CODE sast:security:sast:CODE:VERIFY tests:reports:tests:CODE:VERIFY verify:reports:verify:VERIFY:CLOSEOUT; do
   RCP_GATE="${RCP_ROW%%:*}"; RCP_REST="${RCP_ROW#*:}"
   RCP_DIR="${RCP_REST%%:*}"; RCP_REST="${RCP_REST#*:}"
   RCP_STEM="${RCP_REST%%:*}"; RCP_REST="${RCP_REST#*:}"
   RCP_FROM="${RCP_REST%%:*}"; RCP_TO="${RCP_REST##*:}"
-  printf '\n<!-- edited after validating -->\n' >> "$VP/docs/ddw/$RCP_DIR/$RCP_STEM-FEAT-001.md"
+  printf '\n<!-- edited after validating -->\n' >> "$VP/docs/daw/$RCP_DIR/$RCP_STEM-FEAT-001.md"
   python3 - "$VP" "$RCP_GATE" "$RCP_FROM" "$RCP_TO" > "$VP/gev.json" <<'PYGATE'
 import json, sys
 root, gate, frm, to = sys.argv[1:5]
@@ -4310,22 +4310,22 @@ def state(phase, gates):
 # The state ON DISK is the phase before the edge. One write, one transition: an
 # event that appended the whole run at once was refused for the SEQUENCING and
 # never reached the evidence check — a green that proved nothing.
-open(root + "/.ddw-state.json", "w").write(json.dumps(state(frm, old_gates)))
+open(root + "/.daw-state.json", "w").write(json.dumps(state(frm, old_gates)))
 print(json.dumps({"tool_name": "Write",
-                  "tool_input": {"file_path": root + "/.ddw-state.json",
+                  "tool_input": {"file_path": root + "/.daw-state.json",
                                  "content": json.dumps(state(to, new_gates))}}))
 PYGATE
-  python3 "$SELF/ddw/scripts/validate-transition.py" --mode pre --state "$VP/.ddw-state.json" \
-    --graph "$SELF/ddw/rules/transition-graph.json" --repo "$VP" < "$VP/gev.json" >/dev/null 2>&1
+  python3 "$SELF/daw/scripts/validate-transition.py" --mode pre --state "$VP/.daw-state.json" \
+    --graph "$SELF/daw/rules/transition-graph.json" --repo "$VP" < "$VP/gev.json" >/dev/null 2>&1
   [ "$?" = "2" ] \
     && ok "the $RCP_GATE gate refuses when its artifact was edited after validating" \
     || bad "the $RCP_GATE gate opened on an artifact whose receipt is stale — the boolean is back"
   # No --prd/--spec: each validator finds its counterpart from the header table
   # or the filename convention, and this is also the check that it can.
-  python3 "$SELF/ddw/scripts/validate_$RCP_GATE.py" \
-    "$VP/docs/ddw/$RCP_DIR/$RCP_STEM-FEAT-001.md" --tier FEATURE >/dev/null 2>&1
-  python3 "$SELF/ddw/scripts/validate-transition.py" --mode pre --state "$VP/.ddw-state.json" \
-    --graph "$SELF/ddw/rules/transition-graph.json" --repo "$VP" < "$VP/gev.json" >/dev/null 2>&1 \
+  python3 "$SELF/daw/scripts/validate_$RCP_GATE.py" \
+    "$VP/docs/daw/$RCP_DIR/$RCP_STEM-FEAT-001.md" --tier FEATURE >/dev/null 2>&1
+  python3 "$SELF/daw/scripts/validate-transition.py" --mode pre --state "$VP/.daw-state.json" \
+    --graph "$SELF/daw/rules/transition-graph.json" --repo "$VP" < "$VP/gev.json" >/dev/null 2>&1 \
     && ok "and validating again opens it — the receipt is what the $RCP_GATE gate is asking for" \
     || bad "the $RCP_GATE gate stays shut with a fresh receipt on disk"
 done
@@ -4333,7 +4333,7 @@ done
 # QUICK-FIX has no PLAN and no VERIFY. A validator that shrugged and passed the
 # artifact it was handed would mint a receipt for a phase that never ran.
 for RCP_V in spec threat verify; do
-  python3 "$SELF/ddw/scripts/validate_$RCP_V.py" "$VS/spec-FEAT-001.md" --tier QUICK-FIX >/dev/null 2>&1
+  python3 "$SELF/daw/scripts/validate_$RCP_V.py" "$VS/spec-FEAT-001.md" --tier QUICK-FIX >/dev/null 2>&1
   [ "$?" = "3" ] \
     && ok "validate_$RCP_V.py refuses QUICK-FIX instead of passing it: that tier has no such phase" \
     || bad "validate_$RCP_V.py returned a verdict for a tier whose phase does not exist"
@@ -4352,14 +4352,14 @@ done
 python3 - "$SELF" <<'PYTIERARG' && ok "every validator refuses a --tier the graph does not define" || bad "a validator accepts any --tier at all, and the tier is what decides which rules run"
 import json, os, subprocess, sys
 src = sys.argv[1]
-tiers = sorted(json.load(open(os.path.join(src, "ddw/rules/transition-graph.json"),
+tiers = sorted(json.load(open(os.path.join(src, "daw/rules/transition-graph.json"),
                               encoding="utf-8"))["tiers"])
 assert tiers, "the graph defines no tiers, so this check has nothing to hold the validators to"
-scripts = sorted(f for f in os.listdir(os.path.join(src, "ddw/scripts"))
+scripts = sorted(f for f in os.listdir(os.path.join(src, "daw/scripts"))
                  if f.startswith("validate_") and f.endswith(".py"))
 assert len(scripts) == 7, "expected the seven document validators, found: %s" % scripts
 for name in scripts:
-    path = os.path.join(src, "ddw/scripts", name)
+    path = os.path.join(src, "daw/scripts", name)
     r = subprocess.run([sys.executable, path, os.devnull, "--tier", "WHATEVER"],
                        capture_output=True, text=True)
     assert r.returncode != 0 and "WHATEVER" in (r.stdout + r.stderr), \
@@ -4381,14 +4381,14 @@ os.makedirs(repo)
 subprocess.run(["git", "-C", repo, "init", "-q"], check=True)
 subprocess.run(["bash", os.path.join(src, "install.sh"), repo, "--target", "claude"],
                capture_output=True, text=True)
-prd_dir = os.path.join(repo, "docs", "ddw", "prd")
+prd_dir = os.path.join(repo, "docs", "daw", "prd")
 os.makedirs(prd_dir, exist_ok=True)
 prd = os.path.join(prd_dir, "prd-T-1.md")
 # The body the finding used: it FAILS as a FEATURE and PASSES as a QUICK-FIX,
 # which is the whole point — one document, two verdicts, one receipt.
 open(prd, "w", encoding="utf-8").write(
     "# PRD T-1\n\nbug: none. change: everything. regression test: none. risk: none.\n")
-val = os.path.join(repo, ".ddw", "scripts", "validate_prd.py")
+val = os.path.join(repo, ".daw", "scripts", "validate_prd.py")
 assert subprocess.run([sys.executable, val, prd, "--tier", "FEATURE"],
                       capture_output=True).returncode != 0, \
     "this PRD is supposed to fail FEATURE rules; the fixture no longer demonstrates anything"
@@ -4396,12 +4396,12 @@ assert subprocess.run([sys.executable, val, prd, "--tier", "QUICK-FIX"],
                       capture_output=True).returncode == 0, \
     "…and to pass QUICK-FIX rules, which is what makes the two receipts comparable"
 
-sess = os.path.join(repo, ".ddw-sessions")
+sess = os.path.join(repo, ".daw-sessions")
 marker = os.path.join(sess, next(f for f in os.listdir(sess) if f.startswith("prd-validated-")))
 assert "tier: QUICK-FIX" in open(marker, encoding="utf-8").read(), \
     "the receipt does not record which rules earned it, so nothing downstream can ask"
 
-state_p = os.path.join(repo, ".ddw-state.json")
+state_p = os.path.join(repo, ".daw-state.json")
 H = [{"timestamp": "2026-01-01T00:00:00Z", "from": "IDLE", "to": "CLASSIFY", "action": "a"},
      {"timestamp": "2026-01-01T00:01:00Z", "from": "CLASSIFY", "to": "DEFINE", "action": "b",
       "tier": "FEATURE", "ticket": "T-1"}]
@@ -4410,9 +4410,9 @@ open(state_p, "w", encoding="utf-8").write(json.dumps(state))
 ev = json.dumps({"tool_name": "Write",
                  "tool_input": {"file_path": state_p,
                                 "content": json.dumps(dict(state, gates={"define": True}))}})
-r = subprocess.run([sys.executable, os.path.join(repo, ".ddw/scripts/validate-transition.py"),
+r = subprocess.run([sys.executable, os.path.join(repo, ".daw/scripts/validate-transition.py"),
                     "--mode", "pre", "--state", state_p, "--repo", repo,
-                    "--graph", os.path.join(repo, ".ddw/rules/transition-graph.json")],
+                    "--graph", os.path.join(repo, ".daw/rules/transition-graph.json")],
                    input=ev, capture_output=True, text=True)
 assert r.returncode == 2, "the define gate opened on a receipt earned under QUICK-FIX rules"
 assert "QUICK-FIX" in (r.stdout + r.stderr) and "FEATURE" in (r.stdout + r.stderr), \
@@ -4423,9 +4423,9 @@ assert "QUICK-FIX" in (r.stdout + r.stderr) and "FEATURE" in (r.stdout + r.stder
 # and refusing those would strand every ticket in flight at upgrade for a
 # document that really was validated. It is honoured as it was.
 open(marker, "w", encoding="utf-8").write("prd-T-1.md\n")
-r = subprocess.run([sys.executable, os.path.join(repo, ".ddw/scripts/validate-transition.py"),
+r = subprocess.run([sys.executable, os.path.join(repo, ".daw/scripts/validate-transition.py"),
                     "--mode", "pre", "--state", state_p, "--repo", repo,
-                    "--graph", os.path.join(repo, ".ddw/rules/transition-graph.json")],
+                    "--graph", os.path.join(repo, ".daw/rules/transition-graph.json")],
                    input=ev, capture_output=True, text=True)
 assert r.returncode == 0, \
     "a pre-upgrade receipt, which records no tier, is now refused — every ticket in flight " \
@@ -4438,7 +4438,7 @@ PYTIERRCP
 # file of every real repository, and a closeout nobody can satisfy honestly is
 # the one thing this repo holds to be worse than no gate at all.
 CG="$WORK/commit-gate"; mkdir -p "$CG"; git -C "$CG" init -q .
-git -C "$CG" config user.email ddw@example.com; git -C "$CG" config user.name DDW
+git -C "$CG" config user.email daw@example.com; git -C "$CG" config user.name DAW
 # Signing off, like every other fixture that commits: a contributor with
 # `commit.gpgsign` on globally has no key this fixture can reach, the base
 # commit never lands, and the three checks below report a gate defect for a
@@ -4453,21 +4453,21 @@ git -C "$CG" rev-parse --verify -q HEAD >/dev/null \
   && ok "the commit-gate fixture has a base commit to judge" \
   || bad "the commit-gate fixture never committed: the three checks below measure the fixture, not the gate"
 CG_REL='{"tier":"FEATURE","phase":"CLOSEOUT","ticket":"FEAT-001","title":null,"tracker":null,"gates":{"define":true,"spec":true,"threat":true,"tests":true,"sast":true,"verify":true},"block":null,"discovery":null,"history":[{"timestamp":"2026-07-29T20:00:00Z","from":"IDLE","to":"CLASSIFY","action":"a"},{"timestamp":"2026-07-29T20:01:00Z","from":"CLASSIFY","to":"DEFINE","action":"b","tier":"FEATURE","ticket":"FEAT-001"},{"timestamp":"2026-07-29T20:02:00Z","from":"DEFINE","to":"PLAN","action":"c","tier":"FEATURE","ticket":"FEAT-001"},{"timestamp":"2026-07-29T20:03:00Z","from":"PLAN","to":"CODE","action":"d","tier":"FEATURE","ticket":"FEAT-001"},{"timestamp":"2026-07-29T20:04:00Z","from":"CODE","to":"VERIFY","action":"e","tier":"FEATURE","ticket":"FEAT-001"},{"timestamp":"2026-07-29T20:05:00Z","from":"VERIFY","to":"CLOSEOUT","action":"f","tier":"FEATURE","ticket":"FEAT-001"}]}'
-printf '%s' "$CG_REL" > "$CG/.ddw-state.json"
+printf '%s' "$CG_REL" > "$CG/.daw-state.json"
 python3 - "$CG" "$CG_REL" > "$CG/ev.json" <<'PYCG'
 import json, sys
 state = json.loads(sys.argv[2])
 state["gates"]["commit"] = True
 print(json.dumps({"tool_name": "Write",
-                  "tool_input": {"file_path": sys.argv[1] + "/.ddw-state.json",
+                  "tool_input": {"file_path": sys.argv[1] + "/.daw-state.json",
                                  "content": json.dumps(state)}}))
 PYCG
-CGV="$SELF/ddw/scripts/validate-transition.py"; CGG="$SELF/ddw/rules/transition-graph.json"
-python3 "$CGV" --mode pre --state "$CG/.ddw-state.json" --graph "$CGG" < "$CG/ev.json" >/dev/null 2>&1 \
+CGV="$SELF/daw/scripts/validate-transition.py"; CGG="$SELF/daw/rules/transition-graph.json"
+python3 "$CGV" --mode pre --state "$CG/.daw-state.json" --graph "$CGG" < "$CG/ev.json" >/dev/null 2>&1 \
   && ok "the commit gate opens on a clean tree" \
   || bad "the commit gate refuses work that IS committed — a gate nobody can satisfy is worse than no gate"
 printf 'v2\n' > "$CG/src.txt"
-CGOUT="$(python3 "$CGV" --mode pre --state "$CG/.ddw-state.json" --graph "$CGG" < "$CG/ev.json" 2>&1 >/dev/null || true)"
+CGOUT="$(python3 "$CGV" --mode pre --state "$CG/.daw-state.json" --graph "$CGG" < "$CG/ev.json" 2>&1 >/dev/null || true)"
 case "$CGOUT" in
   *"src.txt"*) ok "and refuses it with the file named when tracked work is still uncommitted" ;;
   *) bad "gates.commit can be claimed over uncommitted work: the ticket closes on something only your disk has" ;;
@@ -4477,14 +4477,14 @@ python3 - "$CG" >/dev/null 2>&1 <<'PYUT'
 import os, sys
 open(os.path.join(sys.argv[1], "scratch.tmp"), "w").write("untracked\n")
 PYUT
-python3 "$CGV" --mode pre --state "$CG/.ddw-state.json" --graph "$CGG" < "$CG/ev.json" >/dev/null 2>&1 \
+python3 "$CGV" --mode pre --state "$CG/.daw-state.json" --graph "$CGG" < "$CG/ev.json" >/dev/null 2>&1 \
   && ok "and an untracked file does not block it — build output is not uncommitted work" \
   || bad "an untracked scratch file blocks the closeout; every real repo has one and the gate gets routed around"
 
 # QUICK-FIX runs `sast` on CODE→CLOSEOUT and has no VERIFY at all. All three
 # sentences in the SAST skill sent that reader to a phase their tier does not
 # have, and the last one named a transition that does not exist for them.
-SKQ="$SELF/skills/ddw-security-sast/SKILL.md"
+SKQ="$SELF/skills/daw-security-sast/SKILL.md"
 ! grep -q "advance to VERIFY\|advance to the VERIFY phase\|the CODE→VERIFY transition refuses" "$SKQ" \
   && grep -q "CLOSEOUT in QUICK-FIX" "$SKQ" \
   && ok "the SAST skill names the gate by the receipt it needs, not by a phase QUICK-FIX does not have" \
@@ -4494,7 +4494,7 @@ SKQ="$SELF/skills/ddw-security-sast/SKILL.md"
 # showed a command without it and then said the helper does not set the ticket,
 # which left the one field every receipt resolves its document by to be
 # hand-assembled in the write.
-CLS="$SELF/ddw/rules/classify.instructions.md"
+CLS="$SELF/daw/rules/classify.instructions.md"
 grep -q -- "--to DEFINE --tier <TIER> --ticket <ID>" "$CLS" \
   && ! grep -q "filling in \`ticket\`, \`title\` and \`tracker\`" "$CLS" \
   && ok "the CLASSIFY rules hand the ticket to the helper, which is where the helper has a flag for it" \
@@ -4510,15 +4510,15 @@ grep -q -- "--to DEFINE --tier <TIER> --ticket <ID>" "$CLS" \
 python3 - "$SELF" <<'PYCLSCMD' && ok "every transition.py command the CLASSIFY rules teach is accepted by the FSM those rules feed — the template a model copies is one its own gate takes" || bad "the CLASSIFY rules teach a command their own gate refuses: the first ticket of a new install cannot leave CLASSIFY"
 import os, re, shlex, subprocess, sys, tempfile
 src = sys.argv[1]
-rules = open(os.path.join(src, "ddw/rules/classify.instructions.md"), encoding="utf-8").read()
-helper = os.path.join(src, "ddw/scripts/transition.py")
-graph = os.path.join(src, "ddw/rules/transition-graph.json")
+rules = open(os.path.join(src, "daw/rules/classify.instructions.md"), encoding="utf-8").read()
+helper = os.path.join(src, "daw/scripts/transition.py")
+graph = os.path.join(src, "daw/rules/transition-graph.json")
 
 # Continuation lines joined first: the command is what a reader copies, not the
 # line it happens to be broken across.
 body = re.sub(r"\\\n\s*", " ", rules)
 cmds = [ln.strip() for ln in body.splitlines()
-        if ".ddw/scripts/transition.py" in ln and not ln.lstrip().startswith("#")]
+        if ".daw/scripts/transition.py" in ln and not ln.lstrip().startswith("#")]
 assert len(cmds) >= 3, "the CLASSIFY rules no longer show the commands they teach: %r" % cmds
 
 FILL = {"<TIER>": "FEATURE", "<ID>": "T-1"}
@@ -4535,7 +4535,7 @@ def fill(tok):
 for cmd in cmds:
     argv = [fill(a) for a in shlex.split(cmd)[1:]]
     d = tempfile.mkdtemp(dir=os.environ["WORK"])
-    state = os.path.join(d, ".ddw-state.json")
+    state = os.path.join(d, ".daw-state.json")
     # A command that is not the entry into CLASSIFY needs the state to be
     # standing where the command starts. The ticket is seeded only when the
     # command itself names one — the arrows that carry no `--ticket` are the
@@ -4550,9 +4550,9 @@ for cmd in cmds:
         # The context check the classify edge demands. The rules order it
         # written before the edge is taken; seeding it is standing where the
         # command starts, for a ticketed arrow and a ticketless one alike.
-        os.makedirs(os.path.join(d, ".ddw-work"), exist_ok=True)
+        os.makedirs(os.path.join(d, ".daw-work"), exist_ok=True)
         for name in ("context-check-T-1.md", "context-check.md"):
-            open(os.path.join(d, ".ddw-work", name), "w", encoding="utf-8").write(
+            open(os.path.join(d, ".daw-work", name), "w", encoding="utf-8").write(
                 "Nothing to report.\n")
     r = subprocess.run([sys.executable, helper, *argv, "--state", state, "--graph", graph,
                         "--write"], capture_output=True, text=True, cwd=d)
@@ -4568,9 +4568,9 @@ PYCLSCMD
 # lived entirely in the template, which nothing in this suite had ever read: a
 # mutation for it existed and survived, because a template is only a defect
 # once somebody validates it.
-python3 - "$SELF" <<'PYTEMPLATE' && ok "the shipped PRD template names an FR in every acceptance criterion, so the first PRD of a new install passes F-PRD-01" || bad "the canonical PRD template cannot pass the define gate — every new install fails on the document DDW told it to write"
+python3 - "$SELF" <<'PYTEMPLATE' && ok "the shipped PRD template names an FR in every acceptance criterion, so the first PRD of a new install passes F-PRD-01" || bad "the canonical PRD template cannot pass the define gate — every new install fails on the document DAW told it to write"
 import re, sys, os
-tpl = open(os.path.join(sys.argv[1], "skills/ddw-create-prd/SKILL.md"), encoding="utf-8").read()
+tpl = open(os.path.join(sys.argv[1], "skills/daw-create-prd/SKILL.md"), encoding="utf-8").read()
 frs = re.findall(r"^- (FR-\d+):", tpl, re.MULTILINE)
 acs = re.findall(r"^- (AC-\d+)([^\n]*)", tpl, re.MULTILINE)
 assert frs and acs, "the template no longer shows an FR and AC section to check"
@@ -4594,12 +4594,12 @@ PYTEMPLATE
 # at all: the four labels were the whole test, so `**Bug**: {one descriptive
 # line}` passed and wrote the receipt for the one gate that tier has before
 # CODE.
-python3 - "$SELF" <<'PYPRDSHAPE' && ok "a PRD and a fix-brief written the way ddw-create-prd teaches pass, and the same documents unwritten are refused" || bad "the PRD template is refused by its own gate, or an unfilled fix-brief earns the QUICK-FIX define gate"
+python3 - "$SELF" <<'PYPRDSHAPE' && ok "a PRD and a fix-brief written the way daw-create-prd teaches pass, and the same documents unwritten are refused" || bad "the PRD template is refused by its own gate, or an unfilled fix-brief earns the QUICK-FIX define gate"
 import os, re, subprocess, sys, tempfile
 src = sys.argv[1]
-skill = open(os.path.join(src, "skills/ddw-create-prd/SKILL.md"), encoding="utf-8").read()
+skill = open(os.path.join(src, "skills/daw-create-prd/SKILL.md"), encoding="utf-8").read()
 fenced = [m.group(1) for m in re.finditer(r"```markdown\n(.*?)```", skill, re.S)]
-assert len(fenced) >= 2, "ddw-create-prd no longer carries both templates"
+assert len(fenced) >= 2, "daw-create-prd no longer carries both templates"
 brief, prd = fenced[0], fenced[1]
 d = tempfile.mkdtemp(dir=os.environ["WORK"])
 
@@ -4607,7 +4607,7 @@ d = tempfile.mkdtemp(dir=os.environ["WORK"])
 def run(body, tier, name):
     path = os.path.join(d, name)
     open(path, "w", encoding="utf-8").write(body.replace("{ticket}", "T-1"))
-    r = subprocess.run([sys.executable, os.path.join(src, "ddw/scripts/validate_prd.py"),
+    r = subprocess.run([sys.executable, os.path.join(src, "daw/scripts/validate_prd.py"),
                         path, "--tier", tier], capture_output=True, text=True, cwd=d)
     return r, [ln for ln in r.stdout.splitlines() if ln.strip().startswith("❌")]
 
@@ -4642,7 +4642,7 @@ assert any("placeholder" in ln for ln in refused), \
     "it is refused for something other than being unwritten: " + "\n".join(refused)
 
 # The fix-brief, which is the whole of DEFINE under QUICK-FIX.
-sessions = os.path.join(d, ".ddw-sessions")
+sessions = os.path.join(d, ".daw-sessions")
 before = set(os.listdir(sessions)) if os.path.isdir(sessions) else set()
 r, refused = run(brief, "QUICK-FIX", "prd-T-3.md")
 assert r.returncode != 0 and any("QUICK-FIX" in ln for ln in refused), (
@@ -4665,7 +4665,7 @@ PYPRDSHAPE
 # test rather than by `path::test`. Each one read to the user as "your report is
 # incomplete" about a report that was not. Both skills now carry the shape, and
 # the shape is run through the validator that reads it.
-python3 - "$SELF" <<'PYSHAPES' && ok "the test report and the verification verdict DDW ships as templates pass the validators that read them" || bad "the document a phase is told to write is refused by the gate it is written for"
+python3 - "$SELF" <<'PYSHAPES' && ok "the test report and the verification verdict DAW ships as templates pass the validators that read them" || bad "the document a phase is told to write is refused by the gate it is written for"
 import os, re, subprocess, sys, tempfile
 src = sys.argv[1]
 
@@ -4680,14 +4680,14 @@ def template(rel, after):
 
 d = tempfile.mkdtemp(dir=os.environ["WORK"])
 for sub in ("prd", "specs", "reports"):
-    os.makedirs(os.path.join(d, "docs/ddw", sub))
-open(os.path.join(d, "docs/ddw/prd/prd-T-1.md"), "w", encoding="utf-8").write(
+    os.makedirs(os.path.join(d, "docs/daw", sub))
+open(os.path.join(d, "docs/daw/prd/prd-T-1.md"), "w", encoding="utf-8").write(
     "# PRD T-1\n\n## Functional Requirements\n- FR-01: el formulario publico\n"
     "- FR-02: la persistencia\n\n## Acceptance Criteria\n"
     "- AC-01 (FR-01): WHEN el usuario abre la pagina, THE sistema SHALL mostrar el formulario.\n"
     "- AC-02 (FR-01): IF falta un campo, THEN THE sistema SHALL devolver 400.\n"
     "- AC-03 (FR-02): WHEN el email es invalido, THE sistema SHALL devolver 422.\n")
-open(os.path.join(d, "docs/ddw/specs/spec-T-1.md"), "w", encoding="utf-8").write(
+open(os.path.join(d, "docs/daw/specs/spec-T-1.md"), "w", encoding="utf-8").write(
     "# Spec T-1\n\n| Field | Value |\n|---|---|\n| Ticket | T-1 |\n\n"
     "## Block 1 — Formulario publico\n\n**Required tests**\n"
     "- [ ] test_form_visible — validates AC-01\n"
@@ -4695,13 +4695,13 @@ open(os.path.join(d, "docs/ddw/specs/spec-T-1.md"), "w", encoding="utf-8").write
     "- [ ] test_email_invalido_devuelve_422 — validates AC-03\n")
 
 for skill, after, validator, doc in (
-        ("skills/ddw-test/SKILL.md", "### The report, in the shape the validator reads",
-         "validate_tests.py", "docs/ddw/reports/tests-T-1.md"),
-        ("skills/ddw-verify-module/SKILL.md", "### The verdict document, in the shape the validator reads",
-         "validate_verify.py", "docs/ddw/reports/verify-T-1.md")):
+        ("skills/daw-test/SKILL.md", "### The report, in the shape the validator reads",
+         "validate_tests.py", "docs/daw/reports/tests-T-1.md"),
+        ("skills/daw-verify-module/SKILL.md", "### The verdict document, in the shape the validator reads",
+         "validate_verify.py", "docs/daw/reports/verify-T-1.md")):
     path = os.path.join(d, doc)
     open(path, "w", encoding="utf-8").write(template(skill, after))
-    r = subprocess.run([sys.executable, os.path.join(src, "ddw/scripts", validator), path,
+    r = subprocess.run([sys.executable, os.path.join(src, "daw/scripts", validator), path,
                         "--tier", "FEATURE"], capture_output=True, text=True, cwd=d)
     # The rule ROWS, which start with the marker. The footer that tells the user
     # to paste every "✅ / ⚠️ / ❌" contains all three symbols and is on every
@@ -4718,10 +4718,10 @@ PYSHAPES
 # validator counts errors as a list, because F-SPEC-16 pairs each one with the
 # test that names it, and prose counts as none. The user's reading was "your
 # plan documents no error handling" about a plan that documented it.
-python3 - "$SELF" <<'PYFIXPLAN' && ok "a fix-plan written the way ddw-create-spec teaches passes validate_spec --tier FIX" || bad "the fix-plan template and the validator that reads it disagree about what documented error handling looks like"
+python3 - "$SELF" <<'PYFIXPLAN' && ok "a fix-plan written the way daw-create-spec teaches passes validate_spec --tier FIX" || bad "the fix-plan template and the validator that reads it disagree about what documented error handling looks like"
 import os, re, subprocess, sys, tempfile
 src = sys.argv[1]
-skill = os.path.join(src, "skills/ddw-create-spec/SKILL.md")
+skill = os.path.join(src, "skills/daw-create-spec/SKILL.md")
 text = open(skill, encoding="utf-8").read()
 
 # The skeleton has to TEACH the shape, not only carry a worked copy of it: the
@@ -4736,16 +4736,16 @@ assert errors and re.search(r"^\s*[-*]\s+\S", errors.group(1), re.M), \
 
 at = text.index("### The fix-plan, in the shape the validator reads")
 m = re.search(r"```markdown\n(.*?)```", text[at:], re.S)
-assert m, "ddw-create-spec no longer carries a worked fix-plan"
+assert m, "daw-create-spec no longer carries a worked fix-plan"
 d = tempfile.mkdtemp(dir=os.environ["WORK"])
-os.makedirs(os.path.join(d, "docs/ddw/specs"))
-path = os.path.join(d, "docs/ddw/specs/spec-T-9.md")
+os.makedirs(os.path.join(d, "docs/daw/specs"))
+path = os.path.join(d, "docs/daw/specs/spec-T-9.md")
 open(path, "w", encoding="utf-8").write(m.group(1).replace("{ticket}", "T-9"))
-r = subprocess.run([sys.executable, os.path.join(src, "ddw/scripts/validate_spec.py"), path,
+r = subprocess.run([sys.executable, os.path.join(src, "daw/scripts/validate_spec.py"), path,
                     "--tier", "FIX"], capture_output=True, text=True, cwd=d)
 refused = [ln for ln in r.stdout.splitlines() if ln.strip().startswith("❌")]
 assert r.returncode == 0 and not refused, (
-    "validate_spec refuses the fix-plan ddw-create-spec tells the model to write:\n"
+    "validate_spec refuses the fix-plan daw-create-spec tells the model to write:\n"
     + ("\n".join(refused[:4]) or r.stderr[-200:]))
 PYFIXPLAN
 
@@ -4757,28 +4757,28 @@ PYFIXPLAN
 # template failed to teach. The skill now carries a worked FEATURE spec, and
 # this runs it against the validator that reads it, with the minimal PRD its
 # coverage table names.
-python3 - "$SELF" <<'PYFEATSPEC' && ok "a FEATURE spec written the way ddw-create-spec teaches passes validate_spec --tier FEATURE" || bad "the FEATURE spec template and the validator that reads it disagree — the model's way out is reading the parser again"
+python3 - "$SELF" <<'PYFEATSPEC' && ok "a FEATURE spec written the way daw-create-spec teaches passes validate_spec --tier FEATURE" || bad "the FEATURE spec template and the validator that reads it disagree — the model's way out is reading the parser again"
 import os, re, subprocess, sys, tempfile
 src = sys.argv[1]
-skill = os.path.join(src, "skills/ddw-create-spec/SKILL.md")
+skill = os.path.join(src, "skills/daw-create-spec/SKILL.md")
 text = open(skill, encoding="utf-8").read()
 at = text.index("### The spec, in the shape the validator reads")
 m = re.search(r"```markdown\n(.*?)```", text[at:], re.S)
-assert m, "ddw-create-spec no longer carries a worked FEATURE spec"
+assert m, "daw-create-spec no longer carries a worked FEATURE spec"
 d = tempfile.mkdtemp(dir=os.environ["WORK"])
-os.makedirs(os.path.join(d, "docs/ddw/specs"))
-os.makedirs(os.path.join(d, "docs/ddw/prd"))
-open(os.path.join(d, "docs/ddw/prd/prd-T-9.md"), "w", encoding="utf-8").write(
+os.makedirs(os.path.join(d, "docs/daw/specs"))
+os.makedirs(os.path.join(d, "docs/daw/prd"))
+open(os.path.join(d, "docs/daw/prd/prd-T-9.md"), "w", encoding="utf-8").write(
     "# PRD T-9\n\n- **FR-01**: el formulario publico da de alta un ticket.\n"
     "- **NFR-01**: p95 bajo 3 s.\n"
     "- **AC-01**: WHEN se envia el formulario THEN se devuelve el id.\n")
-path = os.path.join(d, "docs/ddw/specs/spec-T-9.md")
+path = os.path.join(d, "docs/daw/specs/spec-T-9.md")
 open(path, "w", encoding="utf-8").write(m.group(1).replace("{ticket}", "T-9"))
-r = subprocess.run([sys.executable, os.path.join(src, "ddw/scripts/validate_spec.py"), path,
+r = subprocess.run([sys.executable, os.path.join(src, "daw/scripts/validate_spec.py"), path,
                     "--tier", "FEATURE"], capture_output=True, text=True, cwd=d)
 refused = [ln for ln in r.stdout.splitlines() if ln.strip().startswith("❌")]
 assert r.returncode == 0 and not refused, (
-    "validate_spec refuses the FEATURE spec ddw-create-spec tells the model to write:\n"
+    "validate_spec refuses the FEATURE spec daw-create-spec tells the model to write:\n"
     + ("\n".join(refused[:4]) or r.stderr[-200:]))
 PYFEATSPEC
 
@@ -4788,8 +4788,8 @@ PYFEATSPEC
 # run. The consolidated protocol lives in TWO files (the phase's steps and the
 # tracker convention), so each is held to it separately: the one that drifts
 # back to the chain is the one a model reads that day.
-CLS2="$SELF/ddw/rules/classify.instructions.md"
-TRK2="$SELF/ddw/rules/tracker.instructions.md"
+CLS2="$SELF/daw/rules/classify.instructions.md"
+TRK2="$SELF/daw/rules/tracker.instructions.md"
 grep -q "never in a chain of questions before it" "$CLS2" \
   && ! grep -q "Do you want me to propose a tracker ticket for this?" "$CLS2" \
   && grep -q "answer with its ID and I will" "$CLS2" \
@@ -4806,8 +4806,8 @@ grep -q "One stop, not a chain." "$TRK2" \
 # answer could have been "neither". The doctrine lives in state (the FSM's
 # reference) and in plan (the phase that loops most); both have to say
 # question-first or the one a model reads is the one that transitions first.
-ST2="$SELF/ddw/rules/state.instructions.md"
-PLN2="$SELF/ddw/rules/plan.instructions.md"
+ST2="$SELF/daw/rules/state.instructions.md"
+PLN2="$SELF/daw/rules/plan.instructions.md"
 grep -q "the question comes BEFORE the edge" "$ST2" \
   && ! grep -q "And taking one is not a question" "$ST2" \
   && ok "the state rules take a backward edge WITH the user's answer in hand, not before it" \
@@ -4822,7 +4822,7 @@ grep -q "put the motivating question FIRST" "$PLN2" \
 # warning shown verbatim, self-judged "does not block" in the next sentence,
 # and approval requested as if the report were clean. The DEFINE steps now bind
 # the warning to the Scope Check box.
-DEF2="$SELF/ddw/rules/define.instructions.md"
+DEF2="$SELF/daw/rules/define.instructions.md"
 grep -q "A ⚠️ W-PRD-06 in the report you just showed IS this" "$DEF2" \
   && grep -q "W-PRD-06 in the validation report means it is" "$DEF2" \
   && ok "a W-PRD-06 warning routes to the Scope Check box: the scope decision is the user's, not the model's" \
@@ -4840,30 +4840,30 @@ grep -q "A ⚠️ W-PRD-06 in the report you just showed IS this" "$DEF2" \
 python3 - "$SELF" <<'PYTHREAT' && ok "an unfilled threat model is refused, the worked one passes, and the encryption rule reads what the document actually says" || bad "a threat model copied from the template and never written earns the gate that stands between PLAN and CODE"
 import os, re, subprocess, sys, tempfile
 src = sys.argv[1]
-skill = open(os.path.join(src, "skills/ddw-threat-modeling/SKILL.md"), encoding="utf-8").read()
+skill = open(os.path.join(src, "skills/daw-threat-modeling/SKILL.md"), encoding="utf-8").read()
 
 
 def template(after, ticket):
     at = skill.index(after)
     m = re.search(r"```markdown\n(.*?)```", skill[at:], re.S)
-    assert m, "ddw-threat-modeling no longer carries a template under %r" % after[:40]
+    assert m, "daw-threat-modeling no longer carries a template under %r" % after[:40]
     return m.group(1).replace("{ticket}", ticket)
 
 
 d = tempfile.mkdtemp(dir=os.environ["WORK"])
-os.makedirs(os.path.join(d, "docs/ddw/security"))
-os.makedirs(os.path.join(d, "docs/ddw/specs"))
+os.makedirs(os.path.join(d, "docs/daw/security"))
+os.makedirs(os.path.join(d, "docs/daw/specs"))
 SPEC = ("# Spec T-1\n\n| Field | Value |\n|---|---|\n| Ticket | T-1 |\n\n"
         "## Block 1 — Password login\n- `src/auth/login.ts` — validates credentials\n"
         "- POST /api/login\nCovers FR-01.\n")
-spec = os.path.join(d, "docs/ddw/specs/spec-T-1.md")
+spec = os.path.join(d, "docs/daw/specs/spec-T-1.md")
 open(spec, "w", encoding="utf-8").write(SPEC)
 
 
 def run(body, name="T-1"):
-    path = os.path.join(d, "docs/ddw/security/threat-%s.md" % name)
+    path = os.path.join(d, "docs/daw/security/threat-%s.md" % name)
     open(path, "w", encoding="utf-8").write(body)
-    r = subprocess.run([sys.executable, os.path.join(src, "ddw/scripts/validate_threat.py"),
+    r = subprocess.run([sys.executable, os.path.join(src, "daw/scripts/validate_threat.py"),
                         path, "--tier", "FEATURE", "--spec", spec],
                        capture_output=True, text=True, cwd=d)
     return r, [ln for ln in r.stdout.splitlines() if ln.strip().startswith("❌")]
@@ -4877,15 +4877,15 @@ assert r.returncode != 0, "the unfilled threat model passed and earned its recei
 for rule in ("F-TM-01", "F-TM-02", "F-TM-04", "F-TM-05"):
     assert any(rule in ln for ln in refused), \
         "%s accepted the template's placeholders: %s" % (rule, "\n".join(refused))
-assert not os.path.exists(os.path.join(d, ".ddw-sessions")) or not [
-    f for f in os.listdir(os.path.join(d, ".ddw-sessions")) if f.startswith("threat-")], \
+assert not os.path.exists(os.path.join(d, ".daw-sessions")) or not [
+    f for f in os.listdir(os.path.join(d, ".daw-sessions")) if f.startswith("threat-")], \
     "a receipt was written for a document that was refused"
 
 # 2. …and the worked one, which is what the skill now carries, passes whole.
 worked = template("### The threat model, in the shape the validator reads", "T-1")
 r, refused = run(worked)
 assert r.returncode == 0 and not refused, (
-    "validate_threat refuses the threat model ddw-threat-modeling tells the model to write:\n"
+    "validate_threat refuses the threat model daw-threat-modeling tells the model to write:\n"
     + ("\n".join(refused[:4]) or r.stderr[-200:]))
 
 # 3. The encryption rule read two sections only, so a model declaring its
@@ -4943,8 +4943,8 @@ PYTHREAT
 # fell into "fill in the Stack section of AGENTS.md and we start over", naming a
 # file that is not there. The way out has to be written down where the model
 # rereads it, and it has to say what must NOT go in: under a plugin the repo
-# comes away with nothing of DDW's in it.
-CLSF="$SELF/ddw/rules/classify.instructions.md"
+# comes away with nothing of DAW's in it.
+CLSF="$SELF/daw/rules/classify.instructions.md"
 grep -q "does not exist at all" "$CLSF" \
   && grep -q "no activation block, no phase references, no template boilerplate" "$CLSF" \
   && grep -q "no \`AGENTS.md\` is created either" -i "$SELF/docs/INSTALL.md" \
@@ -4954,16 +4954,16 @@ grep -q "does not exist at all" "$CLSF" \
 # The DEFINE rules used to say create-prd "automatically runs" validate-prd —
 # an instruction to load both at once, which read to the user as validating
 # from memory. The sequence has to be stated where the model rereads it.
-grep -q "never in parallel with \`ddw-create-prd\`" "$SELF/ddw/rules/define.instructions.md" \
+grep -q "never in parallel with \`daw-create-prd\`" "$SELF/daw/rules/define.instructions.md" \
   && ok "the DEFINE rules order the sequence: file on disk first, THEN the validator runs" \
   || bad "the DEFINE rules stopped sequencing create→validate — both skills load together again"
 
-# The truncation footgun, measured live: `transition.py … > .ddw-state.json`
+# The truncation footgun, measured live: `transition.py … > .daw-state.json`
 # empties the file before the helper reads it. --write is the atomic answer.
 TW="$WORK/tw-state"; mkdir -p "$TW"
-python3 "$SELF/ddw/scripts/transition.py" --to CLASSIFY --action "probe" \
-  --state "$TW/.ddw-state.json" --graph "$SELF/ddw/rules/transition-graph.json" --write >/dev/null 2>&1
-[ "$(python3 -c "import json; print(json.load(open('$TW/.ddw-state.json'))['phase'])" 2>/dev/null)" = "CLASSIFY" ] \
+python3 "$SELF/daw/scripts/transition.py" --to CLASSIFY --action "probe" \
+  --state "$TW/.daw-state.json" --graph "$SELF/daw/rules/transition-graph.json" --write >/dev/null 2>&1
+[ "$(python3 -c "import json; print(json.load(open('$TW/.daw-state.json'))['phase'])" 2>/dev/null)" = "CLASSIFY" ] \
   && ok "transition.py --write lands the state itself, atomically — no redirect, no truncation" \
   || bad "--write did not write the state; the shell-redirect footgun is the only path again"
 
@@ -4972,7 +4972,7 @@ python3 "$SELF/ddw/scripts/transition.py" --to CLASSIFY --action "probe" \
 # worktree add ../<repo>-<TICKET>` — could not resolve a root at all, and a
 # worktree nested inside another checkout resolved to the ENCLOSING repo, so the
 # ticket's state landed beside somebody else's.
-python3 - "$SELF" <<'PYWORKTREE' && ok "a git worktree resolves to its own root, so the ticket's state lands in the checkout the ticket is in" || bad "the state file lands in the enclosing repository, or the helper cannot find a root at all — in the layout DDW itself recommends"
+python3 - "$SELF" <<'PYWORKTREE' && ok "a git worktree resolves to its own root, so the ticket's state lands in the checkout the ticket is in" || bad "the state file lands in the enclosing repository, or the helper cannot find a root at all — in the layout DAW itself recommends"
 import json, os, subprocess, sys, tempfile
 src = sys.argv[1]
 work = tempfile.mkdtemp(dir=os.environ["WORK"])
@@ -4981,7 +4981,7 @@ os.makedirs(main)
 env = {k: v for k, v in os.environ.items() if k != "CLAUDE_PROJECT_DIR"}
 run = lambda *a, **kw: subprocess.run(list(a), capture_output=True, text=True, env=env, **kw)
 run("git", "-C", main, "init", "-q")
-for k, v in (("user.email", "ddw@test"), ("user.name", "ddw"), ("commit.gpgsign", "false")):
+for k, v in (("user.email", "daw@test"), ("user.name", "daw"), ("commit.gpgsign", "false")):
     run("git", "-C", main, "config", k, v)
 open(os.path.join(main, "README.md"), "w", encoding="utf-8").write("x\n")
 run("git", "-C", main, "add", "-A")
@@ -4990,14 +4990,14 @@ sibling = os.path.join(work, "main-T-1")
 r = run("git", "-C", main, "worktree", "add", "-q", sibling, "-b", "feat/T-1")
 assert os.path.isfile(os.path.join(sibling, ".git")), \
     "this git does not make .git a file in a worktree, so the case cannot be exercised: " + r.stderr[:150]
-helper = os.path.join(src, "ddw/scripts/transition.py")
-graph = os.path.join(src, "ddw/rules/transition-graph.json")
+helper = os.path.join(src, "daw/scripts/transition.py")
+graph = os.path.join(src, "daw/rules/transition-graph.json")
 r = run(sys.executable, helper, "--to", "CLASSIFY", "--action", "start", "--graph", graph,
         "--write", cwd=sibling)
 assert r.returncode == 0, "the helper could not resolve a root inside a worktree: " + (r.stdout + r.stderr)[:200]
-assert os.path.exists(os.path.join(sibling, ".ddw-state.json")), \
+assert os.path.exists(os.path.join(sibling, ".daw-state.json")), \
     "the worktree's own root was skipped"
-assert not os.path.exists(os.path.join(main, ".ddw-state.json")), \
+assert not os.path.exists(os.path.join(main, ".daw-state.json")), \
     "the state landed in the main checkout, not in the worktree the work is in"
 PYWORKTREE
 
@@ -5018,7 +5018,7 @@ printf '%s' "$IDLE_STATE" > "$GST"
 # months the gate was never handed anything else. Copilot's preToolUse carries
 # no matcher and hands over EVERY tool: reads and directory listings arrived
 # with a path, were judged as writes, and were refused — including the agent
-# reading `.ddw/rules/classify.instructions.md`, the file that tells it what
+# reading `.daw/rules/classify.instructions.md`, the file that tells it what
 # CLASSIFY may do. An agent that cannot read is not guarded, it is broken.
 section "The gate refuses writes, and only writes"
 
@@ -5031,9 +5031,9 @@ root = sys.argv[1]
 # passed while Copilot wrote source in DEFINE — it tested the layer beneath the
 # defect and agreed with itself.
 d = tempfile.mkdtemp(dir=os.environ["WORK"]); subprocess.run(["git", "-C", d, "init", "-q"], check=True)
-os.makedirs(os.path.join(d, ".ddw", "rules"), exist_ok=True)
-open(os.path.join(d, ".ddw", "rules", "classify.instructions.md"), "w").write("x")
-st = os.path.join(d, ".ddw-state.json")
+os.makedirs(os.path.join(d, ".daw", "rules"), exist_ok=True)
+open(os.path.join(d, ".daw", "rules", "classify.instructions.md"), "w").write("x")
+st = os.path.join(d, ".daw-state.json")
 json.dump({"tier": "FEATURE", "phase": "DEFINE", "ticket": "T-1", "gates": {},
            "history": [{"timestamp": "2026-01-01T00:00:00Z", "from": "IDLE", "to": "CLASSIFY",
                         "action": "x", "tier": "FEATURE"},
@@ -5041,9 +5041,9 @@ json.dump({"tier": "FEATURE", "phase": "DEFINE", "ticket": "T-1", "gates": {},
                         "action": "x", "tier": "FEATURE"}]}, open(st, "w"))
 
 def gate(event):
-    r = subprocess.run([sys.executable, root + "/ddw/scripts/hook-gate.py",
+    r = subprocess.run([sys.executable, root + "/daw/scripts/hook-gate.py",
                         "--dialect", "copilot", "--mode", "pre", "--state", st,
-                        "--graph", root + "/ddw/rules/transition-graph.json", "--repo", d],
+                        "--graph", root + "/daw/rules/transition-graph.json", "--repo", d],
                        input=json.dumps(event), capture_output=True, text=True)
     return r.returncode
 
@@ -5055,11 +5055,11 @@ def ev(name, args):
 
 # Reads pass. `view`, `create` and `edit` are the names GitHub documents for
 # Copilot CLI; the rest are shapes other harnesses use.
-for name, args in (("view", {"path": ".ddw/rules/classify.instructions.md"}),
-                   ("str_replace_editor_view", {"path": ".ddw/rules/classify.instructions.md"}),
+for name, args in (("view", {"path": ".daw/rules/classify.instructions.md"}),
+                   ("str_replace_editor_view", {"path": ".daw/rules/classify.instructions.md"}),
                    ("list_directory", {"path": "."}),
                    ("grep", {"path": "app/main.py"}),
-                   ("read_file", {"path": ".ddw-state.json"})):
+                   ("read_file", {"path": ".daw-state.json"})):
     assert gate(ev(name, args)) == 0, f"{name} refused; a read cannot break a write rule"
 
 # Everything else is a write, INCLUDING what we do not recognise. This is the
@@ -5089,7 +5089,7 @@ home = os.path.join(work, "copilot-matcher-home")
 os.makedirs(home, exist_ok=True)
 subprocess.run([sys.executable, os.path.join(root, "adapters/copilot/wire-user-hooks.py"), ""],
                env=dict(os.environ, HOME=home), check=True, capture_output=True)
-d = json.load(open(os.path.join(home, ".copilot/hooks/ddw.json"), encoding="utf-8"))
+d = json.load(open(os.path.join(home, ".copilot/hooks/daw.json"), encoding="utf-8"))
 pre = d["hooks"]["preToolUse"]
 assert all("matcher" not in h for h in pre), \
     "Copilot's preToolUse now has a matcher — good, but the gate's read/write split was sized for its absence"
@@ -5099,8 +5099,8 @@ PYMATCH
 #
 # GitHub documents Copilot CLI's postToolUse as able to modify a result or add
 # context, and nothing more: `permissionDecision` is exclusive to preToolUse,
-# and a non-zero exit is "logged and skipped — agent execution continues". DDW
-# was sending it a refusal it ignores, so a forged .ddw-state.json was caught
+# and a non-zero exit is "logged and skipped — agent execution continues". DAW
+# was sending it a refusal it ignores, so a forged .daw-state.json was caught
 # correctly by a hook whose verdict went nowhere. The check read as covered and
 # the turn carried on.
 section "The post-write net speaks the channel each tool actually honours"
@@ -5111,10 +5111,10 @@ import json, sys
 json.dump({"phase": "CLOSEOUT", "tier": "FEATURE", "gates": {},
            "history": [{"timestamp": "2026-01-01T00:00:00Z", "from": "IDLE",
                         "to": "CLOSEOUT", "action": "forged"}]},
-          open(sys.argv[1] + "/.ddw-state.json", "w"))
+          open(sys.argv[1] + "/.daw-state.json", "w"))
 PYPOST
 
-POST_OUT="$(echo '{}' | python3 "$SELF/ddw/scripts/hook-gate.py" --dialect copilot --mode post --state "$PN/.ddw-state.json" --graph "$SELF/ddw/rules/transition-graph.json" --repo "$PN" 2>/dev/null)"
+POST_OUT="$(echo '{}' | python3 "$SELF/daw/scripts/hook-gate.py" --dialect copilot --mode post --state "$PN/.daw-state.json" --graph "$SELF/daw/rules/transition-graph.json" --repo "$PN" 2>/dev/null)"
 
 case "$POST_OUT" in
   *additionalContext*)
@@ -5132,7 +5132,7 @@ case "$POST_OUT" in
     bad "the report does not say what to do, so a model that reads it carries on" ;;
 esac
 
-echo '{}' | python3 "$SELF/ddw/scripts/hook-gate.py" --dialect standard --mode post --state "$PN/.ddw-state.json" --graph "$SELF/ddw/rules/transition-graph.json" --repo "$PN" >/dev/null 2>&1
+echo '{}' | python3 "$SELF/daw/scripts/hook-gate.py" --dialect standard --mode post --state "$PN/.daw-state.json" --graph "$SELF/daw/rules/transition-graph.json" --repo "$PN" >/dev/null 2>&1
 if [ "$?" = "2" ]; then
   ok "and the tools whose post hook CAN refuse still get a refusal"
 else
@@ -5158,27 +5158,27 @@ hist = [
 ]
 json.dump({"tier": None, "phase": "IDLE", "ticket": None, "title": None, "tracker": None,
            "gates": {}, "block": None, "discovery": None, "history": hist},
-          open(sys.argv[1] + "/.ddw-state.json", "w"))
+          open(sys.argv[1] + "/.daw-state.json", "w"))
 PYPAUSE
-echo '{}' | python3 "$SELF/ddw/scripts/hook-gate.py" --dialect standard --mode post \
-  --state "$PS/.ddw-state.json" --graph "$SELF/ddw/rules/transition-graph.json" --repo "$PS" >/dev/null 2>&1
+echo '{}' | python3 "$SELF/daw/scripts/hook-gate.py" --dialect standard --mode post \
+  --state "$PS/.daw-state.json" --graph "$SELF/daw/rules/transition-graph.json" --repo "$PS" >/dev/null 2>&1
 [ "$?" = "0" ] \
   && ok "a paused split with its entries stamped survives the post replay" \
   || bad "post condemns a legal paused split — the M1 false positive is back and every later call refuses"
 
 python3 - "$PS" <<'PYMIX'
 import json, sys
-p = sys.argv[1] + "/.ddw-state.json"
+p = sys.argv[1] + "/.daw-state.json"
 d = json.load(open(p))
 d["history"][2]["ticket"] = "FEAT-999"     # a closeout credited to work that never ran
 json.dump(d, open(p, "w"))
 PYMIX
-echo '{}' | python3 "$SELF/ddw/scripts/hook-gate.py" --dialect standard --mode post \
-  --state "$PS/.ddw-state.json" --graph "$SELF/ddw/rules/transition-graph.json" --repo "$PS" >/dev/null 2>&1
+echo '{}' | python3 "$SELF/daw/scripts/hook-gate.py" --dialect standard --mode post \
+  --state "$PS/.daw-state.json" --graph "$SELF/daw/rules/transition-graph.json" --repo "$PS" >/dev/null 2>&1
 [ "$?" = "2" ] \
   && ok "and entries that disagree on the ticket are still refused: one run, one ticket" \
   || bad "a replayed run may now mix tickets — a closeout can be credited to work that never ran"
-rm -f "$PS/.ddw-journal.jsonl"
+rm -f "$PS/.daw-journal.jsonl"
 
 # ── Copilot: the gates ride USER-LEVEL hooks, in both install modes ──────────
 #
@@ -5199,32 +5199,32 @@ rm -f "$PS/.ddw-journal.jsonl"
 # There is no stand-down any more, and this section is where that is held. It
 # used to read: the user-level copy keeps quiet where the repo wires its own
 # hook. That was right only while a repo-level manifest existed to take over.
-# DDW writes none, so a copy that stepped aside for a repo hook would be
+# DAW writes none, so a copy that stepped aside for a repo hook would be
 # stepping aside for nothing. Standing down HERE means enforcing nowhere.
 section "Copilot: user-level hooks enforce, and never step aside for a repo hook"
 
 CPP="$WORK/cp-plugin"; mkdir -p "$CPP"
-cp -r "$SELF/ddw" "$CPP/ddw"
+cp -r "$SELF/daw" "$CPP/daw"
 CPR="$WORK/cp-repo"; mkdir -p "$CPR"; git -C "$CPR" init -q . >/dev/null 2>&1 || true
 CPEV="$(python3 - "$CPR" <<'PY'
 import json, os, sys
 state = json.dumps({"phase": "CLOSEOUT", "tier": "FEATURE", "gates": {},
                     "history": [{"timestamp": "2026-01-01T00:00:00Z", "from": "IDLE",
                                  "to": "CLOSEOUT", "action": "forged"}]})
-args = json.dumps({"path": os.path.join(sys.argv[1], ".ddw-state.json"), "content": state})
+args = json.dumps({"path": os.path.join(sys.argv[1], ".daw-state.json"), "content": state})
 print(json.dumps({"toolName": "create", "toolArgs": args}))
 PY
 )"
-( cd "$CPR" && printf '%s' "$CPEV" | DDW_PLUGIN_ROOT="$CPP" bash "$SELF/adapters/copilot/scripts/pre-tool-use.sh" >/dev/null 2>&1 )
+( cd "$CPR" && printf '%s' "$CPEV" | DAW_PLUGIN_ROOT="$CPP" bash "$SELF/adapters/copilot/scripts/pre-tool-use.sh" >/dev/null 2>&1 )
 [ "$?" = "2" ] \
-  && ok "Copilot user-level hook enforces with no .ddw/ in the repo (method from the plugin root)" \
+  && ok "Copilot user-level hook enforces with no .daw/ in the repo (method from the plugin root)" \
   || bad "Copilot as a plugin loads skills and enforces NOTHING — the drop-in-only resolution is back"
 
 # The drop-in repo, seen by a machine wired for the plugin. The repo carries the
 # scripts and NO manifest of its own, so this copy is the only thing that can
 # judge the write. The old stand-down fired exactly here.
-mkdir -p "$CPR/.github/hooks/ddw" && : > "$CPR/.github/hooks/ddw/pre-tool-use.sh"
-( cd "$CPR" && printf '%s' "$CPEV" | DDW_PLUGIN_ROOT="$CPP" bash "$SELF/adapters/copilot/scripts/pre-tool-use.sh" >/dev/null 2>&1 )
+mkdir -p "$CPR/.github/hooks/daw" && : > "$CPR/.github/hooks/daw/pre-tool-use.sh"
+( cd "$CPR" && printf '%s' "$CPEV" | DAW_PLUGIN_ROOT="$CPP" bash "$SELF/adapters/copilot/scripts/pre-tool-use.sh" >/dev/null 2>&1 )
 [ "$?" = "2" ] \
   && ok "and still enforces in a repo carrying its own hook scripts — no stand-down, because nothing would take over" \
   || bad "the user-level hook stands down for a repo hook that `copilot -p` never runs — the gates are back to enforcing nothing"
@@ -5258,7 +5258,7 @@ PYNOMANIFEST
 #   there — above, the pre hook refused the write and left no file behind.
 #
 #   And the verdict is not an exit code. GitHub documents Copilot's postToolUse
-#   as unable to refuse: a non-zero exit is "logged and skipped". DDW answers it
+#   as unable to refuse: a non-zero exit is "logged and skipped". DAW answers it
 #   in `additionalContext` instead, which the model heeds. So what separates a
 #   net that ran from one that stood down is whether the finding is IN that
 #   answer — a stand-down prints a bare `{}` and exits 0, and asking the exit
@@ -5268,22 +5268,22 @@ import json, sys
 json.dump({"phase": "CLOSEOUT", "tier": "FEATURE", "ticket": "T-1", "gates": {},
            "history": [{"timestamp": "2026-01-01T00:00:00Z", "from": "IDLE",
                         "to": "CLOSEOUT", "action": "forged"}]},
-          open(sys.argv[1] + "/.ddw-state.json", "w"))
+          open(sys.argv[1] + "/.daw-state.json", "w"))
 PYCPPOST
-: > "$CPR/.github/hooks/ddw/post-write.sh"
-CPPOST="$( cd "$CPR" && echo '{}' | DDW_PLUGIN_ROOT="$CPP" bash "$SELF/adapters/copilot/scripts/post-write.sh" 2>/dev/null )"
+: > "$CPR/.github/hooks/daw/post-write.sh"
+CPPOST="$( cd "$CPR" && echo '{}' | DAW_PLUGIN_ROOT="$CPP" bash "$SELF/adapters/copilot/scripts/post-write.sh" 2>/dev/null )"
 case "$CPPOST" in
   *ILLEGAL*additionalContext*|*additionalContext*ILLEGAL*)
     ok "and the post net does too — it is the half that catches a state written through the shell" ;;
   *) bad "Copilot's post net stands down for a repo hook that never runs; a forged state through the shell is unjudged" ;;
 esac
-rm -f "$CPR/.ddw-state.json"
+rm -f "$CPR/.daw-state.json"
 
 CPHOME="$WORK/copilot-level-home"; mkdir -p "$CPHOME"
 HOME="$CPHOME" python3 "$SELF/adapters/copilot/wire-user-hooks.py" "" >/dev/null 2>&1
 python3 - "$CPHOME" <<'PYLEVEL' && ok "the drop-in wiring runs each repo's own hook, and a refusal stays a refusal" || bad "the user-level wrapper turns a Copilot deny into an allow — see above"
 import json, os, sys
-d = json.load(open(os.path.join(sys.argv[1], ".copilot/hooks/ddw.json"), encoding="utf-8"))
+d = json.load(open(os.path.join(sys.argv[1], ".copilot/hooks/daw.json"), encoding="utf-8"))
 for event, hooks in d["hooks"].items():
     for h in hooks:
         cmd = h["bash"]
@@ -5307,20 +5307,20 @@ git -C "$DIR2" config user.email e@example.com; git -C "$DIR2" config user.name 
 git -C "$DIR2" config commit.gpgsign false
 echo "# fixture" > "$DIR2/README.md"
 git -C "$DIR2" add -A >/dev/null 2>&1; git -C "$DIR2" commit -qm init >/dev/null 2>&1
-HOME="$DIH" DDW_GIT_FLOW=none bash "$SELF/install.sh" "$DIR2" --target copilot >/dev/null 2>&1
-[ -f "$DIH/.copilot/hooks/ddw.json" ] \
+HOME="$DIH" DAW_GIT_FLOW=none bash "$SELF/install.sh" "$DIR2" --target copilot >/dev/null 2>&1
+[ -f "$DIH/.copilot/hooks/daw.json" ] \
   && ok "a drop-in install for Copilot wires the gates at user level, where an untrusted folder still reads them" \
   || bad "the drop-in installs Copilot and wires no user-level hooks — a fresh clone enforces nothing and says it is installed"
-[ -f "$DIR2/.github/hooks/ddw/pre-tool-use.sh" ] && [ ! -f "$DIR2/.github/hooks/ddw.json" ] \
+[ -f "$DIR2/.github/hooks/daw/pre-tool-use.sh" ] && [ ! -f "$DIR2/.github/hooks/daw.json" ] \
   && ok "and it leaves the scripts in the repo with no manifest beside them — one wiring, not two" \
   || bad "the drop-in wrote a repo-level manifest, or no scripts at all"
 
 # The plugin's one channel to the model carries the two prohibitions learned
-# live on OpenCode: no self-install, no DDW content in the project's context
+# live on OpenCode: no self-install, no DAW content in the project's context
 # file. Shared in session-boot so Claude's plugin says it too.
-BOOTMSG="$(python3 "$SELF/ddw/scripts/session-boot.py" --repo "$CPR" --session-id probe --method "$CPP/ddw" 2>/dev/null)"
+BOOTMSG="$(python3 "$SELF/daw/scripts/session-boot.py" --repo "$CPR" --session-id probe --method "$CPP/daw" 2>/dev/null)"
 case "$BOOTMSG" in
-  *"Do NOT install DDW"*) ok "the plugin boot forbids the self-install, on every adapter that boots" ;;
+  *"Do NOT install DAW"*) ok "the plugin boot forbids the self-install, on every adapter that boots" ;;
   *) bad "a plugin-booted agent is never told not to install — the PRD-to-drop-in failure is back" ;;
 esac
 case "$BOOTMSG" in
@@ -5340,7 +5340,7 @@ grep -q "Repository hooks load only in a folder the" "$SELF/.github/INSTALL.md" 
   && ok "and it says WHY user level: repository hooks need a trusted folder, and \`-p\` cannot ask for trust" \
   || bad "the Copilot doc no longer names folder trust; the next person wires the gates where a fresh clone never runs them"
 
-grep -q "delete \`~/.copilot/hooks/ddw.json\`" "$SELF/.github/INSTALL.md" \
+grep -q "delete \`~/.copilot/hooks/daw.json\`" "$SELF/.github/INSTALL.md" \
   && ok "and its uninstall names the file to remove — orphaned hooks pointing at a deleted plugin gate nothing" \
   || bad "the Copilot uninstall no longer says what to remove; the wiring outlives the plugin it points at"
 
@@ -5354,16 +5354,16 @@ json.dump({"tier": None, "phase": "CLASSIFY", "ticket": None, "title": None, "tr
            "gates": {}, "block": None, "discovery": None,
            "history": [{"timestamp": "2026-07-29T12:00:00Z", "from": "IDLE", "to": "CLASSIFY",
                         "action": "abrir ticket"}]},
-          open(sys.argv[1] + "/.ddw-state.json", "w"))
+          open(sys.argv[1] + "/.daw-state.json", "w"))
 PYGW
-echo '{}' | python3 "$SELF/ddw/scripts/hook-gate.py" --dialect standard --mode post \
-  --state "$GW/.ddw-state.json" --graph "$SELF/ddw/rules/transition-graph.json" --repo "$GW" >/dev/null 2>&1
-grep -q ".ddw-state.json" "$GW/.gitignore" 2>/dev/null \
+echo '{}' | python3 "$SELF/daw/scripts/hook-gate.py" --dialect standard --mode post \
+  --state "$GW/.daw-state.json" --graph "$SELF/daw/rules/transition-graph.json" --repo "$GW" >/dev/null 2>&1
+grep -q ".daw-state.json" "$GW/.gitignore" 2>/dev/null \
   && ok "the post net gitignores the runtime the moment a state exists — no gateless first-session commit window" \
   || bad "a plugin-born state sits uncommittable-guarded by NOTHING until the next session boot"
-DROPMSG="$(python3 "$SELF/ddw/scripts/session-boot.py" --repo "$ALL" --session-id probe 2>/dev/null)"
+DROPMSG="$(python3 "$SELF/daw/scripts/session-boot.py" --repo "$ALL" --session-id probe 2>/dev/null)"
 case "$DROPMSG" in
-  *"Do NOT install DDW"*) bad "the drop-in boot carries the plugin's prohibitions — noise for the install that chose files" ;;
+  *"Do NOT install DAW"*) bad "the drop-in boot carries the plugin's prohibitions — noise for the install that chose files" ;;
   *) ok "and the drop-in boot does not say it: those rules are the plugin's, not the method's" ;;
 esac
 
@@ -5371,46 +5371,46 @@ esac
 #
 # Installed as a plugin the method is not in the repo, and the hooks that never
 # learned that loaded skills while enforcing nothing — a pipeline that looks
-# installed and does not hold. `ddw_method` is the one place that decides, and
+# installed and does not hold. `daw_method` is the one place that decides, and
 # these checks are what stop it being inlined in two hooks and missing from the
 # rest again.
 section "The hooks find the method whether it is in the repo or in a plugin"
 
 HK="$SELF/adapters/claude/hooks"
-grep -q "ddw_method()" "$HK/lib/guard.sh" \
+grep -q "daw_method()" "$HK/lib/guard.sh" \
   && ok "the resolution lives once, in the shared guard" \
-  || bad "no ddw_method in lib/guard.sh — every hook resolves the method its own way again"
+  || bad "no daw_method in lib/guard.sh — every hook resolves the method its own way again"
 
 MISSING_RESOLVE=""
 for h in session-start.sh enforce.sh pre-compact.sh \
          validate-state-transition.sh validate-state-postwrite.sh; do
-  grep -q "ddw_method" "$HK/$h" || MISSING_RESOLVE="$MISSING_RESOLVE $h"
+  grep -q "daw_method" "$HK/$h" || MISSING_RESOLVE="$MISSING_RESOLVE $h"
 done
 [ -z "$MISSING_RESOLVE" ] \
   && ok "and every hook that needs the method calls it" \
   || bad "hooks that only look in the repo, so a plugin install skips them:${MISSING_RESOLVE}"
 
 PM="$WORK/plugin-mode"; mkdir -p "$PM"; git -C "$PM" init -q .
-PMOUT="$(python3 "$SELF/ddw/scripts/session-boot.py" --repo "$PM" --session-id pm1 \
-         --method "$SELF/ddw" 2>&1)"
+PMOUT="$(python3 "$SELF/daw/scripts/session-boot.py" --repo "$PM" --session-id pm1 \
+         --method "$SELF/daw" 2>&1)"
 case "$PMOUT" in
-  *"$SELF/ddw/orchestrator.md"*)
-    ok "the boot nudge names the orchestrator's real path, not a relative .ddw/" ;;
-  *) bad "the nudge points at .ddw/orchestrator.md, which does not exist under a plugin" ;;
+  *"$SELF/daw/orchestrator.md"*)
+    ok "the boot nudge names the orchestrator's real path, not a relative .daw/" ;;
+  *) bad "the nudge points at .daw/orchestrator.md, which does not exist under a plugin" ;;
 esac
 
 # A plugin at user scope is loaded in every repo you open, including one cloned
 # to read for five minutes. Leaving a state file and an edited .gitignore in each
 # is not a pipeline, it is litter.
-[ ! -e "$PM/.ddw-state.json" ] && [ ! -e "$PM/.gitignore" ] && [ ! -e "$PM/.ddw-sessions" ] \
+[ ! -e "$PM/.daw-state.json" ] && [ ! -e "$PM/.gitignore" ] && [ ! -e "$PM/.daw-sessions" ] \
   && ok "and a repo that never started a pipeline is left untouched" \
-  || bad "merely opening a repo under a plugin leaves DDW files behind"
+  || bad "merely opening a repo under a plugin leaves DAW files behind"
 
-# Drop-in earned its writes by existing: someone put .ddw/ here on purpose.
+# Drop-in earned its writes by existing: someone put .daw/ here on purpose.
 DI="$WORK/dropin-writes"; mkdir -p "$DI"; git -C "$DI" init -q .
 bash "$SELF/install.sh" "$DI" --target claude >/dev/null 2>&1
-python3 "$DI/.ddw/scripts/session-boot.py" --repo "$DI" --session-id di1 >/dev/null 2>&1
-[ -f "$DI/.ddw-state.json" ] \
+python3 "$DI/.daw/scripts/session-boot.py" --repo "$DI" --session-id di1 >/dev/null 2>&1
+[ -f "$DI/.daw-state.json" ] \
   && ok "while a drop-in still materialises the state, as it always did" \
   || bad "the drop-in stopped creating its state file — every existing install regressed"
 
@@ -5429,12 +5429,12 @@ section "Every plugin manifest points at a script that exists"
 # reads "install with install.sh for now" does exactly that, in the user's repo,
 # on top of the copy it is already running from. Written for a human choosing,
 # read by a model executing.
-python3 - "$SELF" <<'PYAD' && ok "no published manifest tells its reader to install DDW some other way" || bad "a plugin manifest directs its own reader to another installation route — an agent follows that"
+python3 - "$SELF" <<'PYAD' && ok "no published manifest tells its reader to install DAW some other way" || bad "a plugin manifest directs its own reader to another installation route — an agent follows that"
 import json, os, sys
 root = sys.argv[1]
 REDIRECTS = ("install.sh", "install with", "for now", "in progress", "not yet",
              "use the installer")
-manifests = [".claude-plugin/plugin.json", ".claude-plugin/marketplace.json",
+manifests = [".claude-plugin/plugin.json",
              ".codex-plugin/plugin.json", ".cursor-plugin/plugin.json",
              "gemini-extension.json"]
 found, seen = [], 0
@@ -5502,9 +5502,9 @@ if missing:
 PYPM
 
 # A manifest that resolves is half of it. The script it names has to find the
-# method too: under a plugin there is no .ddw/ in the repo, and a hook that
+# method too: under a plugin there is no .daw/ in the repo, and a hook that
 # looks only there exits 0 on every write it was installed to judge.
-PLR="$WORK/plugin-root"; mkdir -p "$PLR"; cp -r "$SELF/ddw" "$PLR/ddw"
+PLR="$WORK/plugin-root"; mkdir -p "$PLR"; cp -r "$SELF/daw" "$PLR/daw"
 PLEV='{"tool_name":"Write","tool_input":{"file_path":"src/app.ts","content":"x"}}'
 for T in codex cursor gemini; do
   PR="$WORK/plugin-repo-$T"; mkdir -p "$PR"; git -C "$PR" init -q . >/dev/null 2>&1 || true
@@ -5516,15 +5516,15 @@ json.dump({"tier": "FEATURE", "phase": "DEFINE", "ticket": "FEAT-001", "title": 
                         "action": "open", "ticket": "FEAT-001", "tier": "FEATURE"},
                        {"timestamp": "2026-01-01T00:01:00Z", "from": "CLASSIFY", "to": "DEFINE",
                         "action": "define it", "ticket": "FEAT-001", "tier": "FEATURE"}]},
-          open(sys.argv[1] + "/.ddw-state.json", "w"))
+          open(sys.argv[1] + "/.daw-state.json", "w"))
 PYPS
   # Each tool gets only the variable it can actually supply: codex and gemini
-  # run their hook through a shell, so the manifest exports DDW_PLUGIN_ROOT;
+  # run their hook through a shell, so the manifest exports DAW_PLUGIN_ROOT;
   # cursor executes the script directly and can only pass its own environment.
   case "$T" in
     cursor) ( cd "$PR" && printf '%s' "$PLEV" | CURSOR_PLUGIN_ROOT="$PLR" \
                 bash "$SELF/adapters/$T/hooks/pre-tool-use.sh" >/dev/null 2>&1 ) ;;
-    *)      ( cd "$PR" && printf '%s' "$PLEV" | DDW_PLUGIN_ROOT="$PLR" \
+    *)      ( cd "$PR" && printf '%s' "$PLEV" | DAW_PLUGIN_ROOT="$PLR" \
                 bash "$SELF/adapters/$T/hooks/pre-tool-use.sh" >/dev/null 2>&1 ) ;;
   esac
   [ "$?" = "2" ] \
@@ -5532,14 +5532,14 @@ PYPS
     || bad "$T as a plugin loads its skills and enforces NOTHING — its hook only ever looks in the repo"
 
   # Enforcing is half a pipeline. The boot nudge is the one channel that tells
-  # the model where the method is, and a nudge naming a relative .ddw/ under a
+  # the model where the method is, and a nudge naming a relative .daw/ under a
   # plugin points at a file the model cannot open: gates with nothing steering.
-  BOOTOUT="$( cd "$PR" && printf '{}' | DDW_PLUGIN_ROOT="$PLR" CURSOR_PLUGIN_ROOT="$PLR" \
+  BOOTOUT="$( cd "$PR" && printf '{}' | DAW_PLUGIN_ROOT="$PLR" CURSOR_PLUGIN_ROOT="$PLR" \
                 bash "$SELF/adapters/$T/hooks/session-start.sh" 2>/dev/null )"
   case "$BOOTOUT" in
-    *"$PLR/ddw/orchestrator.md"*)
+    *"$PLR/daw/orchestrator.md"*)
       ok "and its boot names the orchestrator where the plugin actually put it" ;;
-    *) bad "$T boots a plugin install pointing at .ddw/orchestrator.md, which is not there" ;;
+    *) bad "$T boots a plugin install pointing at .daw/orchestrator.md, which is not there" ;;
   esac
 done
 
@@ -5596,14 +5596,14 @@ python3 "$SELF/scripts/check_versions.py" --repo "$SELF" >/dev/null 2>&1 \
   || { bad "versions disagree — run scripts/check_versions.py"
        python3 "$SELF/scripts/check_versions.py" --repo "$SELF" 2>&1 | sed 's/^/      /' | head -10; }
 
-# A graph is data a program reads, and `.ddw/` can be upgraded in halves — the
+# A graph is data a program reads, and `.daw/` can be upgraded in halves — the
 # scripts from one version beside the graph of another. Reading a shape it does
 # not understand and reaching a verdict anyway is worse than refusing, because
 # the verdict decides whether source code may be written.
 VG="$WORK/graph-format"; mkdir -p "$VG"
 python3 - "$SELF" "$VG" <<'PYEOF'
 import json, sys
-graph = json.load(open(sys.argv[1] + "/ddw/rules/transition-graph.json", encoding="utf-8"))
+graph = json.load(open(sys.argv[1] + "/daw/rules/transition-graph.json", encoding="utf-8"))
 graph["format_version"] = "9.0"
 json.dump(graph, open(sys.argv[2] + "/future.json", "w"))
 graph.pop("format_version")
@@ -5615,23 +5615,23 @@ json.dump({"tier": "FEATURE", "phase": "DEFINE", "ticket": "T-1", "gates": {},
                         "action": "x", "tier": "FEATURE"}]},
           open(sys.argv[2] + "/state.json", "w"))
 PYEOF
-echo '{}' | python3 "$SELF/ddw/scripts/validate-transition.py" --mode post \
+echo '{}' | python3 "$SELF/daw/scripts/validate-transition.py" --mode post \
   --state "$VG/state.json" --graph "$VG/future.json" >/dev/null 2>&1
 [ "$?" = "2" ] \
   && ok "and a graph whose format these scripts do not read is refused, not guessed at" \
   || bad "a graph declaring an unknown format is read anyway — half an upgrade decides whether code may be written"
 
-echo '{}' | python3 "$SELF/ddw/scripts/validate-transition.py" --mode post \
+echo '{}' | python3 "$SELF/daw/scripts/validate-transition.py" --mode post \
   --state "$VG/state.json" --graph "$VG/legacy.json" >/dev/null 2>&1 \
   && ok "while a graph written before the field existed keeps working" \
-  || bad "graphs with no format_version are refused — that is every repo that installed DDW earlier"
+  || bad "graphs with no format_version are refused — that is every repo that installed DAW earlier"
 
 # ── The commit convention, applied to the repository that publishes it ────────
 #
-# DDW requires `AI-assisted: yes` or `AI-full: yes` on every commit made with a
+# DAW requires `AI-assisted: yes` or `AI-full: yes` on every commit made with a
 # model, and forbids Co-Authored-By by name — authorship is where responsibility
 # sits, and a trailer naming the tool as an author spreads it onto something that
-# cannot hold it. That rule governed every repo DDW is installed in and nothing
+# cannot hold it. That rule governed every repo DAW is installed in and nothing
 # here. Driven against real commits, because a checker for git history that is
 # never handed any is a checker of nothing.
 section "The attribution rule holds in this repository too"
@@ -5645,7 +5645,7 @@ section "The attribution rule holds in this repository too"
 # one below.
 VB="$WORK/version-bump"; mkdir -p "$VB"
 git -C "$VB" init -q -b main .
-git -C "$VB" config user.email ddw@test; git -C "$VB" config user.name ddw
+git -C "$VB" config user.email daw@test; git -C "$VB" config user.name daw
 git -C "$VB" config commit.gpgsign false
 python3 - "$SELF" "$VB" <<'PYVBSETUP'
 import json, os, shutil, sys
@@ -5653,15 +5653,15 @@ src, dst = sys.argv[1], sys.argv[2]
 for rel in (".claude-plugin/plugin.json", ".codex-plugin/plugin.json",
             ".cursor-plugin/plugin.json", "gemini-extension.json", "package.json",
             "CHANGELOG.md", "LICENSE", "README.md", "install.sh",
-            "ddw/rules/transition-graph.json", "ddw/scripts/validate-transition.py"):
+            "daw/rules/transition-graph.json", "daw/scripts/validate-transition.py"):
     out = os.path.join(dst, rel)
     os.makedirs(os.path.dirname(out) or dst, exist_ok=True)
     shutil.copyfile(os.path.join(src, rel), out)
-os.makedirs(os.path.join(dst, "ddw", "rules"), exist_ok=True)
-for rel in os.listdir(os.path.join(src, "ddw", "rules")):
+os.makedirs(os.path.join(dst, "daw", "rules"), exist_ok=True)
+for rel in os.listdir(os.path.join(src, "daw", "rules")):
     if rel.endswith(".instructions.md"):
-        shutil.copyfile(os.path.join(src, "ddw", "rules", rel),
-                        os.path.join(dst, "ddw", "rules", rel))
+        shutil.copyfile(os.path.join(src, "daw", "rules", rel),
+                        os.path.join(dst, "daw", "rules", rel))
 PYVBSETUP
 git -C "$VB" add -A >/dev/null 2>&1; git -C "$VB" commit -q -m "base"
 VB_BASE="$(git -C "$VB" rev-parse HEAD)"
@@ -5709,7 +5709,7 @@ python3 "$SELF/scripts/check_versions.py" --repo "$VB" --since "$VB_BASE" >/dev/
 python3 - "$VB" <<'PYVBRULE'
 import json, os, sys
 root = sys.argv[1]
-open(os.path.join(root, "ddw", "rules", "code.instructions.md"), "a",
+open(os.path.join(root, "daw", "rules", "code.instructions.md"), "a",
      encoding="utf-8").write("\nUna linea mas.\n")
 for rel in (".claude-plugin/plugin.json", ".codex-plugin/plugin.json",
             ".cursor-plugin/plugin.json", "gemini-extension.json", "package.json"):
@@ -5726,7 +5726,7 @@ python3 "$SELF/scripts/check_versions.py" --repo "$VB" --since "$VB_BASE" >/dev/
   || ok "and a rule that changed has to move its own number, not just the product's"
 python3 - "$VB" <<'PYVBRULEFIX'
 import os, re, sys
-r = os.path.join(sys.argv[1], "ddw", "rules", "code.instructions.md")
+r = os.path.join(sys.argv[1], "daw", "rules", "code.instructions.md")
 s = open(r, encoding="utf-8").read()
 open(r, "w", encoding="utf-8").write(
     re.sub(r"^version:\s*\S+$", "version: 99.0.0", s, count=1, flags=re.M))
@@ -5764,7 +5764,7 @@ PYVBCI
 
 CM="$WORK/commits"; mkdir -p "$CM"
 git -C "$CM" init -q -b main .
-git -C "$CM" config user.email ddw@test; git -C "$CM" config user.name ddw
+git -C "$CM" config user.email daw@test; git -C "$CM" config user.name daw
 git -C "$CM" config commit.gpgsign false
 echo one > "$CM/a.txt"; git -C "$CM" add -A
 git -C "$CM" commit -q -m "base, before the range"
@@ -5793,7 +5793,7 @@ Co-Authored-By: Some Model <noreply@example.com>
 CMEOF
 python3 "$SELF/scripts/check_commits.py" --repo "$CM" --since "$CM_BASE" >/dev/null 2>&1 \
   && bad "Co-Authored-By passes — the tool is credited as an author and nothing objects" \
-  || ok "and a Co-Authored-By trailer is refused, by the rule DDW ships to everyone else"
+  || ok "and a Co-Authored-By trailer is refused, by the rule DAW ships to everyone else"
 
 git -C "$CM" reset -q --hard HEAD~1
 echo four > "$CM/a.txt"; git -C "$CM" add -A
@@ -6006,23 +6006,23 @@ h = [{"timestamp": "2026-01-01T00:0%d:00Z" % i, "from": f, "to": t,
      for i, (f, t) in enumerate([("IDLE", "CLASSIFY"), ("CLASSIFY", "DEFINE"), ("DEFINE", "PLAN")])]
 json.dump({"tier": "FEATURE", "phase": "PLAN", "ticket": "FEAT-001",
            "gates": {"define": True}, "history": h},
-          open(sys.argv[1] + "/.ddw-state.json", "w"), indent=2)
+          open(sys.argv[1] + "/.daw-state.json", "w"), indent=2)
 PYEOF
-mkdir -p "$SH/docs/ddw/specs" && printf 'spec\n' > "$SH/docs/ddw/specs/spec-FEAT-001.md"
-ddw_earn "$SH" define FEAT-001
+mkdir -p "$SH/docs/daw/specs" && printf 'spec\n' > "$SH/docs/daw/specs/spec-FEAT-001.md"
+daw_earn "$SH" define FEAT-001
 
 post_note() {
-  echo '{}' | python3 "$SH/.ddw/scripts/hook-gate.py" --dialect standard --mode post \
-    --state "$SH/.ddw-state.json" --graph "$SH/.ddw/rules/transition-graph.json" \
+  echo '{}' | python3 "$SH/.daw/scripts/hook-gate.py" --dialect standard --mode post \
+    --state "$SH/.daw-state.json" --graph "$SH/.daw/rules/transition-graph.json" \
     --repo "$SH" 2>&1
 }
 
-# Quiet on this phase's own artifacts, and on DDW's own footprint: a freshly
-# installed repo has .ddw/ untracked until someone commits it, and a warning
+# Quiet on this phase's own artifacts, and on DAW's own footprint: a freshly
+# installed repo has .daw/ untracked until someone commits it, and a warning
 # that fires every time is one nobody reads by the third.
 [ -z "$(post_note)" ] \
-  && ok "silent on the phase's own artifacts and on DDW's own files" \
-  || { bad "the post net warns about docs/ or .ddw/ — noise that teaches you to ignore the real one"
+  && ok "silent on the phase's own artifacts and on DAW's own files" \
+  || { bad "the post net warns about docs/ or .daw/ — noise that teaches you to ignore the real one"
        post_note | sed 's/^/      /' | head -3; }
 
 mkdir -p "$SH/app" && printf 'x = 1\n' > "$SH/app/health.py"
@@ -6042,8 +6042,8 @@ esac
 # session's own probe read "no hook output". This suite missed it for the same
 # reason it existed: `post_note` captures 2>&1, so the check above proves the
 # note is COMPUTED. These two prove it ARRIVES — they read stdout alone.
-python3 "$SH/.ddw/scripts/hook-gate.py" --dialect standard --mode post \
-  --state "$SH/.ddw-state.json" --graph "$SH/.ddw/rules/transition-graph.json" \
+python3 "$SH/.daw/scripts/hook-gate.py" --dialect standard --mode post \
+  --state "$SH/.daw-state.json" --graph "$SH/.daw/rules/transition-graph.json" \
   --repo "$SH" < /dev/null 2>/dev/null | python3 -c '
 import json, sys
 d = json.loads(sys.stdin.read().strip())
@@ -6053,8 +6053,8 @@ assert "product source has changed" in hso["additionalContext"], hso
 ' && ok "the note reaches Claude Code on stdout, as PostToolUse additionalContext" \
   || bad "the note dies on stderr for Claude Code — computed, printed, and never shown to the model"
 
-python3 "$SH/.ddw/scripts/hook-gate.py" --dialect copilot --mode post \
-  --state "$SH/.ddw-state.json" --graph "$SH/.ddw/rules/transition-graph.json" \
+python3 "$SH/.daw/scripts/hook-gate.py" --dialect copilot --mode post \
+  --state "$SH/.daw-state.json" --graph "$SH/.daw/rules/transition-graph.json" \
   --repo "$SH" < /dev/null 2>/dev/null | python3 -c '
 import json, sys
 d = json.loads(sys.stdin.read().strip())
@@ -6069,7 +6069,7 @@ assert "product source has changed" in d["additionalContext"], d
 # and no way to tell fired-and-swallowed from never-fired.
 python3 - "$SH" <<'PYNJ' && ok "the notice lands in the journal, so fired-and-swallowed and never-fired are different states" || bad "the notice leaves no record — the run over, nobody can say whether detection fired"
 import json, sys
-recs = [json.loads(l) for l in open(sys.argv[1] + "/.ddw-journal.jsonl", encoding="utf-8")
+recs = [json.loads(l) for l in open(sys.argv[1] + "/.daw-journal.jsonl", encoding="utf-8")
         if l.strip()]
 notes = [r for r in recs if isinstance(r, dict) and r.get("record") == "notice"]
 assert notes, "no notice record in the journal"
@@ -6081,14 +6081,14 @@ PYNJ
 post_note >/dev/null; post_note >/dev/null
 python3 - "$SH" <<'PYND' && ok "and an unchanged finding is one journal line, not one per tool call" || bad "the journal repeats the same notice on every Bash — noise the audit then has to explain"
 import json, sys
-recs = [json.loads(l) for l in open(sys.argv[1] + "/.ddw-journal.jsonl", encoding="utf-8")
+recs = [json.loads(l) for l in open(sys.argv[1] + "/.daw-journal.jsonl", encoding="utf-8")
         if l.strip()]
 notes = [r for r in recs if isinstance(r, dict) and r.get("record") == "notice"]
 assert len(notes) == 1, "expected one notice record, got %d" % len(notes)
 PYND
 
-echo '{}' | python3 "$SH/.ddw/scripts/hook-gate.py" --dialect standard --mode post \
-  --state "$SH/.ddw-state.json" --graph "$SH/.ddw/rules/transition-graph.json" \
+echo '{}' | python3 "$SH/.daw/scripts/hook-gate.py" --dialect standard --mode post \
+  --state "$SH/.daw-state.json" --graph "$SH/.daw/rules/transition-graph.json" \
   --repo "$SH" >/dev/null 2>&1 \
   && ok "and allows the call — it cannot tell your own editing from the agent's" \
   || bad "the report became a refusal: editing your own code in another terminal would now be blocked"
@@ -6104,7 +6104,7 @@ rm -rf "$SH/app"
 # `.claude/` is Claude Code's directory, and your own skills live there too.
 # Removing it wholesale would be the defect the installer spends its life
 # avoiding, run in reverse and with no undo.
-section "Uninstalling removes what DDW put there, and only that"
+section "Uninstalling removes what DAW put there, and only that"
 
 UN="$WORK/uninstall"; mkdir -p "$UN/.claude/skills/my-skill" "$UN/docs/mine"; git -C "$UN" init -q .
 printf 'MY OWN SKILL\n'  > "$UN/.claude/skills/my-skill/SKILL.md"
@@ -6114,22 +6114,22 @@ printf '{"hooks":{"SessionStart":[{"hooks":[{"type":"command","command":"echo MY
   > "$UN/.claude/settings.json"
 bash "$SELF/install.sh" "$UN" --target claude,gemini >/dev/null 2>&1
 printf '\nMY OWN NOTES\n' >> "$UN/AGENTS.md"
-mkdir -p "$UN/docs/ddw/prd" && printf '# PRD\n' > "$UN/docs/ddw/prd/prd-FEAT-001.md"
+mkdir -p "$UN/docs/daw/prd" && printf '# PRD\n' > "$UN/docs/daw/prd/prd-FEAT-001.md"
 
 # The plan runs first and must change nothing — it is what you read before
 # approving, and a plan with side effects is not a plan.
-# ddw_tree_hash, not md5sum: the helper exists for exactly this and these two
+# daw_tree_hash, not md5sum: the helper exists for exactly this and these two
 # lines went around it. Without md5sum both sides came out empty, so on macOS
 # "--plan changed nothing" was true because nothing was compared — the vacuous
 # green the helper's own comment warns about, in the check it was written for.
-BEFORE="$(ddw_tree_hash "$UN")"
+BEFORE="$(daw_tree_hash "$UN")"
 PLANOUT="$(bash "$SELF/uninstall.sh" "$UN" --plan 2>&1)"
-[ "$(ddw_tree_hash "$UN")" = "$BEFORE" ] \
+[ "$(daw_tree_hash "$UN")" = "$BEFORE" ] \
   && ok "--plan changes nothing" \
   || bad "--plan already deleted things — you approve after reading it, not before"
 
 case "$PLANOUT" in
-  *"skills/ddw-commit"*) ok "and the plan names the skills, not only the hooks" ;;
+  *"skills/daw-commit"*) ok "and the plan names the skills, not only the hooks" ;;
   *) bad "the plan misses skills and agents: the manifest records those relative to the adapter's dir, and reading them as repo paths silently skips every one" ;;
 esac
 
@@ -6138,48 +6138,48 @@ bash "$SELF/uninstall.sh" "$UN" --yes >/dev/null 2>&1
 [ -f "$UN/.claude/skills/my-skill/SKILL.md" ] \
   && ok "a skill of yours inside .claude/ survives" \
   || bad "the uninstaller removed .claude/ wholesale and took the user's own skills with it"
-[ -f "$UN/docs/mine/note.md" ] && [ -f "$UN/docs/ddw/prd/prd-FEAT-001.md" ] \
-  && ok "docs/ is untouched, DDW's artifacts included" \
+[ -f "$UN/docs/mine/note.md" ] && [ -f "$UN/docs/daw/prd/prd-FEAT-001.md" ] \
+  && ok "docs/ is untouched, DAW's artifacts included" \
   || bad "uninstalling destroyed the record of what was decided"
-[ ! -d "$UN/.ddw" ] && [ ! -f "$UN/.ddw-installed.json" ] \
+[ ! -d "$UN/.daw" ] && [ ! -f "$UN/.daw-installed.json" ] \
   && ok "the method and the manifest are gone" \
   || bad "the method survived an uninstall"
 [ ! -d "$UN/.gemini" ] \
-  && ok "and a tool directory that was entirely DDW's goes with it" \
-  || bad ".gemini/ was left behind holding nothing but DDW's own leftovers"
-grep -q "MY OWN NOTES" "$UN/AGENTS.md" && ! grep -q "BEGIN DDW" "$UN/AGENTS.md" \
+  && ok "and a tool directory that was entirely DAW's goes with it" \
+  || bad ".gemini/ was left behind holding nothing but DAW's own leftovers"
+grep -q "MY OWN NOTES" "$UN/AGENTS.md" && ! grep -q "BEGIN DAW" "$UN/AGENTS.md" \
   && ok "AGENTS.md keeps your content and loses the block" \
-  || bad "AGENTS.md was either destroyed or left with a DDW block pointing at nothing"
+  || bad "AGENTS.md was either destroyed or left with a DAW block pointing at nothing"
 [ ! -f "$UN/CLAUDE.md" ] \
-  && ok "and a file that held nothing but DDW's pointer is removed rather than left empty" \
+  && ok "and a file that held nothing but DAW's pointer is removed rather than left empty" \
   || bad "CLAUDE.md was left behind as an empty husk"
-grep -q "node_modules/" "$UN/.gitignore" && ! grep -q "BEGIN DDW" "$UN/.gitignore" \
-  && ok ".gitignore keeps your rules and loses DDW's" \
+grep -q "node_modules/" "$UN/.gitignore" && ! grep -q "BEGIN DAW" "$UN/.gitignore" \
+  && ok ".gitignore keeps your rules and loses DAW's" \
   || bad ".gitignore was mangled by the uninstall"
 
-# The settings file is MERGED into on install, so it may be yours. Leaving DDW's
+# The settings file is MERGED into on install, so it may be yours. Leaving DAW's
 # hooks in it is not untidiness: they point at scripts that no longer exist, and
 # every session in the repo would fail on a command not found.
 grep -q "MY OWN HOOK" "$UN/.claude/settings.json" && grep -q '"model"' "$UN/.claude/settings.json" \
   && ok "settings.json keeps your hooks and your other settings" \
-  || bad "the uninstall overwrote settings.json instead of removing only DDW's blocks"
-# By the scripts' NAME, not by the string `ddw`. Claude is the only one of the
-# six whose wiring does not hang off a `ddw/` subdirectory — `bash
-# ${CLAUDE_PROJECT_DIR}/.claude/hooks/enforce.sh` — so searching for "ddw" here
+  || bad "the uninstall overwrote settings.json instead of removing only DAW's blocks"
+# By the scripts' NAME, not by the string `daw`. Claude is the only one of the
+# six whose wiring does not hang off a `daw/` subdirectory — `bash
+# ${CLAUDE_PROJECT_DIR}/.claude/hooks/enforce.sh` — so searching for "daw" here
 # found nothing even when all five blocks were left in place pointing at
 # freshly deleted scripts. Verified by undoing the entire un-merge: three
 # neighboring checks in red and this one reporting ✓. A check that cannot fail
 # reports green for lack of anything else to say.
 grep -qE "enforce\.sh|session-start\.sh|validate-state-transition\.sh" "$UN/.claude/settings.json" \
-  && bad "DDW's hooks are still wired to scripts that were just deleted — every session fails on a missing command" \
-  || ok "and DDW's own hook blocks are unwired"
+  && bad "DAW's hooks are still wired to scripts that were just deleted — every session fails on a missing command" \
+  || ok "and DAW's own hook blocks are unwired"
 
-# Nothing DDW installed may be left behind, for ANY tool. The manifest speaks in
+# Nothing DAW installed may be left behind, for ANY tool. The manifest speaks in
 # repo paths now, but it used to record skills, agents and commands relative to
 # the adapter's own directory — and the resolver knew two of those three, so
 # every generated slash command survived every uninstall. On OpenCode, whose
 # whole surface is commands plus one plugin file, that is most of the install.
-python3 - "$SELF" <<'PYUNINST' && ok "uninstalling leaves nothing DDW installed behind, on any of the six tools, and keeps a file you edited unless you force it" || bad "an uninstall leaves DDW files behind, or destroys a file you had changed"
+python3 - "$SELF" <<'PYUNINST' && ok "uninstalling leaves nothing DAW installed behind, on any of the six tools, and keeps a file you edited unless you force it" || bad "an uninstall leaves DAW files behind, or destroys a file you had changed"
 import glob, json, os, shutil, subprocess, sys, tempfile
 src = sys.argv[1]
 work = tempfile.mkdtemp(dir=os.environ["WORK"])
@@ -6189,14 +6189,14 @@ for target in ("claude", "codex", "copilot", "cursor", "gemini", "opencode"):
     subprocess.run(["git", "-C", repo, "init", "-q"], check=True)
     subprocess.run(["bash", os.path.join(src, "install.sh"), repo, "--target", target],
                    capture_output=True, text=True)
-    recorded = json.load(open(os.path.join(repo, ".ddw-installed.json"), encoding="utf-8"))
+    recorded = json.load(open(os.path.join(repo, ".daw-installed.json"), encoding="utf-8"))
     installed = [k.split(":", 1)[-1] for k in recorded]
     subprocess.run(["bash", os.path.join(src, "uninstall.sh"), repo, "--yes"],
                    capture_output=True, text=True)
     left = [rel for rel in installed if os.path.exists(os.path.join(repo, rel))]
     assert not left, f"{target}: uninstall left {len(left)} installed file(s) behind: {left[:4]}"
 
-# The other half of the promise, which had no check at all: a DDW file YOU
+# The other half of the promise, which had no check at all: a DAW file YOU
 # edited is kept, and only `--force` takes it. Deleting a user's edit silently is
 # the one thing an uninstaller must never do.
 repo = os.path.join(work, "edited")
@@ -6209,14 +6209,14 @@ edited = os.path.join(repo, ".claude", "hooks", "enforce.sh")
 open(edited, "a", encoding="utf-8").write(MINE)
 subprocess.run(["bash", os.path.join(src, "uninstall.sh"), repo, "--yes"],
                capture_output=True, text=True)
-assert os.path.exists(edited), "a DDW file the user had edited was deleted without --force"
+assert os.path.exists(edited), "a DAW file the user had edited was deleted without --force"
 assert MINE in open(edited, encoding="utf-8").read(), "the user's edit was lost"
 subprocess.run(["bash", os.path.join(src, "uninstall.sh"), repo, "--yes", "--force"],
                capture_output=True, text=True)
 assert not os.path.exists(edited), "--force did not remove the file it exists to remove"
 
 # A manifest an OLDER install left behind. Those recorded skills, agents and
-# commands relative to the adapter's own directory (`claude:skills/ddw-commit`)
+# commands relative to the adapter's own directory (`claude:skills/daw-commit`)
 # rather than to the repo, and the resolver knew two of those three dialects — so
 # every generated slash command survived every uninstall. The repo-relative keys
 # written from this version on make the translation unnecessary, which is exactly
@@ -6228,7 +6228,7 @@ subprocess.run(["git", "-C", legacy, "init", "-q"], check=True)
 # them, plus one plugin file. Claude generates none, so the case would not exist.
 subprocess.run(["bash", os.path.join(src, "install.sh"), legacy, "--target", "opencode"],
                capture_output=True, text=True)
-mpath = os.path.join(legacy, ".ddw-installed.json")
+mpath = os.path.join(legacy, ".daw-installed.json")
 current = json.load(open(mpath, encoding="utf-8"))
 old_style, samples = {}, []
 for key, digest in current.items():
@@ -6254,9 +6254,9 @@ assert not survivors, \
 # this version ships answers "is this ours?" only for the version asking: rename
 # a hook script between releases and the block from before belongs to nobody, so
 # it survives the uninstall while the script it names is deleted — a repository
-# that cannot be left, failing on `command not found` at every write, with DDW
-# gone and nothing left to explain it. The manifest says what DDW installed; a
-# block naming one of those files is DDW's whichever version wired it.
+# that cannot be left, failing on `command not found` at every write, with DAW
+# gone and nothing left to explain it. The manifest says what DAW installed; a
+# block naming one of those files is DAW's whichever version wired it.
 stale = os.path.join(work, "stale")
 os.makedirs(stale)
 subprocess.run(["git", "-C", stale, "init", "-q"], check=True)
@@ -6270,7 +6270,7 @@ for event, groups in hooks.items():
     for group in groups:
         for h in group.get("hooks", []):
             # The same hook file, wired the way another version wrote it. Not
-            # byte-identical to anything this version ships; still DDW's.
+            # byte-identical to anything this version ships; still DAW's.
             if ".claude/hooks/" in h.get("command", ""):
                 h["command"] = h["command"].replace("bash ", "bash -- ", 1)
                 touched += 1
@@ -6287,7 +6287,7 @@ assert not orphans, \
      "repository now fails on a script the uninstall deleted" % (len(orphans), orphans[:2]))
 
 # The context file of every tool that has one. `GEMINI.md` was written and not
-# removed: it stayed in the repo importing `@.ddw/orchestrator.md` with `.ddw/`
+# removed: it stayed in the repo importing `@.daw/orchestrator.md` with `.daw/`
 # already deleted, and every Gemini session there starts by reading a file that
 # is not there. Derived from the adapters, not from a list here: a list here is
 # a second copy, and the second copy is the one that misses the tool added
@@ -6309,8 +6309,8 @@ for _recipe in sorted(glob.glob(os.path.join(src, "adapters/*/adapter.json"))):
                    capture_output=True, text=True)
     if os.path.exists(_path):
         _left = open(_path, encoding="utf-8").read()
-        assert "BEGIN DDW" not in _left, \
-            ("%s was left with DDW's block after uninstalling: it imports a method that is "
+        assert "BEGIN DAW" not in _left, \
+            ("%s was left with DAW's block after uninstalling: it imports a method that is "
              "no longer there, and every session in that repo starts by reading a deleted file" % _ctx)
 
 # And the plan that gets approved has to be the deletion that runs. With
@@ -6340,11 +6340,11 @@ PYUNINST
 
 # The manifest is COMMITTED, so it arrives with the clone, from whoever wrote it —
 # and the uninstaller removes what its keys name. Four keys, each a different way
-# to name something that is not DDW's: out of the repo, an absolute path, the
+# to name something that is not DAW's: out of the repo, an absolute path, the
 # repository ITSELF (which passed a containment check written as "is it inside?"
 # and was handed to rmtree), and `.git`. A mutation for this existed and killed
 # nothing, because no check drove it: the guard was measured by reading it.
-python3 - "$SELF" <<'PYESCAPE' && ok "an uninstall refuses a manifest entry naming anything outside the repo, the repo root itself, or .git — and says so" || bad "a committed manifest can make the uninstaller delete a path DDW never installed, up to and including the working tree"
+python3 - "$SELF" <<'PYESCAPE' && ok "an uninstall refuses a manifest entry naming anything outside the repo, the repo root itself, or .git — and says so" || bad "a committed manifest can make the uninstaller delete a path DAW never installed, up to and including the working tree"
 import json, os, subprocess, sys, tempfile
 src = sys.argv[1]
 work = tempfile.mkdtemp(dir=os.environ["WORK"])
@@ -6362,7 +6362,7 @@ open(os.path.join(absolute, "x.txt"), "w", encoding="utf-8").write("not yours ei
 mine = os.path.join(repo, "main.py")
 open(mine, "w", encoding="utf-8").write("print('mine')\n")
 
-mpath = os.path.join(repo, ".ddw-installed.json")
+mpath = os.path.join(repo, ".daw-installed.json")
 manifest = json.load(open(mpath, encoding="utf-8"))
 manifest.update({"claude:../NEIGHBOUR": "x", "claude:" + absolute: "x",
                  "claude:.": "x", "claude:.git": "x"})
@@ -6379,12 +6379,12 @@ assert os.path.isdir(absolute) and os.path.exists(os.path.join(absolute, "x.txt"
     "an absolute path in the manifest was removed"
 assert os.path.isdir(repo), "the uninstaller removed the repository itself"
 assert os.path.isdir(os.path.join(repo, ".git")), \
-    "the uninstaller removed .git — the history of a repo that only wanted DDW gone"
+    "the uninstaller removed .git — the history of a repo that only wanted DAW gone"
 assert os.path.exists(mine), "the user's own file was removed with the repository root"
 assert "REFUSED" in report, \
-    "four entries naming paths DDW never installed were skipped in silence: " + report[-300:]
+    "four entries naming paths DAW never installed were skipped in silence: " + report[-300:]
 # And the ordinary uninstall still happened around them.
-assert not os.path.isdir(os.path.join(repo, ".ddw")), \
+assert not os.path.isdir(os.path.join(repo, ".daw")), \
     "a hostile manifest entry stopped the uninstall it was mixed into"
 PYESCAPE
 
@@ -6399,27 +6399,27 @@ src = sys.argv[1]
 repo = os.path.join(tempfile.mkdtemp(dir=os.environ["WORK"]), "repo")
 os.makedirs(repo)
 subprocess.run(["git", "-C", repo, "init", "-q"], check=True)
-for k, v in (("user.email", "ddw@test"), ("user.name", "ddw"), ("commit.gpgsign", "false")):
+for k, v in (("user.email", "daw@test"), ("user.name", "daw"), ("commit.gpgsign", "false")):
     subprocess.run(["git", "-C", repo, "config", k, v], check=True)
 subprocess.run(["bash", os.path.join(src, "install.sh"), repo, "--target", "claude"],
                capture_output=True, text=True)
-tr = os.path.join(repo, ".ddw", "scripts", "transition.py")
-graph = os.path.join(repo, ".ddw", "rules", "transition-graph.json")
-state = os.path.join(repo, ".ddw-state.json")
+tr = os.path.join(repo, ".daw", "scripts", "transition.py")
+graph = os.path.join(repo, ".daw", "rules", "transition-graph.json")
+state = os.path.join(repo, ".daw-state.json")
 WHERE = {"define": ("prd", "prd", "prd"), "spec": ("specs", "spec", "spec"),
          "threat": ("security", "threat", "threat"), "verify": ("reports", "verify", "verify"),
          "tests": ("reports", "tests", "tests"), "sast": ("security", "sast", "sast")}
-sess = os.path.join(repo, ".ddw-sessions")
+sess = os.path.join(repo, ".daw-sessions")
 os.makedirs(sess, exist_ok=True)
 for gate, (sub, stem, receipt) in WHERE.items():
-    d = os.path.join(repo, "docs", "ddw", sub)
+    d = os.path.join(repo, "docs", "daw", sub)
     os.makedirs(d, exist_ok=True)
     p = os.path.join(d, "%s-T-1.md" % stem)
     open(p, "w", encoding="utf-8").write("# %s\n" % stem)
     dg = hashlib.sha256(open(p, encoding="utf-8").read().encode("utf-8")).hexdigest()[:12]
     nm = "%s-validated-%s" % (receipt, dg)
     open(os.path.join(sess, nm), "w").write(os.path.basename(p))
-    with open(os.path.join(repo, ".ddw-journal.jsonl"), "a", encoding="utf-8") as fh:
+    with open(os.path.join(repo, ".daw-journal.jsonl"), "a", encoding="utf-8") as fh:
         fh.write(json.dumps({"record": "receipt", "name": nm,
                              "file": os.path.basename(p)}, sort_keys=True) + "\n")
 
@@ -6436,10 +6436,10 @@ def step(*args):
 
 # The classify edge's context check and CODE's decisions record — other gates
 # than the ones under test here, satisfied the way a real run leaves them.
-os.makedirs(os.path.join(repo, ".ddw-work"), exist_ok=True)
-open(os.path.join(repo, ".ddw-work", "context-check-T-1.md"), "w", encoding="utf-8").write(
+os.makedirs(os.path.join(repo, ".daw-work"), exist_ok=True)
+open(os.path.join(repo, ".daw-work", "context-check-T-1.md"), "w", encoding="utf-8").write(
     "Nothing to report.\n")
-open(os.path.join(repo, "docs", "ddw", "specs", "decisions-T-1.md"), "w", encoding="utf-8").write(
+open(os.path.join(repo, "docs", "daw", "specs", "decisions-T-1.md"), "w", encoding="utf-8").write(
     "No decisions were approved outside the spec during this ticket.\n")
 
 step("--to", "CLASSIFY", "--action", "c", "--tier", "FEATURE", "--ticket", "T-1")
@@ -6469,7 +6469,7 @@ assert "--claim" in r.stderr, "the refusal does not say how to earn the gate: " 
 # …and --claim earns it where it is earned: with the evidence, in the phase.
 subprocess.run(["git", "-C", repo, "add", "-A"], capture_output=True)
 subprocess.run(["git", "-C", repo, "commit", "-qm", "the work"], capture_output=True)
-open(os.path.join(repo, "docs", "ddw", "prd", "prd-T-1.md"), "a", encoding="utf-8").write("more\n")
+open(os.path.join(repo, "docs", "daw", "prd", "prd-T-1.md"), "a", encoding="utf-8").write("more\n")
 r = run("--claim", "commit")
 assert r.returncode == 2, "the commit gate was claimed with tracked changes uncommitted"
 subprocess.run(["git", "-C", repo, "add", "-A"], capture_output=True)
@@ -6492,8 +6492,8 @@ PYCLAIM
 python3 - "$SELF" <<'PYHINTS' && ok "an edge to IDLE that does not exist says which phase closes a ticket, instead of prescribing gates that change nothing" || bad "a refused edge to IDLE still prescribes a claim that succeeds and leaves the same refusal in place"
 import json, os, subprocess, sys, tempfile
 src = sys.argv[1]
-tr = os.path.join(src, "ddw/scripts/transition.py")
-graph = os.path.join(src, "ddw/rules/transition-graph.json")
+tr = os.path.join(src, "daw/scripts/transition.py")
+graph = os.path.join(src, "daw/rules/transition-graph.json")
 work = tempfile.mkdtemp(dir=os.environ["WORK"])
 state = os.path.join(work, "mid.json")
 open(state, "w", encoding="utf-8").write(json.dumps({
@@ -6512,8 +6512,8 @@ PYHINTS
 python3 - "$SELF" <<'PYRESUME' && ok "out of IDLE, a paused ticket is pointed at the resume that works — and a state with nothing paused is still sent to CLASSIFY" || bad "the way out of IDLE is described by a hint the state contradicts"
 import json, os, subprocess, sys, tempfile
 src = sys.argv[1]
-tr = os.path.join(src, "ddw/scripts/transition.py")
-graph = os.path.join(src, "ddw/rules/transition-graph.json")
+tr = os.path.join(src, "daw/scripts/transition.py")
+graph = os.path.join(src, "daw/rules/transition-graph.json")
 work = tempfile.mkdtemp(dir=os.environ["WORK"])
 
 def run(state, *args):
@@ -6553,7 +6553,7 @@ PYRESUME
 python3 - "$SELF" <<'PYFOUR' && ok "an unmapped tool cannot write the state, the pr gate asks by branch, a child tier overrides its parent, and a dangling skill reference is caught" || bad "one of the four: an unknown tool writes the state unexamined, `gh pr view` takes any PR, the tier chain is inverted, or the linter stopped reading the prose"
 import importlib.util, json, os, subprocess, sys, tempfile
 src = sys.argv[1]
-spec = importlib.util.spec_from_file_location("vt", os.path.join(src, "ddw/scripts/validate-transition.py"))
+spec = importlib.util.spec_from_file_location("vt", os.path.join(src, "daw/scripts/validate-transition.py"))
 m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
 
 # 1. A tool the mapper does not know must not be able to produce a new state.
@@ -6566,12 +6566,12 @@ except m.Block:
 # 2. The pr gate asks `gh pr list --head <branch>`, never `gh pr view <branch>`:
 #    `view` takes a number OR a branch, so a branch named `123` resolved to PR
 #    #123 — any state, any topic — and opened the gate.
-source = open(os.path.join(src, "ddw/scripts/validate-transition.py"), encoding="utf-8").read()
+source = open(os.path.join(src, "daw/scripts/validate-transition.py"), encoding="utf-8").read()
 assert '"gh", "pr", "list", "--head"' in source, \
     "the pr gate no longer asks by branch; `gh pr view <branch>` opens on someone else's PR"
 
 # 3. The tier chain: a child must be able to override an edge its parent defines.
-graph = json.load(open(os.path.join(src, "ddw/rules/transition-graph.json"), encoding="utf-8"))
+graph = json.load(open(os.path.join(src, "daw/rules/transition-graph.json"), encoding="utf-8"))
 probe = json.loads(json.dumps(graph))
 probe["tiers"]["FIX"] = {"extends": "FEATURE", "PLAN->CODE": {"gates": ["only-mine"]}}
 edges = m._effective_edges(probe, "FIX")
@@ -6582,16 +6582,16 @@ assert edges["PLAN->CODE"]["gates"] == ["only-mine"], \
 work = tempfile.mkdtemp(dir=os.environ["WORK"])
 subprocess.run(["cp", "-r", src, os.path.join(work, "repo")], check=True)
 repo = os.path.join(work, "repo")
-victim = os.path.join(repo, "skills", "ddw-status", "SKILL.md")
-open(victim, "a", encoding="utf-8").write('\n\nSkill(skill="ddw-does-not-exist")\n')
+victim = os.path.join(repo, "skills", "daw-status", "SKILL.md")
+open(victim, "a", encoding="utf-8").write('\n\nSkill(skill="daw-does-not-exist")\n')
 r = subprocess.run([sys.executable, os.path.join(repo, "scripts/lint_method.py")],
                    capture_output=True, text=True, cwd=repo)
-assert r.returncode != 0 and "ddw-does-not-exist" in (r.stdout + r.stderr), \
+assert r.returncode != 0 and "daw-does-not-exist" in (r.stdout + r.stderr), \
     "a skill named in a SKILL.md that does not exist went uncaught: " + (r.stdout + r.stderr)[-300:]
 PYFOUR
 
 # The catalog's Quantitative Summary said 69 FAIL rules and 84 total where its
-# tables define 65 and 80, and `ddw/rules/README.md` repeated the 84. Nobody
+# tables define 65 and 80, and `daw/rules/README.md` repeated the 84. Nobody
 # mis-typed it: rules were merged and removed over three rounds and the summary
 # was never recounted. The number the method is FOR was the one number nothing
 # checked.
@@ -6617,18 +6617,18 @@ code, out = lint()
 assert code == 0, "the shipped tree does not lint clean, so nothing below means anything: " + out[-300:]
 
 # One area row overstated by one, exactly the shape the drift took.
-rewrite("ddw/rules/validation-rules.instructions.md", "| PRD | 12 | 6 | 18 |", "| PRD | 13 | 6 | 19 |")
+rewrite("daw/rules/validation-rules.instructions.md", "| PRD | 12 | 6 | 18 |", "| PRD | 13 | 6 | 19 |")
 code, out = lint()
 assert code != 0 and "PRD" in out and "12" in out, \
     "an area row that overcounts its own rules passed: " + out[-300:]
-rewrite("ddw/rules/validation-rules.instructions.md", "| PRD | 13 | 6 | 19 |", "| PRD | 12 | 6 | 18 |")
+rewrite("daw/rules/validation-rules.instructions.md", "| PRD | 13 | 6 | 19 |", "| PRD | 12 | 6 | 18 |")
 
 # The total alone, with every row correct — the arithmetic nobody redid.
-rewrite("ddw/rules/validation-rules.instructions.md",
+rewrite("daw/rules/validation-rules.instructions.md",
         "| **Total** | **73** | **18** | **91** |", "| **Total** | **77** | **18** | **95** |")
 code, out = lint()
 assert code != 0 and "73" in out, "a summary whose total contradicts its own rows passed: " + out[-300:]
-rewrite("ddw/rules/validation-rules.instructions.md",
+rewrite("daw/rules/validation-rules.instructions.md",
         "| **Total** | **77** | **18** | **95** |", "| **Total** | **73** | **18** | **91** |")
 
 # Two more of the linter's checks, driven the same way. Both were added with a
@@ -6638,7 +6638,7 @@ rewrite("ddw/rules/validation-rules.instructions.md",
 
 # The 🔒 mark: a phase that blocks source and does not say the hook is what
 # refuses it reads like the rules nothing enforces.
-orch = os.path.join(repo, "ddw/orchestrator.md")
+orch = os.path.join(repo, "daw/orchestrator.md")
 text = open(orch, encoding="utf-8").read()
 # The line has to be one the check judges: a phase that blocks source, and not
 # one of the phases where source is allowed and there is nothing to mark.
@@ -6653,9 +6653,9 @@ assert code != 0 and "mark" in out.lower(), \
     "a phase that blocks source without marking it as the hook's passed: " + out[-300:]
 open(orch, "w", encoding="utf-8").write(text)
 
-# The context template: a section it ships that `ddw-context-check` never looks
+# The context template: a section it ships that `daw-context-check` never looks
 # for means a repository missing that section is reported as complete.
-tpl = os.path.join(repo, "ddw/AGENTS.template.md")
+tpl = os.path.join(repo, "daw/AGENTS.template.md")
 text = open(tpl, encoding="utf-8").read()
 open(tpl, "a", encoding="utf-8").write("\n## Deployment topology\n\nWhere this runs.\n")
 code, out = lint()
@@ -6666,9 +6666,9 @@ open(tpl, "w", encoding="utf-8").write(text)
 # The heading the skills order CITED has to be in the template the installer
 # writes. The two skills that ask for a coverage floor cite
 # `AGENTS.md, "Testing"` in the document they teach, and the linter's sweep
-# only looked at `ddw/**`: the template's section could be deleted and the lint
+# only looked at `daw/**`: the template's section could be deleted and the lint
 # stayed green. It is what 87ae703 fixed, and nothing was holding it up.
-tpl2 = os.path.join(repo, "ddw/AGENTS.template.md")
+tpl2 = os.path.join(repo, "daw/AGENTS.template.md")
 text = open(tpl2, encoding="utf-8").read()
 cut = re.sub(r"^## Testing.*?(?=^## )", "", text, flags=re.M | re.S)
 assert cut != text, "the template no longer carries `## Testing`, so there is no case to plant"
@@ -6687,7 +6687,7 @@ open(tpl2, "w", encoding="utf-8").write(text)
 # person reads.
 method = os.path.join(repo, "docs/METHOD.md")
 text = open(method, encoding="utf-8").read()
-graph = json.load(open(os.path.join(repo, "ddw/rules/transition-graph.json"), encoding="utf-8"))
+graph = json.load(open(os.path.join(repo, "daw/rules/transition-graph.json"), encoding="utf-8"))
 def _asks(tier):
     """What a tier asks for, with the `extends` chain resolved: reading only its
     own keys, every inheriting tier looks like it asks for nothing — and then
@@ -6716,11 +6716,11 @@ code, out = lint()
 assert code == 0, "the tree was not put back the way it was found: " + out[-300:]
 
 # And the restatement outside the catalog, which is the line a reader of
-# `ddw/rules/` meets first.
-rewrite("ddw/rules/README.md", "The 91 validation rules", "The 94 validation rules")
+# `daw/rules/` meets first.
+rewrite("daw/rules/README.md", "The 91 validation rules", "The 94 validation rules")
 code, out = lint()
 assert code != 0 and "91" in out, "the README's rule count drifted from the catalog unchecked: " + out[-300:]
-rewrite("ddw/rules/README.md", "The 94 validation rules", "The 91 validation rules")
+rewrite("daw/rules/README.md", "The 94 validation rules", "The 91 validation rules")
 
 code, out = lint()
 assert code == 0, "the probe was not restored: " + out[-300:]
@@ -6736,7 +6736,7 @@ PYRULECOUNT
 python3 - "$SELF" <<'PYTIERDOC' && ok "every tier the graph defines is explained where the model and the reader look for it" || bad "a tier can be added to the graph and named nowhere — the model cannot choose on purpose what nobody described"
 import json, os, re, shutil, subprocess, sys, tempfile
 src = sys.argv[1]
-graph = json.load(open(os.path.join(src, "ddw/rules/transition-graph.json"), encoding="utf-8"))
+graph = json.load(open(os.path.join(src, "daw/rules/transition-graph.json"), encoding="utf-8"))
 tiers = sorted(graph.get("tiers", {}))
 assert len(tiers) >= 2, "the graph defines fewer than two tiers; this check has nothing to compare"
 
@@ -6756,7 +6756,7 @@ assert code == 0, "the shipped tree does not lint clean, so nothing below means 
 # Take one tier out of the rules that say when to choose it, and the linter has
 # to notice. Done for EVERY tier rather than one, so a check that happens to
 # name the tier that was there when it was written keeps working.
-rules = os.path.join(probe, "ddw/rules/classify.instructions.md")
+rules = os.path.join(probe, "daw/rules/classify.instructions.md")
 original = open(rules, encoding="utf-8").read()
 for tier in tiers:
     open(rules, "w", encoding="utf-8").write(original.replace(tier, "REDACTED-TIER"))
@@ -6786,7 +6786,7 @@ d = tempfile.mkdtemp(dir=os.environ["WORK"])
 report = os.path.join(d, "blank.md")
 open(report, "w", encoding="utf-8").write("\n" * 20000)
 
-for v in sorted(glob.glob(os.path.join(src, "ddw/scripts/validate_*.py"))):
+for v in sorted(glob.glob(os.path.join(src, "daw/scripts/validate_*.py"))):
     began = time.time()
     try:
         r = subprocess.run([sys.executable, v, report, "--tier", "FEATURE"],
@@ -6803,7 +6803,7 @@ for v in sorted(glob.glob(os.path.join(src, "ddw/scripts/validate_*.py"))):
 # pattern is the tell: under MULTILINE it is an invitation to scan the file from
 # every line, and what it always means is the indentation of one line.
 offenders = []
-for path in sorted(glob.glob(os.path.join(src, "ddw/scripts/*.py"))):
+for path in sorted(glob.glob(os.path.join(src, "daw/scripts/*.py"))):
     body = open(path, encoding="utf-8").read()
     for m in re.finditer(r"""r f?["']\^\\s\*""".replace(" ", ""), body):
         offenders.append("%s:%d" % (os.path.basename(path), body[:m.start()].count("\n") + 1))
@@ -6819,9 +6819,9 @@ PYSLOWRE
 python3 - "$SELF" <<'PYCLOCK' && ok "the history cannot go backwards in time, and two transitions in the same second still can" || bad "an entry dated before the one above it lands, so the audit record cannot be read in order"
 import importlib.util, json, os, sys
 src = sys.argv[1]
-spec = importlib.util.spec_from_file_location("vt", os.path.join(src, "ddw/scripts/validate-transition.py"))
+spec = importlib.util.spec_from_file_location("vt", os.path.join(src, "daw/scripts/validate-transition.py"))
 vt = importlib.util.module_from_spec(spec); spec.loader.exec_module(vt)
-graph = json.load(open(os.path.join(src, "ddw/rules/transition-graph.json"), encoding="utf-8"))
+graph = json.load(open(os.path.join(src, "daw/rules/transition-graph.json"), encoding="utf-8"))
 FIRST = {"timestamp": "2026-08-06T10:00:00Z", "from": "IDLE", "to": "CLASSIFY", "action": "a",
          "tier": "FEATURE", "ticket": "T-1"}
 
@@ -6915,19 +6915,19 @@ python3 - "$SELF" <<'PYWARNPOS' && ok "the two warnings fire when they should, n
 import os, subprocess, sys, tempfile
 src = sys.argv[1]
 d = tempfile.mkdtemp(dir=os.environ["WORK"])
-os.makedirs(os.path.join(d, "docs/ddw/reports"))
-os.makedirs(os.path.join(d, "docs/ddw/specs"))
-os.makedirs(os.path.join(d, "docs/ddw/prd"))
+os.makedirs(os.path.join(d, "docs/daw/reports"))
+os.makedirs(os.path.join(d, "docs/daw/specs"))
+os.makedirs(os.path.join(d, "docs/daw/prd"))
 
 
 def run(script, doc, *extra):
-    r = subprocess.run([sys.executable, os.path.join(src, "ddw/scripts", script), doc,
+    r = subprocess.run([sys.executable, os.path.join(src, "daw/scripts", script), doc,
                         "--tier", "FEATURE", *extra], capture_output=True, text=True, cwd=d)
     return r.stdout + r.stderr
 
 
 # W-TEST-01: a complete report that says nothing about a linter has to say so.
-report = os.path.join(d, "docs/ddw/reports/tests-T-1.md")
+report = os.path.join(d, "docs/daw/reports/tests-T-1.md")
 open(report, "w", encoding="utf-8").write(
     "# Test run T-1\n\n| Field | Value |\n|---|---|\n| Runner | pytest 8.2 |\n"
     "| Command | `pytest -q` |\n| Total | 12 |\n| Passed | 12 |\n| Failed | 0 |\n"
@@ -6940,11 +6940,11 @@ assert "W-TEST-01" in out, \
     "ever checked for staying quiet:\n" + out[-400:]
 
 # W-SPEC-01: a block that traces to no FR, with no coverage row carrying it.
-prd = os.path.join(d, "docs/ddw/prd/prd-T-2.md")
+prd = os.path.join(d, "docs/daw/prd/prd-T-2.md")
 open(prd, "w", encoding="utf-8").write(
     "# PRD T-2\n\n## Functional Requirements\n- FR-01: the form\n\n"
     "## Acceptance Criteria\n- AC-01 (FR-01): WHEN a visitor opens it, THE system SHALL render it.\n")
-spec = os.path.join(d, "docs/ddw/specs/spec-T-2.md")
+spec = os.path.join(d, "docs/daw/specs/spec-T-2.md")
 open(spec, "w", encoding="utf-8").write(
     "# Spec T-2\n\n| Field | Value |\n|---|---|\n| Ticket | T-2 |\n\n"
     "## Block 1 — something nobody traced\n\n**Files**\n- `src/app.py`\n\n"
@@ -7006,7 +7006,7 @@ assert sorted(os.listdir(p)) == before, (
 # `commands` was read in the singular where the installer writes it in the
 # plural, so the directory of OpenCode's seventeen commands was never looked
 # at. With that one occupied, the refusal that promises "nothing has been
-# written" arrived after writing `.ddw/` and `AGENTS.md`, and with no manifest
+# written" arrived after writing `.daw/` and `AGENTS.md`, and with no manifest
 # — that is, with the drift detector off forever.
 for _rec in sorted(glob.glob(os.path.join(src, "adapters/*/adapter.json"))):
     _tool = os.path.basename(os.path.dirname(_rec))
@@ -7049,7 +7049,7 @@ assert os.path.isdir(os.path.join(ok_repo, ".claude", "skills")), "the wiring di
 # Two more shapes a real project arrives in, neither of which may end in a stack.
 for name, build in (("gitignore-is-a-dir", lambda p: os.makedirs(os.path.join(p, ".gitignore"))),
                     ("manifest-is-a-list",
-                     lambda p: open(os.path.join(p, ".ddw-installed.json"), "w").write("[1,2]"))):
+                     lambda p: open(os.path.join(p, ".daw-installed.json"), "w").write("[1,2]"))):
     p = repo(name)
     build(p)
     out = install(p)
@@ -7074,7 +7074,7 @@ def lint():
                        capture_output=True, text=True, cwd=repo)
     return r.returncode, r.stdout + r.stderr
 
-for rel in ("ddw/rules/code.instructions.md", "skills/ddw-test/SKILL.md"):
+for rel in ("daw/rules/code.instructions.md", "skills/daw-test/SKILL.md"):
     path = os.path.join(repo, rel)
     text = open(path, encoding="utf-8").read()
     open(path, "a", encoding="utf-8").write("\n\nApply `F-VER-01` to `F-VER-04`.\n")
@@ -7089,17 +7089,17 @@ PYRANGE
 
 # ── The phase has to route to the skill, or the skill's trigger is unreachable ─
 #
-# `ddw-create-adr` said "the agent MUST create an ADR when it detects…" and the
+# `daw-create-adr` said "the agent MUST create an ADR when it detects…" and the
 # phase that would detect it never named the skill — so the condition lived
 # inside a file the model reads only after deciding to invoke it, behind the
 # decision it was meant to cause. Measured on a live run: the design chose a
 # rate limit over a CAPTCHA, argued it well, and wrote nothing.
-python3 - "$SELF" <<'PYADRROUTE' && ok "the phases that make decisions route to the ADR skill, so its trigger is reachable" || bad "a phase stopped naming ddw-create-adr, and the skill's own trigger is behind the decision it exists to catch"
+python3 - "$SELF" <<'PYADRROUTE' && ok "the phases that make decisions route to the ADR skill, so its trigger is reachable" || bad "a phase stopped naming daw-create-adr, and the skill's own trigger is behind the decision it exists to catch"
 import os, sys
 src = sys.argv[1]
-for rel in ("ddw/rules/plan.instructions.md", "ddw/rules/code.instructions.md"):
+for rel in ("daw/rules/plan.instructions.md", "daw/rules/code.instructions.md"):
     text = open(os.path.join(src, rel), encoding="utf-8").read()
-    assert "ddw-create-adr" in text, (
+    assert "daw-create-adr" in text, (
         "%s never names the ADR skill: nothing in the phase asks whether this decision needs "
         "one, and the skill's automatic trigger is written where only its own invocation "
         "reaches it" % rel)
@@ -7108,13 +7108,13 @@ PYADRROUTE
 # ── The same question in six tools ────────────────────────────────────────────
 #
 # All six have something that turns a question into options the user picks from,
-# and DDW named none of them. Measured: two models asked the same thing on the
+# and DAW named none of them. Measured: two models asked the same thing on the
 # same repo, one offered a picker and the other prose, and neither was breaking
 # a rule — the user got two different products.
 python3 - "$SELF" <<'PYCHOICE' && ok "the rule that a choice is offered as a choice is written once, and every adapter names its own picker" || bad "an adapter stopped declaring how its tool asks, or the rule moved out of the orchestrator"
 import glob, json, os, sys
 src = sys.argv[1]
-orch = open(os.path.join(src, "ddw/orchestrator.md"), encoding="utf-8").read()
+orch = open(os.path.join(src, "daw/orchestrator.md"), encoding="utf-8").read()
 assert "choice_prompt" in orch, (
     "the orchestrator no longer sends the model to the adapter for its tool's picker, so the "
     "rule is a name six recipes carry and nothing reads")
@@ -7137,11 +7137,11 @@ PYCHOICE
 # confirmation a picker" is a trap: no hook receives a picker answer, so the
 # turn counter holding the commit gate would never move and the gate would
 # refuse the act the user just approved.
-grep -q '^## Your turn' "$SELF/ddw/orchestrator.md" \
-  && grep -q '🙋 YOUR TURN' "$SELF/ddw/orchestrator.md" \
+grep -q '^## Your turn' "$SELF/daw/orchestrator.md" \
+  && grep -q '🙋 YOUR TURN' "$SELF/daw/orchestrator.md" \
   && ok "a response that ends waiting on the user ends in the banner that says so" \
   || bad "the orchestrator no longer tells the model how to mark the turn that waits, and the ask goes back to an arrow in the noise"
-grep -q 'answered with a message, never with the picker' "$SELF/ddw/orchestrator.md" \
+grep -q 'answered with a message, never with the picker' "$SELF/daw/orchestrator.md" \
   && ok "the approvals the hooks measure are kept out of the picker no hook can see" \
   || bad "nothing stops a gated approval from moving into the picker, whose answer fires no event any hook receives"
 
@@ -7152,11 +7152,11 @@ grep -q 'answered with a message, never with the picker' "$SELF/ddw/orchestrator
 # (correctly) landed one, and the second sat waiting for an ok that decided
 # nothing — with the banner promising an arrow the enforcement could not let it
 # deliver.
-grep -q '^## Step 0: Enter the phase first' "$SELF/ddw/rules/classify.instructions.md" \
-  && grep -q -- '--to CLASSIFY' "$SELF/ddw/rules/classify.instructions.md" \
+grep -q '^## Step 0: Enter the phase first' "$SELF/daw/rules/classify.instructions.md" \
+  && grep -q -- '--to CLASSIFY' "$SELF/daw/rules/classify.instructions.md" \
   && ok "CLASSIFY is entered before the classification work, in the response that answers the request" \
   || bad "nothing tells the model when IDLE→CLASSIFY is written, so it defers the arrow and the user's ok owes two transitions"
-grep -q 'in this same response, before the' "$SELF/ddw/orchestrator.md" \
+grep -q 'in this same response, before the' "$SELF/daw/orchestrator.md" \
   && ok "the orchestrator's IDLE section takes the arrow the user's request already approved" \
   || bad "the orchestrator went back to a timeless 'transition to CLASSIFY', and the extra ok that decides nothing returns"
 
@@ -7167,12 +7167,12 @@ grep -q 'in this same response, before the' "$SELF/ddw/orchestrator.md" \
 # paid two extra oks. And the child's trip through CLASSIFY re-decided nothing:
 # tier, ticket and autonomy all existed before it — the split that named the
 # child was approved by the user, in a box, once.
-grep -q 'promises at most ONE arrow' "$SELF/ddw/orchestrator.md" \
+grep -q 'promises at most ONE arrow' "$SELF/daw/orchestrator.md" \
   && ok "the banner's promise is bounded to one arrow, said where every banner is defined" \
   || bad "nothing stops a banner from promising a chain the hook will refuse, and the user pays the difference in oks"
-grep -q 'directly in the phase the split paused from' "$SELF/ddw/rules/define.instructions.md" \
-  && grep -q -- '--action "split: abrir' "$SELF/ddw/rules/define.instructions.md" \
-  && grep -q '_split_open_allowed' "$SELF/ddw/scripts/validate-transition.py" \
+grep -q 'directly in the phase the split paused from' "$SELF/daw/rules/define.instructions.md" \
+  && grep -q -- '--action "split: abrir' "$SELF/daw/rules/define.instructions.md" \
+  && grep -q '_split_open_allowed' "$SELF/daw/scripts/validate-transition.py" \
   && ok "the split child opens where the split paused, and the edge the prose orders is one the gate proves" \
   || bad "the Split Protocol and the validator disagree about how a child opens — prose ordering an edge the gate refuses is this repo's oldest defect"
 
@@ -7182,8 +7182,8 @@ grep -q 'directly in the phase the split paused from' "$SELF/ddw/rules/define.in
 # which no hook receives — and `gh pr merge` ran mid-turn, ungated, while the
 # local revertible commit had a byte-sealed gate. The prose had said "in both
 # modes" since `minimal` existed; this is the pair that makes it true.
-grep -q '_IS_PR_MERGE' "$SELF/ddw/scripts/hook-gate.py" \
-  && grep -q 'confirms \*\*with a message\*\*' "$SELF/ddw/rules/closeout.instructions.md" \
+grep -q '_IS_PR_MERGE' "$SELF/daw/scripts/hook-gate.py" \
+  && grep -q 'confirms \*\*with a message\*\*' "$SELF/daw/rules/closeout.instructions.md" \
   && ok "the merge is held by the same seal the commit is, and the closeout says so where the merge is chosen" \
   || bad "gh pr merge runs with no hook watching, or the closeout stopped saying the execution waits for a message"
 
@@ -7194,20 +7194,20 @@ grep -q '_IS_PR_MERGE' "$SELF/ddw/scripts/hook-gate.py" \
 # asked the one thing the user cared about — feedback, or merge? — and whose
 # final index commit stayed stranded on the machine, one commit ahead of the
 # PR it had just presented.
-grep -Fq 'ready for review — NOT a draft' "$SELF/skills/ddw-create-pr/SKILL.md" \
-  && ! grep -Fq 'ALWAYS create the PR as a **draft**' "$SELF/skills/ddw-create-pr/SKILL.md" \
-  && grep -Fq -- '--body-file .ddw-work/pr-body.md' "$SELF/skills/ddw-create-pr/SKILL.md" \
-  && grep -Fq 'never a shell heredoc' "$SELF/skills/ddw-create-pr/SKILL.md" \
+grep -Fq 'ready for review — NOT a draft' "$SELF/skills/daw-create-pr/SKILL.md" \
+  && ! grep -Fq 'ALWAYS create the PR as a **draft**' "$SELF/skills/daw-create-pr/SKILL.md" \
+  && grep -Fq -- '--body-file .daw-work/pr-body.md' "$SELF/skills/daw-create-pr/SKILL.md" \
+  && grep -Fq 'never a shell heredoc' "$SELF/skills/daw-create-pr/SKILL.md" \
   && ok "the PR is created ready for review, its body written with the Write tool and passed by file" \
   || bad "the PR is born a draft nobody can approve, or its body goes through a shell heredoc no hook sees"
-grep -Fq 'Are you waiting for feedback on' "$SELF/ddw/rules/closeout.instructions.md" \
-  && grep -Fq 'ready for review, not a draft' "$SELF/ddw/rules/closeout.instructions.md" \
+grep -Fq 'Are you waiting for feedback on' "$SELF/daw/rules/closeout.instructions.md" \
+  && grep -Fq 'ready for review, not a draft' "$SELF/daw/rules/closeout.instructions.md" \
   && ok "the integration step asks the user's actual question — waiting for feedback, or merge it now" \
   || bad "the integration box went back to jargon, and the feedback-or-merge decision hides behind option numbers"
-grep -Fq 'Then push the branch.' "$SELF/ddw/rules/closeout.instructions.md" \
+grep -Fq 'Then push the branch.' "$SELF/daw/rules/closeout.instructions.md" \
   && ok "the closeout pushes the index commit it makes after the PR, so the PR shows the whole ticket" \
   || bad "the closeout's own last commit strands on the machine again, and the PR reviews a branch already one commit stale"
-grep -Fq 'And aim for balance.' "$SELF/ddw/rules/define.instructions.md" \
+grep -Fq 'And aim for balance.' "$SELF/daw/rules/define.instructions.md" \
   && ok "the scope check aims for a balanced cut, and an over-ceiling part is approved knowingly or not at all" \
   || bad "an 11/6/2 cut sails through the scope check with nobody told the big part never shrank"
 
@@ -7215,19 +7215,19 @@ grep -Fq 'And aim for balance.' "$SELF/ddw/rules/define.instructions.md" \
 #
 # Left uncommitted, the framework surfaces at the first closeout — whose commit
 # gate demands a clean tree — and that ticket's PR carries all of it. Measured:
-# 68 files of DDW inside a pull request about a web form. With a terminal the
+# 68 files of DAW inside a pull request about a web form. With a terminal the
 # installer asks; without one it warns; a repo without git hears nothing.
 grep -q 'Commit the installation now?' "$SELF/install.sh" \
   && grep -q 'this repo is git-tracked and the installation is not committed' "$SELF/install.sh" \
   && grep -q 'offers to commit the installation' "$SELF/docs/INSTALL.md" \
   && ok "the installer offers to commit exactly what it wrote, and warns when it cannot ask" \
   || bad "the installation is left uncommitted in silence again, and the first ticket's PR will carry the framework"
-grep -Fq 'Where should the $DDW_LANDS land?' "$SELF/install.sh" \
-  && grep -q 'ddw-setup-' "$SELF/install.sh" \
-  && grep -q 'DDW_GIT_FLOW' "$SELF/install.sh" \
+grep -Fq 'Where should the $DAW_LANDS land?' "$SELF/install.sh" \
+  && grep -q 'daw-setup-' "$SELF/install.sh" \
+  && grep -q 'DAW_GIT_FLOW' "$SELF/install.sh" \
   && ok "a fresh install asks where it lands — setup branch, current branch, or files only — before writing" \
   || bad "the installer stopped asking where the installation lands, and it goes back to landing on whatever branch the user happened to be on"
-# And the same question RUN rather than grepped. `grep -q 'ddw-setup-'` proves
+# And the same question RUN rather than grepped. `grep -q 'daw-setup-'` proves
 # somebody typed the string; it does not reach the line that builds the name —
 # and no check in this file ever had. Every install here ran against a bare
 # `git init`, so `rev-parse --verify HEAD` failed and the whole git-flow block
@@ -7239,7 +7239,7 @@ grep -Fq 'Where should the $DDW_LANDS land?' "$SELF/install.sh" \
 # Driven through python for the timeout: `timeout(1)` is GNU, and this check
 # exists precisely for the platform that does not have it. A hang has to come
 # back as a sentence, not as a dead runner.
-python3 - "$SELF" <<'PYSETUPBRANCH' && ok "an install into a repository that has commits lands on a fresh ddw-setup-<hex> branch, finishes, and names a different branch every time" || bad "the installer hangs, fails, or cannot name the setup branch it stops to offer — on a repo with a commit, which is every repo anyone installs into"
+python3 - "$SELF" <<'PYSETUPBRANCH' && ok "an install into a repository that has commits lands on a fresh daw-setup-<hex> branch, finishes, and names a different branch every time" || bad "the installer hangs, fails, or cannot name the setup branch it stops to offer — on a repo with a commit, which is every repo anyone installs into"
 import os, re, subprocess, sys, tempfile
 src = sys.argv[1]
 seen = set()
@@ -7253,7 +7253,7 @@ for _ in range(2):
         git("config", k, v)
     open(os.path.join(repo, "README.md"), "w", encoding="utf-8").write("# fixture\n")
     git("add", "-A"); git("commit", "-qm", "init")
-    env = dict(os.environ, HOME=home, DDW_GIT_FLOW="setup")
+    env = dict(os.environ, HOME=home, DAW_GIT_FLOW="setup")
     env.pop("CLAUDE_PROJECT_DIR", None)
     try:
         r = subprocess.run(["bash", os.path.join(src, "install.sh"), repo, "--target", "claude"],
@@ -7265,7 +7265,7 @@ for _ in range(2):
             "the user sees the installer stop with nothing said.")
     assert r.returncode == 0, "the install failed: " + (r.stdout + r.stderr)[-400:]
     branch = git("rev-parse", "--abbrev-ref", "HEAD").stdout.strip()
-    assert re.fullmatch(r"ddw-setup-[0-9a-f]{6}", branch), \
+    assert re.fullmatch(r"daw-setup-[0-9a-f]{6}", branch), \
         "the install did not land on a setup branch of the shape it offers: %r" % branch
     seen.add(branch)
 # Random, not a constant with a hexadecimal look: two installs on the same day
@@ -7281,7 +7281,7 @@ PYSETUPBRANCH
 # that ticket's branch — the exact failure the question exists to prevent, and
 # one that already cost a pull request 66 framework files. The reasoning for
 # skipping it ("a new branch per refresh would be noise") holds while you are on
-# the branch DDW lives on and nowhere else.
+# the branch DAW lives on and nowhere else.
 #
 # Both halves are driven, because the cure has its own failure: a refresh that
 # writes nothing must not leave you standing on a branch made for a commit that
@@ -7301,7 +7301,7 @@ git("add", "-A"); git("commit", "-qm", "init")
 
 
 def install(flow):
-    env = dict(os.environ, HOME=home, DDW_GIT_FLOW=flow)
+    env = dict(os.environ, HOME=home, DAW_GIT_FLOW=flow)
     env.pop("CLAUDE_PROJECT_DIR", None)
     r = subprocess.run(["bash", os.path.join(src, "install.sh"), repo, "--target", "claude"],
                        capture_output=True, text=True, env=env, timeout=240)
@@ -7317,15 +7317,15 @@ git("checkout", "-q", "-b", "feat/T-1")
 open(os.path.join(repo, "src.py"), "w", encoding="utf-8").write("x = 1\n")
 git("add", "-A"); git("commit", "-qm", "the ticket's own work")
 # Something for the update to actually rewrite.
-open(os.path.join(repo, ".ddw", "orchestrator.md"), "a", encoding="utf-8").write("\n<!-- drift -->\n")
+open(os.path.join(repo, ".daw", "orchestrator.md"), "a", encoding="utf-8").write("\n<!-- drift -->\n")
 git("add", "-A"); git("commit", "-qm", "drift")
 
 install("setup")
 landed = branch()
-assert re.fullmatch(r"ddw-setup-[0-9a-f]{6}", landed), \
+assert re.fullmatch(r"daw-setup-[0-9a-f]{6}", landed), \
     "the update landed on %r — the ticket's own branch — instead of a setup branch of its own" % landed
 message = git("log", "-1", "--format=%s").stdout.strip()
-assert message.startswith("\U0001F527 chore(ddw): update DDW to"), \
+assert message.startswith("\U0001F527 chore(daw): update DAW to"), \
     "the update's commit calls itself an install: %r" % message
 
 # And the same run again, with nothing left to write.
@@ -7352,7 +7352,7 @@ start = src.index("Commit the installation now?")
 # Its own `case`, and no further: the paths beside it must not be what answers.
 end = src.index("      esac", start)
 offer = src[start:end]
-assert "ddw_warn_unpushed" in offer, \
+assert "daw_warn_unpushed" in offer, \
     "the standing offer commits without warning that the commit is not on the remote"
 assert "--abbrev-ref HEAD" in offer, \
     "the standing offer does not name the branch its commit landed on"
@@ -7365,8 +7365,8 @@ grep -Fq 'THIS COMMIT IS NOT ON YOUR REMOTE' "$SELF/install.sh" \
   && grep -Fq 'Push %s to origin now?' "$SELF/install.sh" \
   && ok "an installation committed on the current branch offers the push, and declined, warns that the commit must reach the remote before the first ticket" \
   || bad "the installer went quiet about a commit the remote never got — that silence already cost a PR 66 framework files"
-grep -Fq 'Two questions come BEFORE the branch exists' "$SELF/ddw/rules/branches.instructions.md" \
-  && grep -Fq 'git rev-list --count origin/{base}..{base}' "$SELF/ddw/rules/branches.instructions.md" \
+grep -Fq 'Two questions come BEFORE the branch exists' "$SELF/daw/rules/branches.instructions.md" \
+  && grep -Fq 'git rev-list --count origin/{base}..{base}' "$SELF/daw/rules/branches.instructions.md" \
   && ok "creating the ticket branch asks about a non-default base and stops on local-only commits the PR would drag along" \
   || bad "the branch gets created from whatever base happens to be checked out, and local-only commits ride into the ticket's PR unannounced"
 
@@ -7376,7 +7376,7 @@ grep -Fq 'Two questions come BEFORE the branch exists' "$SELF/ddw/rules/branches
 python3 - "$SELF" <<'PYAMBIG' && ok "an Edit to the state with an ambiguous old_string is refused unless it says replace_all" || bad "the state is reconstructed from a guess about which occurrence the model meant"
 import importlib.util, os, sys
 src = sys.argv[1]
-spec = importlib.util.spec_from_file_location("vt", os.path.join(src, "ddw/scripts/validate-transition.py"))
+spec = importlib.util.spec_from_file_location("vt", os.path.join(src, "daw/scripts/validate-transition.py"))
 m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
 OLD = '{"phase": "CODE", "a": "x", "b": "x"}'
 try:
@@ -7400,20 +7400,20 @@ PYAMBIG
 
 # Reinstalling on top must be as clean as the first time.
 bash "$SELF/install.sh" "$UN" --target claude >/dev/null 2>&1
-[ -d "$UN/.ddw" ] && [ -f "$UN/CLAUDE.md" ] && grep -q "MY OWN HOOK" "$UN/.claude/settings.json" \
+[ -d "$UN/.daw" ] && [ -f "$UN/CLAUDE.md" ] && grep -q "MY OWN HOOK" "$UN/.claude/settings.json" \
   && ok "and installing again afterwards works, still without touching what is yours" \
   || bad "a repo cannot be reinstalled cleanly after an uninstall"
 
 # What a SECOND version does, which nothing here had ever driven: the same repo,
-# upgraded by a DDW that ships something the first one did not. Two defects
+# upgraded by a DAW that ships something the first one did not. Two defects
 # lived in that gap, and the second one leaves a repo nobody can leave.
-python3 - "$SELF" <<'PYSECONDVERSION' && ok "an upgrade leaves a file of yours alone at a path DDW starts shipping, rewires a renamed hook instead of stacking it, and the uninstall after it leaves nothing pointing at a deleted script" || bad "a second version of DDW overwrites a file of yours, or leaves the repo wired to a hook script that no longer exists"
+python3 - "$SELF" <<'PYSECONDVERSION' && ok "an upgrade leaves a file of yours alone at a path DAW starts shipping, rewires a renamed hook instead of stacking it, and the uninstall after it leaves nothing pointing at a deleted script" || bad "a second version of DAW overwrites a file of yours, or leaves the repo wired to a hook script that no longer exists"
 import json, os, shutil, subprocess, sys, tempfile
 src = sys.argv[1]
 work = tempfile.mkdtemp(dir=os.environ["WORK"])
-# A copy of DDW to play the part of the NEXT release: the shipped tree is what
+# A copy of DAW to play the part of the NEXT release: the shipped tree is what
 # every other check reads, and this one has to change what is shipped.
-nxt = os.path.join(work, "ddw-next")
+nxt = os.path.join(work, "daw-next")
 shutil.copytree(src, nxt, symlinks=True, ignore=shutil.ignore_patterns(".git", "__pycache__"))
 
 
@@ -7437,7 +7437,7 @@ install(repo)
 mine = os.path.join(repo, ".claude", "hooks", "audit.sh")
 open(mine, "w", encoding="utf-8").write("MY OWN AUDIT HOOK\n")
 open(os.path.join(nxt, "adapters", "claude", "hooks", "audit.sh"), "w",
-     encoding="utf-8").write("#!/usr/bin/env bash\n# DDW's own audit hook\n")
+     encoding="utf-8").write("#!/usr/bin/env bash\n# DAW's own audit hook\n")
 r = install(repo, nxt)
 assert "MY OWN AUDIT HOOK" in open(mine, encoding="utf-8").read(), (
     "the upgrade overwrote a file the user had at a path the new version starts shipping — "
@@ -7447,7 +7447,7 @@ assert "audit.sh" in r.stdout, "the file was kept and the run never said so: " +
 os.remove(os.path.join(nxt, "adapters", "claude", "hooks", "audit.sh"))
 
 # 2. A hook script the next version renames. The block naming the old one is
-#    DDW's, whichever version wired it — so the upgrade takes it out instead of
+#    DAW's, whichever version wired it — so the upgrade takes it out instead of
 #    stacking a second one beside it.
 repo = os.path.join(work, "renamed")
 os.makedirs(repo)
@@ -7472,7 +7472,7 @@ assert not any("enforce.sh" in json.dumps(b) for b in after), \
 # 3. …and the uninstall after that upgrade leaves nothing behind. Byte-for-byte
 #    against what the CURRENT version ships answers "is this block ours?" only
 #    for the version asking, so a block from before survived while the script it
-#    names was deleted — every write failing on a command not found, with DDW
+#    names was deleted — every write failing on a command not found, with DAW
 #    gone and nothing left to explain it.
 subprocess.run(["bash", os.path.join(nxt, "uninstall.sh"), repo, "--yes"],
                capture_output=True, text=True)
@@ -7493,9 +7493,9 @@ PYSECONDVERSION
 # stranded on a branch nobody would ever merge.
 section "The pipeline never builds on a stale base, and never strands a branch"
 
-BR="$SELF/ddw/rules/branches.instructions.md"
-REL="$SELF/ddw/rules/closeout.instructions.md"
-DEF="$SELF/ddw/rules/define.instructions.md"
+BR="$SELF/daw/rules/branches.instructions.md"
+REL="$SELF/daw/rules/closeout.instructions.md"
+DEF="$SELF/daw/rules/define.instructions.md"
 
 grep -q 'git switch -c .* origin/' "$BR" \
   && ok "the branch is cut from the fetched ref, not from whatever the local base happens to be" \
@@ -7633,7 +7633,7 @@ assert not missing, (f"{missing} has no live pass on the record and the README d
                      "nothing tells a reader it apart from the tools that were watched")
 PYACC
 
-grep -qi "impatience is not approval" "$SELF/ddw/rules/define.instructions.md" \
+grep -qi "impatience is not approval" "$SELF/daw/rules/define.instructions.md" \
   && ok "an impatient user is not read as having approved the PRD" \
   || bad "\"just start already\" can be taken as PRD approval — an approval lands in the history that never happened"
 
@@ -7645,27 +7645,27 @@ grep -q '│  Integration:' "$REL" \
   && ok "and the closeout cannot be presented with that answer missing" \
   || bad "the closeout summary has no Integration line, so the step can be skipped in silence"
 
-# ── Upgrading a repo that already has DDW ─────────────────────────────────────
+# ── Upgrading a repo that already has DAW ─────────────────────────────────────
 #
 # The activation block is what loads the orchestrator. Finding it and leaving it
 # meant a version that changed it would never reach any repo that already had
-# DDW — and the installer printed a green tick over an install that no longer
-# matched the method sitting beside it in .ddw/.
+# DAW — and the installer printed a green tick over an install that no longer
+# matched the method sitting beside it in .daw/.
 section "An existing install is upgraded, not just recognised"
 
 # The instructions live in AGENTS.md whatever tool you installed — one answer to
-# "where are DDW's instructions?" instead of six, and nothing to move when the
+# "where are DAW's instructions?" instead of six, and nothing to move when the
 # pipeline is ported. The tools that do not read AGENTS.md get a pointer, and
 # nothing else.
 ONE="$WORK/one-place"; mkdir -p "$ONE"; git -C "$ONE" init -q .
 bash "$SELF/install.sh" "$ONE" --target claude >/dev/null 2>&1
 grep -q "Boot Sequence" "$ONE/AGENTS.md" \
   && ok "the activation block lands in AGENTS.md even for a tool that does not read it" \
-  || bad "AGENTS.md has no DDW block on a Claude install — the instructions live in one place per tool again"
+  || bad "AGENTS.md has no DAW block on a Claude install — the instructions live in one place per tool again"
 grep -q "Boot Sequence" "$ONE/CLAUDE.md" \
   && bad "CLAUDE.md carries the instructions too — two copies to keep in step, and one will drift" \
   || ok "and CLAUDE.md carries only the pointer"
-grep -q "@AGENTS.md" "$ONE/CLAUDE.md" && grep -q "@.ddw/orchestrator.md" "$ONE/CLAUDE.md" \
+grep -q "@AGENTS.md" "$ONE/CLAUDE.md" && grep -q "@.daw/orchestrator.md" "$ONE/CLAUDE.md" \
   && ok "which imports AGENTS.md and the orchestrator, one hop from the root" \
   || bad "CLAUDE.md lost an import — Claude reads it and reaches neither the context nor the orchestrator"
 
@@ -7673,12 +7673,12 @@ grep -q "@AGENTS.md" "$ONE/CLAUDE.md" && grep -q "@.ddw/orchestrator.md" "$ONE/C
 # must sit in GEMINI.md itself rather than be reached through AGENTS.md.
 GEM="$WORK/gemini-hop"; mkdir -p "$GEM"; git -C "$GEM" init -q .
 bash "$SELF/install.sh" "$GEM" --target gemini >/dev/null 2>&1
-grep -q "@.ddw/orchestrator.md" "$GEM/GEMINI.md" \
+grep -q "@.daw/orchestrator.md" "$GEM/GEMINI.md" \
   && ok "and Gemini reaches the orchestrator without depending on nested imports" \
   || bad "Gemini's orchestrator import moved behind a second hop that its docs never promised"
 
 # Its own directory. `$WORK/upgrade` is also where the earlier section left a
-# repo with DDW installed and a user-edited skill in it, so the "first install"
+# repo with DAW installed and a user-edited skill in it, so the "first install"
 # below was this fixture's THIRD — and every assertion about what a first run
 # says was being made about an update.
 UPG="$WORK/upgrade-messages"; mkdir -p "$UPG"; git -C "$UPG" init -q .
@@ -7703,12 +7703,12 @@ esac
 RERUN="$(bash "$SELF/install.sh" "$UPG" --target claude 2>&1)"
 case "$RERUN" in
   *"updating:"*) ok "a second run reports itself as an update, not an install" ;;
-  *) bad "a re-run still says 'installing into' — nothing tells the user this repo already had DDW" ;;
+  *) bad "a re-run still says 'installing into' — nothing tells the user this repo already had DAW" ;;
 esac
 
 # ── The line somebody pastes has to BE the installer ─────────────────────────
 #
-# `install.sh` copies `ddw/`, `adapters/`, `scripts/` and the manifest out of its
+# `install.sh` copies `daw/`, `adapters/`, `scripts/` and the manifest out of its
 # own tree, so pasted from a URL it has none of the four. It used to die on
 # `${BASH_SOURCE[0]}` — unset under `bash -s`, and under `set -u` that is an
 # "unbound variable" with not one word about what happened. The plugin path was
@@ -7721,7 +7721,7 @@ python3 - "$SELF" <<'PYBOOT' && ok "install.sh run with no tree around it fetche
 import os, shutil, subprocess, sys, tarfile, tempfile
 src = sys.argv[1]
 work = tempfile.mkdtemp(dir=os.environ["WORK"])
-tar = os.path.join(work, "ddw.tar.gz")
+tar = os.path.join(work, "daw.tar.gz")
 with tarfile.open(tar, "w:gz") as t:
     t.add(src, arcname="dilux-development-workflow-main",
           filter=lambda ti: None if "/.git/" in ti.name + "/" else ti)
@@ -7731,11 +7731,11 @@ shutil.copy(os.path.join(src, "install.sh"), os.path.join(alone, "install.sh"))
 repo = os.path.join(work, "repo")
 os.makedirs(repo)
 subprocess.run(["git", "-C", repo, "init", "-q"], check=True)
-env = dict(os.environ, DDW_TARBALL="file://" + tar, DDW_GIT_FLOW="none")
+env = dict(os.environ, DAW_TARBALL="file://" + tar, DAW_GIT_FLOW="none")
 r = subprocess.run(["bash", os.path.join(alone, "install.sh"), repo, "--target", "claude",
                     "--mode", "dropin"], capture_output=True, text=True, env=env, timeout=300)
 assert r.returncode == 0, "the pasted installer failed: " + (r.stdout + r.stderr)[-400:]
-assert os.path.isdir(os.path.join(repo, ".ddw")), \
+assert os.path.isdir(os.path.join(repo, ".daw")), \
     "it reported success and the method is not there: " + r.stdout[-300:]
 # And it does not leave the tree it downloaded behind.
 assert not [d for d in os.listdir(work) if d.startswith("tmp")], \
@@ -7755,7 +7755,7 @@ python3 - "$SELF" <<'PYTTY' && ok "the installer asks when a terminal exists, ev
 import fcntl, os, pty, signal, subprocess, sys, tarfile, tempfile, termios, threading, time
 src = sys.argv[1]
 work = tempfile.mkdtemp(dir=os.environ["WORK"])
-tar = os.path.join(work, "ddw.tar.gz")
+tar = os.path.join(work, "daw.tar.gz")
 with tarfile.open(tar, "w:gz") as t:
     t.add(src, arcname="dilux-development-workflow-main",
           filter=lambda ti: None if "/.git/" in ti.name + "/" else ti)
@@ -7782,7 +7782,7 @@ def preexec():
     os.close(fd)
 
 
-env = dict(os.environ, DDW_TARBALL="file://" + tar, DDW_GIT_FLOW="none")
+env = dict(os.environ, DAW_TARBALL="file://" + tar, DAW_GIT_FLOW="none")
 p = subprocess.Popen(["bash", "-s", "--", repo, "--target", "claude"],
                      stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                      text=True, preexec_fn=preexec, env=env)
@@ -7825,7 +7825,7 @@ threading.Thread(target=feed, daemon=True).start()
 # time" — that is a race against a pipe's buffer, and losing it hung for five
 # minutes — but "the question is in what it printed". Asserted at the end,
 # over everything captured.
-QUESTION = "How do you want DDW installed?"
+QUESTION = "How do you want DAW installed?"
 
 # What this verification asserts is that it ASKS, and that it uses the answer.
 # Neither needs the process to finish — and waiting for it is what cost four
@@ -7848,7 +7848,7 @@ while time.time() < deadline:
         # and offers to push, and both wait on `/dev/tty`.
         os.write(master, b"\n")
         nudged = now
-    if sent and os.path.isdir(os.path.join(repo, ".ddw")):
+    if sent and os.path.isdir(os.path.join(repo, ".daw")):
         landed = True
         break
     time.sleep(0.2)
@@ -7879,7 +7879,7 @@ assert QUESTION in out, \
     ("it never asked which way in, and answered for the user. What it printed:\n"
      + (out[-1200:] or "nothing at all"))
 assert landed, ("it asked, and the answer given over the terminal was not the one it used: "
-                "no .ddw after ninety seconds. What it printed:\n" + out[-1200:])
+                "no .daw after ninety seconds. What it printed:\n" + out[-1200:])
 PYTTY
 
 MENU="$(printf '1\n' | bash "$SELF/install.sh" "$UPG" 2>&1)"
@@ -7889,7 +7889,7 @@ case "$MENU" in
   *) bad "the menu asks which tool to install on a repo that answered that months ago" ;;
 esac
 
-# A tool left out of the run keeps its old wiring while .ddw/ moves on. Fine on
+# A tool left out of the run keeps its old wiring while .daw/ moves on. Fine on
 # purpose; silently fine is how one tool ends up enforcing a method that is no
 # longer the one beside it.
 PARTIAL="$(bash "$SELF/install.sh" "$UPG" --target opencode 2>&1)"
@@ -7908,8 +7908,8 @@ python3 - "$UPG" <<'PYEOF'
 import re, sys
 p = sys.argv[1] + "/CLAUDE.md"
 s = open(p, encoding="utf-8").read()
-s = re.sub(r"<!-- BEGIN DDW.*?<!-- END DDW -->",
-           "<!-- BEGIN DDW (managed by DDW — do not edit by hand) -->\nAN OLDER BLOCK\n<!-- END DDW -->",
+s = re.sub(r"<!-- BEGIN DAW.*?<!-- END DAW -->",
+           "<!-- BEGIN DAW (managed by DAW — do not edit by hand) -->\nAN OLDER BLOCK\n<!-- END DAW -->",
            s, flags=re.S)
 open(p, "w", encoding="utf-8").write("MY OWN NOTES ABOVE\n\n" + s + "\nMY OWN NOTES BELOW\n")
 PYEOF
@@ -7919,7 +7919,7 @@ grep -q "AN OLDER BLOCK" "$UPG/CLAUDE.md" \
   && bad "a stale activation block survives reinstall — the orchestrator is loaded by whatever the old version said, forever" \
   || ok "a stale activation block is replaced on reinstall"
 
-grep -q "@.ddw/orchestrator.md" "$UPG/CLAUDE.md" \
+grep -q "@.daw/orchestrator.md" "$UPG/CLAUDE.md" \
   && ok "and the current one is in place" \
   || bad "the block was removed and not replaced — nothing loads the orchestrator"
 
@@ -7953,7 +7953,7 @@ TPL="$WORK/tpl-agents"; mkdir -p "$TPL"; git -C "$TPL" init -q .
 bash "$SELF/install.sh" "$TPL" --target opencode >/dev/null 2>&1
 TPLOUT="$(bash "$SELF/install.sh" "$TPL" --target opencode 2>&1)"
 case "$TPLOUT" in
-  *"missing headings"*) bad "the heading warning fires on a file created from DDW's own template" ;;
+  *"missing headings"*) bad "the heading warning fires on a file created from DAW's own template" ;;
   *) ok "and says nothing when the headings are all there" ;;
 esac
 
@@ -7964,7 +7964,7 @@ grep -q "MY STACK, MY WORDS" "$UPG/AGENTS.md" \
   || bad "the upgrade overwrote AGENTS.md — the user's stack and conventions are gone"
 
 # And again on an adapter where AGENTS.md IS the context file. Four of the six
-# — Codex, Copilot, Cursor, OpenCode — put the DDW block inside AGENTS.md, so
+# — Codex, Copilot, Cursor, OpenCode — put the DAW block inside AGENTS.md, so
 # there the same file holds the user's stack AND a managed block. Testing the
 # upgrade only on Claude proved nothing about the case where the two live
 # together, which is the majority of adapters.
@@ -7976,8 +7976,8 @@ import re, sys
 p = sys.argv[1] + "/AGENTS.md"
 s = open(p, encoding="utf-8").read()
 open(p, "w", encoding="utf-8").write(
-    re.sub(r"<!-- BEGIN DDW.*?<!-- END DDW -->",
-           "<!-- BEGIN DDW (managed by DDW — do not edit by hand) -->\nAN OLDER BLOCK\n<!-- END DDW -->",
+    re.sub(r"<!-- BEGIN DAW.*?<!-- END DAW -->",
+           "<!-- BEGIN DAW (managed by DAW — do not edit by hand) -->\nAN OLDER BLOCK\n<!-- END DAW -->",
            s, flags=re.S))
 PYEOF
 bash "$SELF/install.sh" "$UPO" --target opencode >/dev/null 2>&1
@@ -7987,19 +7987,19 @@ grep -q "MY STACK, MY WORDS" "$UPO/AGENTS.md" \
   || bad "upgrading an AGENTS.md-based adapter ate the user's stack"
 
 grep -q "AN OLDER BLOCK" "$UPO/AGENTS.md" \
-  && bad "the DDW block inside AGENTS.md is never refreshed on those four adapters" \
-  || ok "and the DDW block inside it is refreshed like any other"
+  && bad "the DAW block inside AGENTS.md is never refreshed on those four adapters" \
+  || ok "and the DAW block inside it is refreshed like any other"
 
-# ── What the repo already says, and what DDW was told ─────────────────────────
+# ── What the repo already says, and what DAW was told ─────────────────────────
 section "The repo's own tooling does not stay invisible to the pipeline"
 
-CC="$SELF/skills/ddw-context-check/SKILL.md"
+CC="$SELF/skills/daw-context-check/SKILL.md"
 
 [ -f "$CC" ] \
-  && ok "ddw-context-check exists" \
+  && ok "daw-context-check exists" \
   || bad "the skill is gone — a repo's linter, CI commands and pre-commit go unnoticed again"
 
-grep -q 'ddw-context-check' "$SELF/ddw/rules/classify.instructions.md" \
+grep -q 'daw-context-check' "$SELF/daw/rules/classify.instructions.md" \
   && ok "and CLASSIFY runs it once per ticket, before the pipeline spends time on wrong commands" \
   || bad "the skill exists but no phase invokes it — a check nobody runs"
 
@@ -8011,14 +8011,14 @@ grep -q 'never proposes prose, conventions, architecture' "$CC" \
   || bad "the minimalism restriction is gone — the skill will bloat the context file, which the evidence says costs more and helps less"
 
 grep -qi 'never blocks\|never sets a gate' "$CC" \
-  && ok "and it reports rather than blocks — DDW cannot know your project ought to have a linter" \
+  && ok "and it reports rather than blocks — DAW cannot know your project ought to have a linter" \
   || bad "the skill can block: an inference about someone else's stack became a gate"
 
 # A decline that vanishes forever is worse than the question it silenced.
 DC="$WORK/declined"; mkdir -p "$DC"; git -C "$DC" init -q .
 bash "$SELF/install.sh" "$DC" --target claude >/dev/null 2>&1
-printf '\n<!-- ddw:declined FEAT-001 lint typecheck -->\n' >> "$DC/AGENTS.md"
-python3 "$DC/.ddw/scripts/session-boot.py" --repo "$DC" --session-id d1 | grep -q 'ddw-context-check' \
+printf '\n<!-- daw:declined FEAT-001 lint typecheck -->\n' >> "$DC/AGENTS.md"
+python3 "$DC/.daw/scripts/session-boot.py" --repo "$DC" --session-id d1 | grep -q 'daw-context-check' \
   && ok "a declined recommendation is still named at boot, in one line" \
   || bad "declining hides a known gap permanently — the day it costs something, nothing says it was known"
 
@@ -8030,7 +8030,7 @@ python3 "$DC/.ddw/scripts/session-boot.py" --repo "$DC" --session-id d1 | grep -
 # not be written first, and Rule #-1 no longer applied to them.
 section "Error paths are demanded where they can still be met"
 
-VR="$SELF/ddw/rules/validation-rules.instructions.md"
+VR="$SELF/daw/rules/validation-rules.instructions.md"
 
 # The rule said "paste it verbatim, not a summary" and a live run pasted five
 # complete tables and then collapsed the SIXTH — a re-validation of an unchanged
@@ -8049,12 +8049,12 @@ python3 - "$SELF" "$VP" <<'PYDEMAND' && ok "and every validator PRINTS the deman
 import os, subprocess, sys
 src, repo = sys.argv[1], sys.argv[2]
 DEMAND = "Show the user this table IN FULL"
-cases = [("validate_prd.py", "docs/ddw/prd/prd-FEAT-001.md"),
-         ("validate_spec.py", "docs/ddw/specs/spec-FEAT-001.md"),
-         ("validate_threat.py", "docs/ddw/security/threat-FEAT-001.md"),
-         ("validate_verify.py", "docs/ddw/reports/verify-FEAT-001.md"),
-         ("validate_sast.py", "docs/ddw/security/sast-FEAT-001.md"),
-         ("validate_tests.py", "docs/ddw/reports/tests-FEAT-001.md")]
+cases = [("validate_prd.py", "docs/daw/prd/prd-FEAT-001.md"),
+         ("validate_spec.py", "docs/daw/specs/spec-FEAT-001.md"),
+         ("validate_threat.py", "docs/daw/security/threat-FEAT-001.md"),
+         ("validate_verify.py", "docs/daw/reports/verify-FEAT-001.md"),
+         ("validate_sast.py", "docs/daw/security/sast-FEAT-001.md"),
+         ("validate_tests.py", "docs/daw/reports/tests-FEAT-001.md")]
 missing, examined, skipped = [], [], []
 for script, artifact in cases:
     path = os.path.join(repo, artifact)
@@ -8062,7 +8062,7 @@ for script, artifact in cases:
         skipped.append(artifact)      # fixture not built in this section
         continue
     examined.append(script)
-    out = subprocess.run([sys.executable, os.path.join(src, "ddw/scripts", script), path,
+    out = subprocess.run([sys.executable, os.path.join(src, "daw/scripts", script), path,
                           "--tier", "FEATURE"], capture_output=True, text=True)
     if DEMAND not in out.stdout:
         missing.append(script)
@@ -8085,10 +8085,10 @@ VRMISS=""
 # validators write for, and a list maintained by hand named four of them.
 for S in $(python3 - "$SELF" <<'PYVRLIST'
 import os, re, sys
-vt = open(os.path.join(sys.argv[1], "ddw/scripts/validate-transition.py"), encoding="utf-8").read()
-GATE_SKILL = {"define": "ddw-validate-prd", "spec": "ddw-validate-spec",
-              "threat": "ddw-threat-modeling", "verify": "ddw-verify-module",
-              "tests": "ddw-test", "sast": "ddw-security-sast"}
+vt = open(os.path.join(sys.argv[1], "daw/scripts/validate-transition.py"), encoding="utf-8").read()
+GATE_SKILL = {"define": "daw-validate-prd", "spec": "daw-validate-spec",
+              "threat": "daw-threat-modeling", "verify": "daw-verify-module",
+              "tests": "daw-test", "sast": "daw-security-sast"}
 # dict.fromkeys, not a set: a gate may have more than one call site (the
 # `define` gate resolves three documents, one per tier) and the answer is the
 # six GATES, in a stable order.
@@ -8110,9 +8110,9 @@ grep -q '^| F-SPEC-16 |' "$VR" \
 # the protocol steps are what gets executed. Grepping the file as a whole passes
 # on either one alone, which is how a rule comes to be listed and not run — or
 # run and not listed.
-grep -q '^| F-SPEC-16 |' "$SELF/skills/ddw-validate-spec/SKILL.md" \
+grep -q '^| F-SPEC-16 |' "$SELF/skills/daw-validate-spec/SKILL.md" \
   && ok "and the skill's own FAIL table carries it" \
-  || bad "F-SPEC-16 is missing from ddw-validate-spec's table of FAIL rules"
+  || bad "F-SPEC-16 is missing from daw-validate-spec's table of FAIL rules"
 
 # Both branches of the protocol, not either: FEATURE evaluates it per block,
 # FIX over the fix-plan's steps. An OR here passes while one whole tier stops
@@ -8122,8 +8122,8 @@ grep -q '^| F-SPEC-16 |' "$SELF/skills/ddw-validate-spec/SKILL.md" \
 # where the evaluation lives — and to the FIX fallback, without which a fix-plan
 # (which has no `## Block` headings) would be checked against zero units and
 # pass F-SPEC-16 by having nothing to compare.
-grep -q 'F-SPEC-16' "$SELF/ddw/scripts/validate_spec.py" \
-  && grep -q 'units = \[("Fix-plan", text)\]' "$SELF/ddw/scripts/validate_spec.py" \
+grep -q 'F-SPEC-16' "$SELF/daw/scripts/validate_spec.py" \
+  && grep -q 'units = \[("Fix-plan", text)\]' "$SELF/daw/scripts/validate_spec.py" \
   && ok "and the validator evaluates it on both the FEATURE and the FIX path" \
   || bad "F-SPEC-16 is catalogued but a tier's path through validate_spec.py never evaluates it"
 
@@ -8131,12 +8131,12 @@ grep -q '^| F-PRD-09 |' "$VR" && grep -q 'IF <trigger>, THEN THE <system> SHALL'
   && ok "ACs are written in EARS, whose fifth pattern is the one for failures" \
   || bad "no EARS requirement on ACs — an absent error case looks the same as a feature that has none"
 
-grep -q 'SHALL' "$SELF/skills/ddw-create-prd/SKILL.md" \
+grep -q 'SHALL' "$SELF/skills/daw-create-prd/SKILL.md" \
   && ok "and the PRD template emits that shape rather than free prose" \
   || bad "the template still writes ACs the validator cannot match on"
 
-grep -q 'F-PRD-09\|F-PRD-01 to F-PRD-09' "$SELF/skills/ddw-validate-prd/SKILL.md" \
-  && ok "and ddw-validate-prd applies it" \
+grep -q 'F-PRD-09\|F-PRD-01 to F-PRD-09' "$SELF/skills/daw-validate-prd/SKILL.md" \
+  && ok "and daw-validate-prd applies it" \
   || bad "F-PRD-09 is catalogued but the PRD validator never evaluates it"
 
 # ── Work that was defined and never run ───────────────────────────────────────
@@ -8144,9 +8144,9 @@ section "A split PRD does not lose its unfinished sub-tickets"
 
 SUB="$WORK/subtickets"; mkdir -p "$SUB"; git -C "$SUB" init -q .
 bash "$SELF/install.sh" "$SUB" --target claude >/dev/null 2>&1
-mkdir -p "$SUB/docs/ddw/prd"
+mkdir -p "$SUB/docs/daw/prd"
 for f in prd-FEAT-001.md prd-FEAT-001a.md prd-FEAT-001b.md prd-FEAT-001c.md prd-DISC-002-01.md; do
-  printf '# %s\n' "$f" > "$SUB/docs/ddw/prd/$f"
+  printf '# %s\n' "$f" > "$SUB/docs/daw/prd/$f"
 done
 
 # `a` closed; `b` and `c` never ran. Nothing records that anywhere: it is the
@@ -8156,9 +8156,9 @@ import json, sys
 json.dump({"tier": None, "phase": "IDLE", "ticket": None, "gates": {},
            "history": [{"timestamp": "2026-01-01T00:00:00Z", "from": "CLOSEOUT", "to": "IDLE",
                         "action": "closeout", "ticket": "FEAT-001a", "tier": "FEATURE"}]},
-          open(sys.argv[1] + "/.ddw-state.json", "w"))
+          open(sys.argv[1] + "/.daw-state.json", "w"))
 PYEOF
-BOOTOUT="$(python3 "$SUB/.ddw/scripts/session-boot.py" --repo "$SUB" --session-id sub1)"
+BOOTOUT="$(python3 "$SUB/.daw/scripts/session-boot.py" --repo "$SUB" --session-id sub1)"
 
 echo "$BOOTOUT" | grep -q "FEAT-001b" && echo "$BOOTOUT" | grep -q "FEAT-001c" \
   && ok "the boot names the sub-tickets that have a PRD and no closeout" \
@@ -8177,9 +8177,9 @@ echo "$BOOTOUT" | grep -q "DISC-002" \
 python3 - "$SUB" <<'PYEOF'
 import json, sys
 json.dump({"tier": "FEATURE", "phase": "CODE", "ticket": "FEAT-001b", "gates": {},
-           "history": []}, open(sys.argv[1] + "/.ddw-state.json", "w"))
+           "history": []}, open(sys.argv[1] + "/.daw-state.json", "w"))
 PYEOF
-python3 "$SUB/.ddw/scripts/session-boot.py" --repo "$SUB" --session-id sub2 | grep -q "still have a PRD" \
+python3 "$SUB/.daw/scripts/session-boot.py" --repo "$SUB" --session-id sub2 | grep -q "still have a PRD" \
   && bad "the pending-work panel fires mid-ticket, where it is noise" \
   || ok "and says nothing while a ticket is mid-flight"
 
@@ -8187,9 +8187,9 @@ python3 "$SUB/.ddw/scripts/session-boot.py" --repo "$SUB" --session-id sub2 | gr
 # the one in hand, or a closeout could be credited to work that never ran.
 python3 - "$SUB" <<'PYEOF' && ok "a history entry cannot stamp a ticket other than the one in hand" || bad "an entry can claim any ticket — a forged closeout would erase real pending work from the boot"
 import importlib.util, json, sys
-spec = importlib.util.spec_from_file_location("vt", sys.argv[1] + "/.ddw/scripts/validate-transition.py")
+spec = importlib.util.spec_from_file_location("vt", sys.argv[1] + "/.daw/scripts/validate-transition.py")
 vt = importlib.util.module_from_spec(spec); spec.loader.exec_module(vt)
-graph = json.load(open(sys.argv[1] + "/.ddw/rules/transition-graph.json"))
+graph = json.load(open(sys.argv[1] + "/.daw/rules/transition-graph.json"))
 old = {"tier": "FEATURE", "phase": "CODE", "ticket": "FEAT-001b",
        "gates": {"define": True, "spec": True, "threat": True}, "history": []}
 new = dict(old, phase="VERIFY", gates={**old["gates"], "tests": True, "sast": True},
@@ -8202,7 +8202,7 @@ except vt.Block:
 sys.exit(1)
 PYEOF
 
-# ── Nothing DDW installs may destroy something of yours ───────────────────────
+# ── Nothing DAW installs may destroy something of yours ───────────────────────
 section "The installer never eats a file that is not its own"
 
 DL="$WORK/dataloss"; mkdir -p "$DL/.claude/hooks/lib"; git -C "$DL" init -q .
@@ -8217,19 +8217,19 @@ grep -q "THE USER OWN GUARD" "$DL/.claude/hooks/lib/guard.sh" \
   || bad "a nested wiring file of the user's was overwritten"
 echo "$OUT" | grep -q "session-start.sh" \
   && ok "and the collision is reported rather than passed over in silence" \
-  || bad "the user's files were kept but never mentioned — they cannot know what DDW skipped"
+  || bad "the user's files were kept but never mentioned — they cannot know what DAW skipped"
 
-# A file the user drops INSIDE a DDW skill directory. The comparison only walked
+# A file the user drops INSIDE a DAW skill directory. The comparison only walked
 # source -> destination, so an extra file on the destination side was invisible:
 # the directory read as current, got stamped into the manifest as ours, and the
 # next upgrade deleted the whole thing.
 DL2="$WORK/dataloss2"; mkdir -p "$DL2"; git -C "$DL2" init -q .
 bash "$SELF/install.sh" "$DL2" --target claude >/dev/null 2>&1
-printf 'MY OWN NOTES\n' > "$DL2/.claude/skills/ddw-status/my-notes.md"
+printf 'MY OWN NOTES\n' > "$DL2/.claude/skills/daw-status/my-notes.md"
 bash "$SELF/install.sh" "$DL2" --target claude >/dev/null 2>&1
 bash "$SELF/install.sh" "$DL2" --target claude >/dev/null 2>&1
-[ -f "$DL2/.claude/skills/ddw-status/my-notes.md" ] \
-  && ok "a file added inside a DDW skill survives repeated reinstalls" \
+[ -f "$DL2/.claude/skills/daw-status/my-notes.md" ] \
+  && ok "a file added inside a DAW skill survives repeated reinstalls" \
   || bad "the installer absorbed the user's file into the manifest and then deleted it"
 
 # ── The runtime cannot be destroyed by its own housekeeping ──────────────────
@@ -8237,59 +8237,59 @@ section "Session bookkeeping cannot damage the state"
 
 SB="$WORK/sessions"; mkdir -p "$SB"; git -C "$SB" init -q .
 bash "$SELF/install.sh" "$SB" --target claude >/dev/null 2>&1
-python3 - "$SB" <<'PYEOF' && ok "a path-shaped session id cannot reach outside .ddw-sessions/" || bad "the session id is used as a filename unvalidated — an id with ../ destroys the state"
+python3 - "$SB" <<'PYEOF' && ok "a path-shaped session id cannot reach outside .daw-sessions/" || bad "the session id is used as a filename unvalidated — an id with ../ destroys the state"
 import json, os, subprocess, sys
 repo = sys.argv[1]
-state = os.path.join(repo, ".ddw-state.json")
-boot = os.path.join(repo, ".ddw", "scripts", "session-boot.py")
+state = os.path.join(repo, ".daw-state.json")
+boot = os.path.join(repo, ".daw", "scripts", "session-boot.py")
 live = {"phase": "CODE", "tier": "FEATURE", "ticket": "FEAT-001",
         "gates": {"define": True, "spec": True}, "history": []}
-markers = os.path.join(repo, ".ddw-sessions", "live")
+markers = os.path.join(repo, ".daw-sessions", "live")
 os.makedirs(markers, exist_ok=True)
-# One `..` only reaches `.ddw-sessions/` now that the markers have a namespace of
+# One `..` only reaches `.daw-sessions/` now that the markers have a namespace of
 # their own, and asking whether the STATE survived stopped being the question:
 # the id has to stay inside the markers' directory, whatever it is shaped like.
 # Two levels up is where the state lives, and that is the id the old fixture was
 # one directory short of.
-for evil in ("../.ddw-state.json", "../../.ddw-state.json", "../../../etc/passwd",
+for evil in ("../.daw-state.json", "../../.daw-state.json", "../../../etc/passwd",
              "a/b/c", "..", "."):
     json.dump(live, open(state, "w"))
-    before = sorted(p for p in os.listdir(os.path.join(repo, ".ddw-sessions")) if p != "live")
+    before = sorted(p for p in os.listdir(os.path.join(repo, ".daw-sessions")) if p != "live")
     subprocess.run([sys.executable, boot, "--repo", repo, "--session-id", evil],
                    capture_output=True, text=True)
     back = json.load(open(state))
     assert back.get("ticket") == "FEAT-001", f"session id {evil!r} clobbered the state"
-    assert sorted(p for p in os.listdir(os.path.join(repo, ".ddw-sessions"))
+    assert sorted(p for p in os.listdir(os.path.join(repo, ".daw-sessions"))
                   if p != "live") == before, \
-        f"session id {evil!r} wrote outside .ddw-sessions/live/"
+        f"session id {evil!r} wrote outside .daw-sessions/live/"
     for name in os.listdir(markers):
         assert os.path.realpath(os.path.join(markers, name)).startswith(
             os.path.realpath(markers) + os.sep), \
             f"session id {evil!r} left a marker that points out of its own directory"
 PYEOF
 
-python3 - "$SB" <<'PYEOF' && ok "a .gitignore reduced to comments is repaired, not read as complete" || bad "the runtime gets staged for commit: the check matched DDW's own comment text"
+python3 - "$SB" <<'PYEOF' && ok "a .gitignore reduced to comments is repaired, not read as complete" || bad "the runtime gets staged for commit: the check matched DAW's own comment text"
 import os, subprocess, sys
 repo = sys.argv[1]
-boot = os.path.join(repo, ".ddw", "scripts", "session-boot.py")
+boot = os.path.join(repo, ".daw", "scripts", "session-boot.py")
 gi = os.path.join(repo, ".gitignore")
-# DDW's own installed block explains each entry in a comment, and the check
+# DAW's own installed block explains each entry in a comment, and the check
 # split the file on whitespace — so the comments alone satisfied it forever.
-open(gi, "w").write("# BEGIN DDW\n#   .ddw-state.json  = your phase\n"
-                    "#   .ddw-paused/     = paused tickets\n"
-                    "#   .ddw-sessions/   = live session markers\n# END DDW\n")
+open(gi, "w").write("# BEGIN DAW\n#   .daw-state.json  = your phase\n"
+                    "#   .daw-paused/     = paused tickets\n"
+                    "#   .daw-sessions/   = live session markers\n# END DAW\n")
 subprocess.run([sys.executable, boot, "--repo", repo, "--session-id", "gi"],
                capture_output=True, text=True)
 rules = {ln.strip() for ln in open(gi) if ln.strip() and not ln.lstrip().startswith("#")}
-for e in (".ddw-state.json", ".ddw-paused/", ".ddw-sessions/"):
+for e in (".daw-state.json", ".daw-paused/", ".daw-sessions/"):
     assert e in rules, f"{e} was never added back"
 PYEOF
 
 python3 - "$SB" <<'PYEOF' && ok "an unreadable state says so instead of reporting IDLE" || bad "a corrupt state is announced as idle, clearing the agent to start work over a live ticket"
 import os, subprocess, sys
 repo = sys.argv[1]
-boot = os.path.join(repo, ".ddw", "scripts", "session-boot.py")
-open(os.path.join(repo, ".ddw-state.json"), "w").write("{ truncated")
+boot = os.path.join(repo, ".daw", "scripts", "session-boot.py")
+open(os.path.join(repo, ".daw-state.json"), "w").write("{ truncated")
 out = subprocess.run([sys.executable, boot, "--repo", repo, "--session-id", "corrupt"],
                      capture_output=True, text=True).stdout
 assert "cannot be read" in out, f"reported: {out.strip()[:100]}"
@@ -8302,14 +8302,14 @@ section "The tier and the idle state cannot be tampered with"
 python3 - "$ALL" <<'PYEOF' && ok "the tier is locked, the poison values are refused, and IDLE stays empty" || bad "the FSM invariants can be walked around with an in-phase write"
 import json, os, subprocess, sys
 repo = sys.argv[1]
-gate = os.path.join(repo, ".ddw", "scripts", "hook-gate.py")
-graph = os.path.join(repo, ".ddw", "rules", "transition-graph.json")
-state = os.path.join(repo, ".ddw-state.json")
+gate = os.path.join(repo, ".daw", "scripts", "hook-gate.py")
+graph = os.path.join(repo, ".daw", "rules", "transition-graph.json")
+state = os.path.join(repo, ".daw-state.json")
 
 # The classify edge's context check — a different gate than the lock under
 # test, satisfied so the legal-move assertions below measure the lock alone.
-os.makedirs(os.path.join(repo, ".ddw-work"), exist_ok=True)
-open(os.path.join(repo, ".ddw-work", "context-check.md"), "w", encoding="utf-8").write(
+os.makedirs(os.path.join(repo, ".daw-work"), exist_ok=True)
+open(os.path.join(repo, ".daw-work", "context-check.md"), "w", encoding="utf-8").write(
     "Nothing to report.\n")
 
 def h(f, t, tier=None):
@@ -8395,7 +8395,7 @@ assigned = {"tier": "FEATURE", "phase": "DEFINE", "gates": {},
 assert rc(classified, assigned) == 0, "CLASSIFY assigning the tier is legal and was refused"
 PYEOF
 # These fixtures wrote to the shared state; hand it back the way it was found.
-printf '%s' "$IDLE_STATE" > "$ALL/.ddw-state.json"
+printf '%s' "$IDLE_STATE" > "$ALL/.daw-state.json"
 
 # ── Each recipe against its tool's real contract ──────────────────────────────
 #
@@ -8428,7 +8428,7 @@ for ev, entries in hooks.items():
         f = os.path.join(repo, e["command"].split()[-1])
         assert os.path.isfile(f), f"cursor {ev} -> {e['command']} does not exist"
 
-js = open(os.path.join(repo, ".opencode", "plugins", "ddw.js"), encoding="utf-8").read()
+js = open(os.path.join(repo, ".opencode", "plugins", "daw.js"), encoding="utf-8").read()
 # opencode.ai/docs/plugins: the Hooks interface has no "session.created" key —
 # that is an event TYPE delivered through the generic `event` hook. Registered
 # under the wrong key it is never called, so nothing ever boots.
@@ -8469,7 +8469,7 @@ PYEOF
 # reference, not from a guess about the shape of someone else's product.
 section "Compaction cannot quietly end the pipeline"
 
-python3 - "$SELF" "$ALL" <<'PYCOMPACT' && ok "every adapter answers its tool's compaction event, in the envelope that tool reads" || bad "a tool compacts and DDW says nothing — see above"
+python3 - "$SELF" "$ALL" <<'PYCOMPACT' && ok "every adapter answers its tool's compaction event, in the envelope that tool reads" || bad "a tool compacts and DAW says nothing — see above"
 import json, os, subprocess, sys, tempfile
 root, target = sys.argv[1], sys.argv[2]
 # tool -> (wiring file, event key). Sources, in order:
@@ -8488,11 +8488,11 @@ WIRING = {
 # repo. It is wired once per machine by the adapter's own script, so the way to
 # read it is to run that script — which is also the only way to notice the day
 # it stops wiring preCompact at all.
-_cph = os.path.join(tempfile.mkdtemp(dir=os.environ["WORK"], prefix="ddw-precompact-home-"), "home")
+_cph = os.path.join(tempfile.mkdtemp(dir=os.environ["WORK"], prefix="daw-precompact-home-"), "home")
 os.makedirs(_cph, exist_ok=True)
 subprocess.run([sys.executable, os.path.join(root, "adapters/copilot/wire-user-hooks.py"), ""],
                env=dict(os.environ, HOME=_cph), check=True, capture_output=True)
-WIRING["copilot"] = (os.path.join(_cph, ".copilot/hooks/ddw.json"), "preCompact")
+WIRING["copilot"] = (os.path.join(_cph, ".copilot/hooks/daw.json"), "preCompact")
 for tool, (rel, event) in sorted(WIRING.items()):
     blob = json.load(open(rel if os.path.isabs(rel) else os.path.join(root, rel), encoding="utf-8"))
     assert event in blob["hooks"], f"{tool}: {rel} does not wire {event}"
@@ -8514,10 +8514,10 @@ ENVELOPE = {
 }
 HOOK = {
     "claude":  ".claude/hooks/pre-compact.sh",
-    "codex":   ".codex/hooks/ddw/pre-compact.sh",
-    "cursor":  ".cursor/hooks/ddw/pre-compact.sh",
-    "gemini":  ".gemini/hooks/ddw/pre-compact.sh",
-    "copilot": ".github/hooks/ddw/pre-compact.sh",
+    "codex":   ".codex/hooks/daw/pre-compact.sh",
+    "cursor":  ".cursor/hooks/daw/pre-compact.sh",
+    "gemini":  ".gemini/hooks/daw/pre-compact.sh",
+    "copilot": ".github/hooks/daw/pre-compact.sh",
 }
 for tool, hook_rel in sorted(HOOK.items()):
     hook = os.path.join(target, hook_rel)
@@ -8536,7 +8536,7 @@ for tool, hook_rel in sorted(HOOK.items()):
 
 # OpenCode has no hook file: the plugin subscribes to the event by type, and its
 # stdout never reaches the model, so the reminder has to ride a user message.
-js = open(os.path.join(root, "adapters/opencode/plugin/ddw.js"), encoding="utf-8").read()
+js = open(os.path.join(root, "adapters/opencode/plugin/daw.js"), encoding="utf-8").read()
 assert '"session.compacted"' in js, "opencode: the compaction event type is not handled"
 assert "compactionNudge" in js and "messages.transform" in js, \
     "opencode: the reminder is never put on a channel the model reads"
@@ -8546,22 +8546,22 @@ PYCOMPACT
 # reminder work is that it names the boot sequence: a reminder that fires and
 # says "carry on" is the same outcome as no reminder, arrived at expensively.
 CN="$WORK/compact-nudge"; mkdir -p "$CN"; git -C "$CN" init -q .
-CNOUT="$(python3 "$SELF/ddw/scripts/session-boot.py" --repo "$CN" --method "$SELF/ddw" \
+CNOUT="$(python3 "$SELF/daw/scripts/session-boot.py" --repo "$CN" --method "$SELF/daw" \
           --compact --format text 2>&1)"
 CN_MISS=""
-for NEEDLE in "orchestrator.md" ".ddw-state.json" "Router: Phase" "status line" "Do NOT answer"; do
+for NEEDLE in "orchestrator.md" ".daw-state.json" "Router: Phase" "status line" "Do NOT answer"; do
   case "$CNOUT" in *"$NEEDLE"*) ;; *) CN_MISS="$CN_MISS '$NEEDLE'" ;; esac
 done
 [ -z "$CN_MISS" ] \
   && ok "and it names the boot sequence it exists to demand, not just that something happened" \
   || bad "the compaction reminder no longer says:${CN_MISS} — it fires and asks for nothing"
-# Grepping for "orchestrator.md" alone passed a hardcoded `.ddw/orchestrator.md`
+# Grepping for "orchestrator.md" alone passed a hardcoded `.daw/orchestrator.md`
 # — the substring is in both — so a plugin install could be sent to re-read a
 # path that does not exist in the repo, and the reminder that exists to restart
 # the pipeline would point at nothing. The path has to be the METHOD's.
 case "$CNOUT" in
-  *"$SELF/ddw/orchestrator.md"*) ok "and the path it names is the method's, which under a plugin is not in the repo" ;;
-  *) bad "the compaction reminder names a relative .ddw/ a plugin install does not have — it points the model at a missing file" ;;
+  *"$SELF/daw/orchestrator.md"*) ok "and the path it names is the method's, which under a plugin is not in the repo" ;;
+  *) bad "the compaction reminder names a relative .daw/ a plugin install does not have — it points the model at a missing file" ;;
 esac
 
 # One paragraph, six tools. Written into each hook it would be five copies
@@ -8579,15 +8579,15 @@ assert not owns, ("these carry their own copy of the reminder: "
                   + ", ".join(os.path.relpath(p, root) for p in owns))
 PYONCE
 
-# ── Where /ddw-status is promised, /ddw-status has to exist ──────────────────
+# ── Where /daw-status is promised, /daw-status has to exist ──────────────────
 #
-# Claude Code turns every skill into a slash command by itself, DDW was built on
-# it, and the installer's closing line said "Commands: /ddw-status, /ddw-self-check,
-# /ddw-help" to all six targets. On OpenCode skills are discovered and loaded
+# Claude Code turns every skill into a slash command by itself, DAW was built on
+# it, and the installer's closing line said "Commands: /daw-status, /daw-self-check,
+# /daw-help" to all six targets. On OpenCode skills are discovered and loaded
 # but never become `/name` — that is a separate feature reading a separate
-# directory — so the first user to follow DDW's own last line of output typed
-# /ddw-status and was told no such command exists.
-section "The entry point DDW advertises is the entry point that exists"
+# directory — so the first user to follow DAW's own last line of output typed
+# /daw-status and was told no such command exists.
+section "The entry point DAW advertises is the entry point that exists"
 
 python3 - "$SELF" "$ALL" <<'PYEOF' && ok "every skill has a command on the tools that need one, and none where they would double up" || bad "commands and skills are out of step — see above"
 import json, os, re, sys
@@ -8632,7 +8632,7 @@ PYEOF
 # The recipes above can be right and the closing line still lie: what a user
 # acts on is what the installer PRINTS.
 ADVICE="$(bash "$SELF/install.sh" "$ALL" --target all 2>&1)"
-python3 - "$SELF" <<PYEOF && ok "and the installer only tells you to type /ddw-… on the tools where that works" || bad "the installer advertises slash commands to a tool that has none"
+python3 - "$SELF" <<PYEOF && ok "and the installer only tells you to type /daw-… on the tools where that works" || bad "the installer advertises slash commands to a tool that has none"
 import json, os, sys
 src = sys.argv[1]
 out = """$ADVICE"""
@@ -8640,7 +8640,7 @@ out = """$ADVICE"""
 # thing that knows whether this tool has slash commands.
 sh = open(os.path.join(src, "install.sh"), encoding="utf-8").read()
 for line in sh.splitlines():
-    if line.startswith("echo") and "/ddw-" in line:
+    if line.startswith("echo") and "/daw-" in line:
         raise AssertionError(f"install.sh promises slash commands itself: {line.strip()}")
 
 blocks = {}
@@ -8659,7 +8659,7 @@ for aid in sorted(os.listdir(os.path.join(src, "adapters"))):
     r = json.load(open(rp, encoding="utf-8"))
     label = r.get("label", aid)
     assert label in blocks, f"{aid}: the installer printed no wiring block for it"
-    said = any("try: /ddw-" in l for l in blocks[label])
+    said = any("try: /daw-" in l for l in blocks[label])
     has = bool(r.get("commands") or r.get("skills_are_slash"))
     assert said == has, (f"{aid}: installer says slash commands = {said}, "
                          f"the recipe provides them = {has}")
@@ -8668,7 +8668,7 @@ PYEOF
 python3 - "$ALL" <<'PYEOF' && ok "each tool gets its context nudge in the spelling it reads" || bad "the session nudge is emitted in a shape that tool ignores — it boots nothing, silently"
 import os, subprocess, sys, json
 repo = sys.argv[1]
-boot = os.path.join(repo, ".ddw", "scripts", "session-boot.py")
+boot = os.path.join(repo, ".daw", "scripts", "session-boot.py")
 # Same concept, four incompatible spellings. Getting one wrong is silent.
 want = {
     "json":   lambda d: "additionalContext" in d,                       # copilot
@@ -8710,16 +8710,16 @@ assert checked >= 2, ("no adapter declares a trust_note, so this check measured 
                       "Codex and Gemini cannot enforce writes and the install has to say so")
 PYEOF
 
-# /ddw-self-check is what a user runs when they suspect DDW is not working. It
+# /daw-self-check is what a user runs when they suspect DAW is not working. It
 # reported TWO inconsistencies on every correct install of all six tools — one
 # `grep` handed three filenames when one exists exits 2 for the missing operand
 # even after a match, and one `ls` over six globs fails when any of them is
 # empty, which five of six always are. A diagnostic that cries wolf on a healthy
 # repo is worse than none: it is what people learn to ignore before the real one.
-python3 - "$SELF" <<'PYSELFCHK' && ok "/ddw-self-check is silent on a correct install of every tool, and still speaks when something really is missing" || bad "the self-check reports a healthy install as broken, or has stopped noticing a broken one"
+python3 - "$SELF" <<'PYSELFCHK' && ok "/daw-self-check is silent on a correct install of every tool, and still speaks when something really is missing" || bad "the self-check reports a healthy install as broken, or has stopped noticing a broken one"
 import os, re, subprocess, sys, tempfile
 src = sys.argv[1]
-skill = open(os.path.join(src, "skills/ddw-self-check/SKILL.md"), encoding="utf-8").read()
+skill = open(os.path.join(src, "skills/daw-self-check/SKILL.md"), encoding="utf-8").read()
 fence = re.search(r"```bash\n(.*?)```", skill, re.S)
 assert fence, "the self-check skill no longer carries a runnable block"
 snippet = fence.group(1)
@@ -8741,7 +8741,7 @@ for target in ("claude", "codex", "copilot", "cursor", "gemini", "opencode"):
         f"{target}: a correct install is reported as broken:\n{out.strip()[:300]}"
     # …and it has to still speak. A snippet that says nothing on a healthy repo
     # and nothing on a gutted one is not a check, it is a comment.
-    os.remove(os.path.join(repo, ".ddw", "orchestrator.md"))
+    os.remove(os.path.join(repo, ".daw", "orchestrator.md"))
     assert "INCONSISTENCY" in say(), f"{target}: a missing orchestrator went unreported"
 PYSELFCHK
 
@@ -8753,12 +8753,12 @@ PYSELFCHK
 # and the one move that did work was deleting the file.
 section "A corrupt state can be reported, and cannot be repaired away"
 
-# The install gitignores the state, so `git checkout -- .ddw-state.json` can
+# The install gitignores the state, so `git checkout -- .daw-state.json` can
 # never restore it. The first live OpenCode run watched the old advice send an
 # agent there: the pathspec failed and the agent misread the failure as "the
 # committed file is corrupt too". Advice that points at a painted door is worse
 # than no advice.
-! grep -rq 'git checkout -- \.ddw-state\.json' "$SELF/ddw/scripts" \
+! grep -rq 'git checkout -- \.daw-state\.json' "$SELF/daw/scripts" \
   && ok "the recovery advice never points at git for a file git never had" \
   || bad "a runtime message recommends git checkout for a gitignored file — that door is painted on"
 
@@ -8770,15 +8770,15 @@ section "A corrupt state can be reported, and cannot be repaired away"
 python3 - "$SELF" <<'PYEOF' && ok "and the scratch file the refusal asks for can actually be written" || bad "the corrupt-state advice orders a write the corrupt-state guard forbids — painted door, again"
 import json, os, subprocess, sys, tempfile
 src = sys.argv[1]
-gate = os.path.join(src, "ddw", "scripts", "hook-gate.py")
-graph = os.path.join(src, "ddw", "rules", "transition-graph.json")
+gate = os.path.join(src, "daw", "scripts", "hook-gate.py")
+graph = os.path.join(src, "daw", "rules", "transition-graph.json")
 CORRUPT = {"phase": "CLOSEOUT", "tier": "FEATURE", "gates": {},
            "history": [{"timestamp": "2026-01-01T00:00:00Z", "from": "IDLE",
                         "to": "CLOSEOUT", "action": "forged"}]}
 
 
 def write_to(repo, path):
-    state = os.path.join(repo, ".ddw-state.json")
+    state = os.path.join(repo, ".daw-state.json")
     ev = json.dumps({"tool_name": "Write", "tool_input": {"file_path": path, "content": "{}"}})
     p = subprocess.run([sys.executable, gate, "--dialect", "standard", "--mode", "pre",
                         "--state", state, "--graph", graph, "--repo", repo],
@@ -8788,9 +8788,9 @@ def write_to(repo, path):
 
 with tempfile.TemporaryDirectory() as repo:
     subprocess.run(["git", "init", "-q", repo], check=True)
-    with open(os.path.join(repo, ".ddw-journal.jsonl"), "w") as fh:
+    with open(os.path.join(repo, ".daw-journal.jsonl"), "w") as fh:
         fh.write('{"from":"IDLE","to":"CLASSIFY"}\n{"from":"CLASSIFY","to":"DEFINE"}\n')
-    with open(os.path.join(repo, ".ddw-state.json"), "w") as fh:
+    with open(os.path.join(repo, ".daw-state.json"), "w") as fh:
         json.dump(CORRUPT, fh)
     with tempfile.TemporaryDirectory() as elsewhere:
         rc = write_to(repo, os.path.join(elsewhere, "state-fixed.json"))
@@ -8807,18 +8807,18 @@ PYEOF
 python3 - "$SELF" <<'PYLIVE' && ok "the write gate keeps this session's liveness marker fresh, so the concurrency guard survives a session longer than two hours" || bad "a session's marker still expires under every tool but one, and the guard goes quiet for long sessions"
 import importlib.util, json, os, subprocess, sys, tempfile, time
 src = sys.argv[1]
-gate = os.path.join(src, "ddw", "scripts", "hook-gate.py")
-graph = os.path.join(src, "ddw", "rules", "transition-graph.json")
-spec = importlib.util.spec_from_file_location("sb", os.path.join(src, "ddw/scripts/session-boot.py"))
+gate = os.path.join(src, "daw", "scripts", "hook-gate.py")
+graph = os.path.join(src, "daw", "rules", "transition-graph.json")
+spec = importlib.util.spec_from_file_location("sb", os.path.join(src, "daw/scripts/session-boot.py"))
 sb = importlib.util.module_from_spec(spec); spec.loader.exec_module(sb)
 
 repo = tempfile.mkdtemp(dir=os.environ["WORK"])
 subprocess.run(["git", "init", "-q", repo], check=True)
-state = os.path.join(repo, ".ddw-state.json")
+state = os.path.join(repo, ".daw-state.json")
 json.dump({"phase": "CODE", "ticket": "T-1", "tier": "FEATURE",
            "gates": {"define": True, "spec": True, "threat": True}, "history": []},
           open(state, "w", encoding="utf-8"))
-marker = os.path.join(repo, ".ddw-sessions", "live", "sess-A")
+marker = os.path.join(repo, ".daw-sessions", "live", "sess-A")
 os.makedirs(os.path.dirname(marker))
 open(marker, "w", encoding="utf-8").write("0")
 aged = time.time() - (sb.STALE_SECONDS + 600)
@@ -8857,15 +8857,15 @@ PYLIVE
 python3 - "$SELF" <<'PYEOF' && ok "and nothing inside the repository got easier while that door opened" || bad "the outside-the-repo exit softened the corrupt-state rule for the repo itself"
 import json, os, subprocess, sys, tempfile
 src = sys.argv[1]
-gate = os.path.join(src, "ddw", "scripts", "hook-gate.py")
-graph = os.path.join(src, "ddw", "rules", "transition-graph.json")
+gate = os.path.join(src, "daw", "scripts", "hook-gate.py")
+graph = os.path.join(src, "daw", "rules", "transition-graph.json")
 CORRUPT = {"phase": "CLOSEOUT", "tier": "FEATURE", "gates": {},
            "history": [{"timestamp": "2026-01-01T00:00:00Z", "from": "IDLE",
                         "to": "CLOSEOUT", "action": "forged"}]}
 
 
 def write_paths(repo, paths):
-    state = os.path.join(repo, ".ddw-state.json")
+    state = os.path.join(repo, ".daw-state.json")
     ti = {"file_path": paths[0], "content": "{}"}
     if len(paths) > 1:
         ti["path"] = paths[1]                 # the decoy shape: two paths, one event
@@ -8878,9 +8878,9 @@ def write_paths(repo, paths):
 
 with tempfile.TemporaryDirectory() as repo:
     subprocess.run(["git", "init", "-q", repo], check=True)
-    with open(os.path.join(repo, ".ddw-journal.jsonl"), "w") as fh:
+    with open(os.path.join(repo, ".daw-journal.jsonl"), "w") as fh:
         fh.write('{"from":"IDLE","to":"CLASSIFY"}\n{"from":"CLASSIFY","to":"DEFINE"}\n')
-    state = os.path.join(repo, ".ddw-state.json")
+    state = os.path.join(repo, ".daw-state.json")
     with open(state, "w") as fh:
         json.dump(CORRUPT, fh)
     assert write_paths(repo, [os.path.join(repo, "src", "x.py")]) == 2, \
@@ -8895,8 +8895,8 @@ PYEOF
 python3 - "$SELF" <<'PYEOF' && ok "a run's ticket cannot change under it, and the refusal names the path that works" || bad "the split still writes a state post mode will condemn — see above"
 import json, os, subprocess, sys, tempfile
 src = sys.argv[1]
-gate = os.path.join(src, "ddw", "scripts", "hook-gate.py")
-graph = os.path.join(src, "ddw", "rules", "transition-graph.json")
+gate = os.path.join(src, "daw", "scripts", "hook-gate.py")
+graph = os.path.join(src, "daw", "rules", "transition-graph.json")
 
 HIST = [{"timestamp": "2026-07-29T06:00:00Z", "from": "IDLE", "to": "CLASSIFY",
          "action": "x", "ticket": "FEAT-001", "tier": "FEATURE"},
@@ -8905,7 +8905,7 @@ HIST = [{"timestamp": "2026-07-29T06:00:00Z", "from": "IDLE", "to": "CLASSIFY",
 
 
 def run(repo, mode, content=None):
-    state = os.path.join(repo, ".ddw-state.json")
+    state = os.path.join(repo, ".daw-state.json")
     ev = json.dumps({"tool_name": "Write",
                      "tool_input": {"file_path": state, "content": content}}) if content else "{}"
     p = subprocess.run([sys.executable, gate, "--dialect", "standard", "--mode", mode,
@@ -8916,7 +8916,7 @@ def run(repo, mode, content=None):
 
 with tempfile.TemporaryDirectory() as repo:
     subprocess.run(["git", "init", "-q", repo], check=True)
-    state = os.path.join(repo, ".ddw-state.json")
+    state = os.path.join(repo, ".daw-state.json")
     parent = {"tier": "FEATURE", "phase": "DEFINE", "ticket": "FEAT-001",
               "gates": {}, "history": HIST}
     json.dump(parent, open(state, "w"))
@@ -8936,23 +8936,23 @@ with tempfile.TemporaryDirectory() as repo:
     assert rc == 0, f"the refusal recommends a write that is itself refused: {out!r}"
 PYEOF
 
-python3 - "$SELF" <<'PYEOF' && ok "deleting the state is no longer a way out of it" || bad "rm .ddw-state.json still resets the run — see above"
+python3 - "$SELF" <<'PYEOF' && ok "deleting the state is no longer a way out of it" || bad "rm .daw-state.json still resets the run — see above"
 import json, os, subprocess, sys, tempfile
 src = sys.argv[1]
-gate = os.path.join(src, "ddw", "scripts", "hook-gate.py")
-graph = os.path.join(src, "ddw", "rules", "transition-graph.json")
+gate = os.path.join(src, "daw", "scripts", "hook-gate.py")
+graph = os.path.join(src, "daw", "rules", "transition-graph.json")
 
 
 def post(repo):
     p = subprocess.run([sys.executable, gate, "--dialect", "standard", "--mode", "post",
-                        "--state", os.path.join(repo, ".ddw-state.json"), "--graph", graph,
+                        "--state", os.path.join(repo, ".daw-state.json"), "--graph", graph,
                         "--repo", repo], input="{}", capture_output=True, text=True)
     return p.returncode, p.stdout + p.stderr
 
 
 with tempfile.TemporaryDirectory() as repo:
     subprocess.run(["git", "init", "-q", repo], check=True)
-    state = os.path.join(repo, ".ddw-state.json")
+    state = os.path.join(repo, ".daw-state.json")
     hist = [{"timestamp": "2026-07-29T06:00:00Z", "from": "IDLE", "to": "CLASSIFY",
              "action": "x", "ticket": "FEAT-001", "tier": "FEATURE"},
             {"timestamp": "2026-07-29T06:01:00Z", "from": "CLASSIFY", "to": "DEFINE",
@@ -8962,7 +8962,7 @@ with tempfile.TemporaryDirectory() as repo:
 
     rc, _ = post(repo)
     assert rc == 0, "a legal state was refused"
-    journal = os.path.join(repo, ".ddw-journal.jsonl")
+    journal = os.path.join(repo, ".daw-journal.jsonl")
     assert os.path.exists(journal), "nothing was journalled, so the state is still the only record"
 
     os.remove(state)
@@ -8987,7 +8987,7 @@ with tempfile.TemporaryDirectory() as repo:
     # zero bytes. Not absent, so the deletion net does not fire; not garbage, so
     # the parse guard does not either — and a blank state is read as a fresh
     # IDLE, because a fresh install genuinely leaves one behind. `: >
-    # .ddw-state.json` therefore put the repository at IDLE with no ticket and
+    # .daw-state.json` therefore put the repository at IDLE with no ticket and
     # no history, and the write to product source that DEFINE had just refused
     # went through.
     open(state, "w", encoding="utf-8").close()
@@ -9012,9 +9012,9 @@ os.makedirs(repo)
 subprocess.run(["git", "-C", repo, "init", "-q"], check=True)
 subprocess.run(["bash", os.path.join(src, "install.sh"), repo, "--target", "claude"],
                capture_output=True, text=True)
-state = os.path.join(repo, ".ddw-state.json")
-ddw = os.path.join(repo, ".ddw")
-assert not os.path.exists(os.path.join(repo, ".ddw-journal.jsonl")), \
+state = os.path.join(repo, ".daw-state.json")
+daw = os.path.join(repo, ".daw")
+assert not os.path.exists(os.path.join(repo, ".daw-journal.jsonl")), \
     "a fresh install now has a journal, which changes what 'nothing recorded' means here"
 # A document, not product source. This check is about the ERASED-STATE guard —
 # whether an empty state reads as "somebody wiped this" or "nobody has begun" —
@@ -9028,9 +9028,9 @@ event = json.dumps({"tool_name": "Write",
 
 
 def first_write():
-    return subprocess.run([sys.executable, os.path.join(ddw, "scripts", "hook-gate.py"),
-                           "--mode", "pre", "--state", state, "--repo", repo, "--method", ddw,
-                           "--graph", os.path.join(ddw, "rules", "transition-graph.json")],
+    return subprocess.run([sys.executable, os.path.join(daw, "scripts", "hook-gate.py"),
+                           "--mode", "pre", "--state", state, "--repo", repo, "--method", daw,
+                           "--graph", os.path.join(daw, "rules", "transition-graph.json")],
                           input=event, capture_output=True, text=True)
 
 
@@ -9062,9 +9062,9 @@ PYEMPTYFRESH
 python3 - "$SELF" <<'PYFREE' && ok "product source is refused at IDLE, allowed in FREE, and FREE is reachable only by classifying into it — never out of a ticket in flight" || bad "code can be written with no ticket and no record, or FREE is a way to walk out of the gates a ticket already owes"
 import importlib.util, json, os, subprocess, sys, tempfile
 src = sys.argv[1]
-spec = importlib.util.spec_from_file_location("vt", os.path.join(src, "ddw/scripts/validate-transition.py"))
+spec = importlib.util.spec_from_file_location("vt", os.path.join(src, "daw/scripts/validate-transition.py"))
 vt = importlib.util.module_from_spec(spec); spec.loader.exec_module(vt)
-graph = json.load(open(os.path.join(src, "ddw/rules/transition-graph.json"), encoding="utf-8"))
+graph = json.load(open(os.path.join(src, "daw/rules/transition-graph.json"), encoding="utf-8"))
 repo = tempfile.mkdtemp(dir=os.environ["WORK"])
 subprocess.run(["git", "-C", repo, "init", "-q"], check=True)
 
@@ -9074,13 +9074,13 @@ def denied(rel, phase):
 
 
 # 0. And the method ASKS it to write code with the write tool, not with the
-#    shell. It cannot be enforced — DDW sees a shell command and cannot tell
+#    shell. It cannot be enforced — DAW sees a shell command and cannot tell
 #    the agent's from yours in another terminal, which is decision 12 — so the
 #    only thing left is to ask for it, and the only thing that holds up a
 #    request is that it is written down. Measured: facing a refused `Write`, a
 #    live model went to the shell in most runs. Not by cheating: because
 #    nothing had told it not to.
-_orch = open(os.path.join(src, "ddw/orchestrator.md"), encoding="utf-8").read()
+_orch = open(os.path.join(src, "daw/orchestrator.md"), encoding="utf-8").read()
 assert "never with a shell command" in _orch and "bypasses PreToolUse" in _orch, \
     ("the method no longer asks the model to write source with the write tool. That request is "
      "the only thing standing between a refused `Write` and the same file written with `cat >`, "
@@ -9102,7 +9102,7 @@ assert "--tier FREE" not in why and "--to FREE" not in why, \
 
 # 2. …and what a repo at rest legitimately needs is still writable, or the guard
 #    stops the install, the eject and every document.
-for rel in ("docs/ddw/prd/prd-T-1.md", "AGENTS.md", "CHANGELOG.md", ".claude/settings.json"):
+for rel in ("docs/daw/prd/prd-T-1.md", "AGENTS.md", "CHANGELOG.md", ".claude/settings.json"):
     assert not denied(rel, "IDLE"), "%s is refused at IDLE, and a repo at rest needs it" % rel
 
 # 3. FREE is the phase where none of this is asked. That IS the escape hatch.
@@ -9123,8 +9123,8 @@ for tier in ("FEATURE", "QUICK-FIX", "FIX", "DISCOVERY"):
 assert not vt._gate_owners(graph, "FREE"), \
     "FREE asks for a gate, which is not what the user asked for when they asked for no pipeline"
 
-# 5. And FREE is not a licence to disarm DDW itself.
-assert vt.enforcement_write_denied(os.path.join(repo, ".ddw/rules/code.instructions.md"), repo), \
+# 5. And FREE is not a licence to disarm DAW itself.
+assert vt.enforcement_write_denied(os.path.join(repo, ".daw/rules/code.instructions.md"), repo), \
     "the method is writable in FREE — turning the pipeline off must not hand over what turns it off for good"
 PYFREE
 
@@ -9141,7 +9141,7 @@ os.makedirs(repo)
 subprocess.run(["git", "-C", repo, "init", "-q"], check=True)
 subprocess.run(["bash", os.path.join(src, "install.sh"), repo, "--target", "claude"],
                capture_output=True, text=True)
-state = os.path.join(repo, ".ddw-state.json")
+state = os.path.join(repo, ".daw-state.json")
 H = [{"timestamp": "2026-01-01T00:00:00Z", "from": "IDLE", "to": "CLASSIFY", "action": "a"},
      {"timestamp": "2026-01-01T00:01:00Z", "from": "CLASSIFY", "to": "FREE",
       "action": "sin pipeline, a pedido", "tier": "FREE", "ticket": "F-1"}]
@@ -9150,7 +9150,7 @@ H = [{"timestamp": "2026-01-01T00:00:00Z", "from": "IDLE", "to": "CLASSIFY", "ac
 def boot(phase, tier):
     json.dump({"phase": phase, "tier": tier, "ticket": "F-1", "gates": {}, "history": H},
               open(state, "w", encoding="utf-8"))
-    r = subprocess.run([sys.executable, os.path.join(repo, ".ddw/scripts/session-boot.py"),
+    r = subprocess.run([sys.executable, os.path.join(repo, ".daw/scripts/session-boot.py"),
                         "--repo", repo, "--session-id", "s-" + phase],
                        capture_output=True, text=True, timeout=60)
     return r.stdout + r.stderr
@@ -9178,9 +9178,9 @@ python3 - "$SELF" <<'PYFREEWORDS' && ok "the arrow into FREE takes the user's wo
 import importlib.util, json, os, sys
 src = sys.argv[1]
 spec = importlib.util.spec_from_file_location(
-    "vt", os.path.join(src, "ddw/scripts/validate-transition.py"))
+    "vt", os.path.join(src, "daw/scripts/validate-transition.py"))
 vt = importlib.util.module_from_spec(spec); spec.loader.exec_module(vt)
-graph = json.load(open(os.path.join(src, "ddw/rules/transition-graph.json"), encoding="utf-8"))
+graph = json.load(open(os.path.join(src, "daw/rules/transition-graph.json"), encoding="utf-8"))
 
 INTO = {"timestamp": "2026-01-01T00:00:00Z", "from": "IDLE", "to": "CLASSIFY", "action": "clasificar"}
 OLD = {"phase": "CLASSIFY", "tier": None, "ticket": None, "title": None, "gates": {},
@@ -9235,9 +9235,9 @@ python3 - "$SELF" <<'PYTITLESHAPE' && ok "the name a ticket leaves CLASSIFY with
 import importlib.util, json, os, sys
 src = sys.argv[1]
 spec = importlib.util.spec_from_file_location(
-    "vt", os.path.join(src, "ddw/scripts/validate-transition.py"))
+    "vt", os.path.join(src, "daw/scripts/validate-transition.py"))
 vt = importlib.util.module_from_spec(spec); spec.loader.exec_module(vt)
-graph = json.load(open(os.path.join(src, "ddw/rules/transition-graph.json"), encoding="utf-8"))
+graph = json.load(open(os.path.join(src, "daw/rules/transition-graph.json"), encoding="utf-8"))
 
 INTO = {"timestamp": "2026-01-01T00:00:00Z", "from": "IDLE", "to": "CLASSIFY", "action": "clasificar"}
 OLD = {"phase": "CLASSIFY", "tier": None, "ticket": None, "title": None, "gates": {},
@@ -9265,25 +9265,25 @@ for empty, what in ((None, "absent"), ("", "empty"), ("   ", "whitespace"),
 PYTITLESHAPE
 
 # Under a plugin install, the method is sealed and the FILES THE TOOL EXECUTES
-# were not. `$PLUGIN/ddw` is the rules and the validators; the hook that runs the
+# were not. `$PLUGIN/daw` is the rules and the validators; the hook that runs the
 # gate is `$PLUGIN/adapters/<tool>/hooks/*.sh`, wired by `plugin-hooks.json` and
 # declared in `.claude-plugin/plugin.json` — one level up, outside the method and
 # outside the repo, so every guard answered "not ours". Overwriting that one
-# shell script with `exit 0` takes a single Write, allowed in any phase, and DDW
+# shell script with `exit 0` takes a single Write, allowed in any phase, and DAW
 # stops holding in every repository using that plugin.
-python3 - "$SELF" <<'PYPLUGINROOT' && ok "a plugin install seals what the tool executes, not only the method it reads — and a drop-in still leaves the repository writable" || bad "the hook that runs the gate can be overwritten from inside a ticket, which turns DDW off everywhere it is installed"
+python3 - "$SELF" <<'PYPLUGINROOT' && ok "a plugin install seals what the tool executes, not only the method it reads — and a drop-in still leaves the repository writable" || bad "the hook that runs the gate can be overwritten from inside a ticket, which turns DAW off everywhere it is installed"
 import json, os, shutil, subprocess, sys, tempfile
 src = sys.argv[1]
 work = tempfile.mkdtemp(dir=os.environ["WORK"])
 plug = os.path.join(work, "plugin")
 os.makedirs(plug)
-for item in ("ddw", "adapters", ".claude-plugin"):
+for item in ("daw", "adapters", ".claude-plugin"):
     if os.path.exists(os.path.join(src, item)):
         shutil.copytree(os.path.join(src, item), os.path.join(plug, item), symlinks=True)
 repo = os.path.join(work, "repo")
 os.makedirs(repo)
 subprocess.run(["git", "-C", repo, "init", "-q"], check=True)
-state = os.path.join(repo, ".ddw-state.json")
+state = os.path.join(repo, ".daw-state.json")
 json.dump({"phase": "CODE", "ticket": "T-1", "tier": "FEATURE",
            "gates": {"define": True, "spec": True, "threat": True},
            "history": [{"timestamp": "2026-01-01T00:00:00Z", "from": "IDLE", "to": "CLASSIFY",
@@ -9295,14 +9295,14 @@ json.dump({"phase": "CODE", "ticket": "T-1", "tier": "FEATURE",
 
 def write(path):
     ev = json.dumps({"tool_name": "Write", "tool_input": {"file_path": path, "content": "exit 0\n"}})
-    return subprocess.run([sys.executable, os.path.join(plug, "ddw/scripts/hook-gate.py"),
+    return subprocess.run([sys.executable, os.path.join(plug, "daw/scripts/hook-gate.py"),
                            "--dialect", "standard", "--mode", "pre", "--state", state,
-                           "--graph", os.path.join(plug, "ddw/rules/transition-graph.json"),
-                           "--repo", repo, "--method", os.path.join(plug, "ddw")],
+                           "--graph", os.path.join(plug, "daw/rules/transition-graph.json"),
+                           "--repo", repo, "--method", os.path.join(plug, "daw")],
                           input=ev, capture_output=True, text=True).returncode
 
 
-for rel in ("ddw/rules/transition-graph.json",
+for rel in ("daw/rules/transition-graph.json",
             "adapters/claude/hooks/validate-state-transition.sh",
             "adapters/claude/plugin-hooks.json",
             ".claude-plugin/plugin.json",
@@ -9320,7 +9320,7 @@ assert write(os.path.join(repo, "src", "app.py")) == 0, \
     "sealing the plugin root also sealed the repository — CODE cannot write source"
 
 # And a DROP-IN install must not seal the project: there the method is
-# `<repo>/.ddw`, whose parent is the repo itself.
+# `<repo>/.daw`, whose parent is the repo itself.
 drop = os.path.join(work, "dropin")
 os.makedirs(drop)
 subprocess.run(["git", "-C", drop, "init", "-q"], check=True)
@@ -9332,14 +9332,14 @@ json.dump({"phase": "CODE", "ticket": "T-1", "tier": "FEATURE",
                         "action": "a"},
                        {"timestamp": "2026-01-01T00:01:00Z", "from": "CLASSIFY", "to": "DEFINE",
                         "action": "b", "tier": "FEATURE", "ticket": "T-1"}]},
-          open(os.path.join(drop, ".ddw-state.json"), "w", encoding="utf-8"))
+          open(os.path.join(drop, ".daw-state.json"), "w", encoding="utf-8"))
 ev = json.dumps({"tool_name": "Write",
                  "tool_input": {"file_path": os.path.join(drop, "src", "app.py"), "content": "x"}})
-r = subprocess.run([sys.executable, os.path.join(drop, ".ddw/scripts/hook-gate.py"),
+r = subprocess.run([sys.executable, os.path.join(drop, ".daw/scripts/hook-gate.py"),
                     "--dialect", "standard", "--mode", "pre",
-                    "--state", os.path.join(drop, ".ddw-state.json"),
-                    "--graph", os.path.join(drop, ".ddw/rules/transition-graph.json"),
-                    "--repo", drop, "--method", os.path.join(drop, ".ddw")],
+                    "--state", os.path.join(drop, ".daw-state.json"),
+                    "--graph", os.path.join(drop, ".daw/rules/transition-graph.json"),
+                    "--repo", drop, "--method", os.path.join(drop, ".daw")],
                    input=ev, capture_output=True, text=True)
 assert r.returncode == 0, \
     "a drop-in install now seals the repository itself: " + (r.stdout + r.stderr)[-200:]
@@ -9368,8 +9368,8 @@ def repo_with(history, journal):
     subprocess.run(["bash", os.path.join(src, "install.sh"), repo, "--target", "claude"],
                    capture_output=True, text=True)
     json.dump({"tier": None, "phase": "IDLE", "ticket": None, "gates": {}, "history": history},
-              open(os.path.join(repo, ".ddw-state.json"), "w", encoding="utf-8"))
-    with open(os.path.join(repo, ".ddw-journal.jsonl"), "w", encoding="utf-8") as fh:
+              open(os.path.join(repo, ".daw-state.json"), "w", encoding="utf-8"))
+    with open(os.path.join(repo, ".daw-journal.jsonl"), "w", encoding="utf-8") as fh:
         for line in journal:
             fh.write(json.dumps(line) + "\n")
     return repo
@@ -9377,9 +9377,9 @@ def repo_with(history, journal):
 
 def resume(repo):
     return subprocess.run(
-        [sys.executable, os.path.join(repo, ".ddw/scripts/transition.py"),
-         "--state", os.path.join(repo, ".ddw-state.json"),
-         "--graph", os.path.join(repo, ".ddw/rules/transition-graph.json"),
+        [sys.executable, os.path.join(repo, ".daw/scripts/transition.py"),
+         "--state", os.path.join(repo, ".daw-state.json"),
+         "--graph", os.path.join(repo, ".daw/rules/transition-graph.json"),
          "--write", "--to", "CODE", "--action", "resume: back to it"],
         capture_output=True, text=True, cwd=repo)
 
@@ -9430,7 +9430,7 @@ os.makedirs(repo)
 subprocess.run(["git", "-C", repo, "init", "-q"], check=True)
 subprocess.run(["bash", os.path.join(src, "install.sh"), repo, "--target", "claude"],
                capture_output=True, text=True)
-state = os.path.join(repo, ".ddw-state.json")
+state = os.path.join(repo, ".daw-state.json")
 EDGES = [("IDLE", "CLASSIFY", "classify"), ("CLASSIFY", "DEFINE", "prd"),
          ("DEFINE", "PLAN", "spec"), ("PLAN", "CODE", "code"), ("CODE", "VERIFY", "verify"),
          ("VERIFY", "CLOSEOUT", "closeout"), ("CLOSEOUT", "IDLE", "done")]
@@ -9442,10 +9442,10 @@ def post(with_ticket):
             for i, (a, b, c) in enumerate(EDGES)]
     json.dump({"tier": None, "phase": "IDLE", "ticket": None, "gates": {}, "history": hist},
               open(state, "w", encoding="utf-8"))
-    return subprocess.run([sys.executable, os.path.join(repo, ".ddw/scripts/hook-gate.py"),
+    return subprocess.run([sys.executable, os.path.join(repo, ".daw/scripts/hook-gate.py"),
                            "--dialect", "standard", "--mode", "post", "--state", state,
-                           "--repo", repo, "--method", os.path.join(repo, ".ddw"),
-                           "--graph", os.path.join(repo, ".ddw/rules/transition-graph.json")],
+                           "--repo", repo, "--method", os.path.join(repo, ".daw"),
+                           "--graph", os.path.join(repo, ".daw/rules/transition-graph.json")],
                           input="{}", capture_output=True, text=True)
 
 
@@ -9465,7 +9465,7 @@ assert r.returncode == 2, "the same run with a ticket stamped was blessed with n
 
 # …and the journal recorded none of it. A refused run that leaves its edges in
 # the append-only record is a forgery the next replay treats as history.
-journal = os.path.join(repo, ".ddw-journal.jsonl")
+journal = os.path.join(repo, ".daw-journal.jsonl")
 if os.path.exists(journal):
     lines = [json.loads(l) for l in open(journal, encoding="utf-8") if l.strip()]
     assert not [l for l in lines if l.get("from") == "VERIFY"], \
@@ -9555,12 +9555,12 @@ fi
 python3 - "$SELF" <<'PYEOF' && ok "and it says the whole finding once, not on every tool call" || bad "the same corrupt state is re-reported in full forever — see above"
 import json, os, subprocess, sys, tempfile
 src = sys.argv[1]
-gate = os.path.join(src, "ddw", "scripts", "hook-gate.py")
-graph = os.path.join(src, "ddw", "rules", "transition-graph.json")
+gate = os.path.join(src, "daw", "scripts", "hook-gate.py")
+graph = os.path.join(src, "daw", "rules", "transition-graph.json")
 
 with tempfile.TemporaryDirectory() as repo:
     subprocess.run(["git", "init", "-q", repo], check=True)
-    state = os.path.join(repo, ".ddw-state.json")
+    state = os.path.join(repo, ".daw-state.json")
     json.dump({"tier": "FEATURE", "phase": "CLOSEOUT", "gates": {},
                "history": [{"timestamp": "2026-07-29T06:00:00Z", "from": "IDLE",
                             "to": "CLASSIFY", "action": "x", "tier": "FEATURE"}]},
@@ -9608,12 +9608,12 @@ FORGED_STATE='{"tier":"FEATURE","phase":"CLOSEOUT","ticket":"T-1","gates":{"defi
 check_post_hook() {  # $1 = label, $2 = hook path, $3 = "report" | ""
   local label="$1" hook="$ALL/$2" mode="${3:-block}"
   if [ ! -f "$hook" ]; then bad "$label: no post-write hook was installed"; return; fi
-  printf '%s' "$FORGED_STATE" > "$ALL/.ddw-state.json"
+  printf '%s' "$FORGED_STATE" > "$ALL/.daw-state.json"
   # Each tool is asked about a state it has not been told about yet. The net says
   # the whole finding once per corrupt file and a short line after that, so
   # without this the second adapter tested would be judged on the short line and
   # the six checks would silently depend on their own order.
-  rm -f "$ALL/.ddw-sessions/corrupt-reported" "$ALL/.ddw-journal.jsonl"
+  rm -f "$ALL/.daw-sessions/corrupt-reported" "$ALL/.daw-journal.jsonl"
   local out rc
   out="$( (cd "$ALL" && CLAUDE_PROJECT_DIR="$ALL" bash "$hook" </dev/null) 2>&1 )"; rc=$?
   if [ "$mode" = "report" ]; then
@@ -9626,7 +9626,7 @@ check_post_hook() {  # $1 = label, $2 = hook path, $3 = "report" | ""
   else
     bad "$label: a state forged behind the pre-write hook survived the post net"
   fi
-  printf '%s' "$IDLE_STATE" > "$ALL/.ddw-state.json"
+  printf '%s' "$IDLE_STATE" > "$ALL/.daw-state.json"
   out="$( (cd "$ALL" && CLAUDE_PROJECT_DIR="$ALL" bash "$hook" </dev/null) 2>&1 )"; rc=$?
   case "$out$rc" in
     *ILLEGAL*) bad "$label objects to a perfectly legal state — a net that cries wolf gets removed" ;;
@@ -9635,10 +9635,10 @@ check_post_hook() {  # $1 = label, $2 = hook path, $3 = "report" | ""
   esac
 }
 check_post_hook "Claude Code"  ".claude/hooks/validate-state-postwrite.sh"
-check_post_hook "Codex CLI"    ".codex/hooks/ddw/post-write.sh"
-check_post_hook "Cursor"       ".cursor/hooks/ddw/post-write.sh"
-check_post_hook "Gemini CLI"   ".gemini/hooks/ddw/post-write.sh"
-check_post_hook "Copilot CLI"  ".github/hooks/ddw/post-write.sh" report
+check_post_hook "Codex CLI"    ".codex/hooks/daw/post-write.sh"
+check_post_hook "Cursor"       ".cursor/hooks/daw/post-write.sh"
+check_post_hook "Gemini CLI"   ".gemini/hooks/daw/post-write.sh"
+check_post_hook "Copilot CLI"  ".github/hooks/daw/post-write.sh" report
 
 # Those five cleared the journal on purpose, once per adapter, so that each is
 # judged on the whole finding rather than on the short line the second one would
@@ -9647,7 +9647,7 @@ check_post_hook "Copilot CLI"  ".github/hooks/ddw/post-write.sh" report
 # is one no validator is recorded as having written, and the gates that rest on
 # them would be refused for a reason no check here is about.
 for _t in T-1 FEAT-001 EVIL-1 Q-1; do
-  for _g in define spec threat tests sast verify; do ddw_earn "$ALL" "$_g" "$_t"; done
+  for _g in define spec threat tests sast verify; do daw_earn "$ALL" "$_g" "$_t"; done
 done
 
 # The session boot is what puts the orchestrator in front of the model. If it
@@ -9658,7 +9658,7 @@ OUT="$( (cd "$SB2" && CLAUDE_PROJECT_DIR="$SB2" bash "$SB2/.claude/hooks/session
 printf '%s' "$OUT" | grep -q "orchestrator" \
   && ok "Claude's session boot puts the orchestrator in front of the model" \
   || bad "the session boot emitted nothing — the pipeline never starts and nothing reports it"
-[ -f "$SB2/.ddw-state.json" ] \
+[ -f "$SB2/.daw-state.json" ] \
   && ok "and it materialises the state file" \
   || bad "the session boot did not create the state, so the first write has nothing to judge"
 
@@ -9668,7 +9668,7 @@ printf '%s' "$OUT" | grep -q "orchestrator" \
 section "A refusal has to be a refusal in the tool's own words"
 
 printf '%s' "$IN_PLAN" > "$GST"
-ddw_event_path snake "$ALL/src/app.py"
+daw_event_path snake "$ALL/src/app.py"
 check_verdict() {  # $1 = dialect, $2 = python expression over the parsed JSON
   python3 "$GATE" --dialect "$1" --mode pre --state "$GST" --graph "$G" --repo "$ALL" \
     < "$EVENT" > "$WORK/verdict-$1.json" 2>/dev/null
@@ -9686,7 +9686,7 @@ check_verdict copilot 'd.get("permissionDecision")=="deny"'
 # verdict, and an empty object there means "no decision" — which under
 # failClosed refuses every legal write.
 printf '%s' "$IDLE_STATE" > "$GST"
-ddw_event_path snake "$ALL/docs/ddw/notes.md"
+daw_event_path snake "$ALL/docs/daw/notes.md"
 python3 "$GATE" --dialect cursor --mode pre --state "$GST" --graph "$G" --repo "$ALL" \
   < "$EVENT" > "$WORK/verdict-allow.json" 2>/dev/null
 python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); sys.exit(0 if d.get("permission")=="allow" else 1)' \
@@ -9734,16 +9734,16 @@ section "QUICK-FIX cannot slip through a sensitive path"
 
 QF2="$WORK/qf-sensitive"; mkdir -p "$QF2/src/auth" "$QF2/src/ui"
 git -C "$QF2" init -q -b main .
-git -C "$QF2" config user.email ddw@test; git -C "$QF2" config user.name ddw
+git -C "$QF2" config user.email daw@test; git -C "$QF2" config user.name daw
 git -C "$QF2" config commit.gpgsign false
 echo "x = 1" > "$QF2/src/auth/login.py"; echo "y = 1" > "$QF2/src/ui/button.py"
 bash "$SELF/install.sh" "$QF2" --target claude >/dev/null 2>&1
 git -C "$QF2" add -A && git -C "$QF2" commit -qm base
-printf '{"tier":"QUICK-FIX","phase":"CODE","gates":{},"history":[]}' > "$QF2/.ddw-state.json"
+printf '{"tier":"QUICK-FIX","phase":"CODE","gates":{},"history":[]}' > "$QF2/.daw-state.json"
 git -C "$QF2" checkout -qb fix/QF-9
 qf2_write() { printf '{"tool_name":"Write","tool_input":{"file_path":"%s","content":"x"}}' "$1" \
-  | python3 "$QF2/.ddw/scripts/hook-gate.py" --dialect standard --mode pre \
-      --state "$QF2/.ddw-state.json" --graph "$QF2/.ddw/rules/transition-graph.json" --repo "$QF2"; }
+  | python3 "$QF2/.daw/scripts/hook-gate.py" --dialect standard --mode pre \
+      --state "$QF2/.daw-state.json" --graph "$QF2/.daw/rules/transition-graph.json" --repo "$QF2"; }
 qf2_write "$QF2/src/auth/login.py" >/dev/null 2>&1 \
   && bad "QUICK-FIX wrote to an auth path — the sensitive-path list guards nothing" \
   || ok "QUICK-FIX refuses a security-sensitive path"
@@ -9762,8 +9762,8 @@ for D in standard codex copilot cursor gemini; do
     copilot) QFP_EV="$(python3 -c "import json,sys; print(json.dumps({'toolName':'create','toolArgs':json.dumps({'path':sys.argv[1],'content':'x'})}))" "$QF2/src/auth/login.py")" ;;
     *)       QFP_EV="{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"$QF2/src/auth/login.py\",\"content\":\"x\"}}" ;;
   esac
-  printf '%s' "$QFP_EV" | python3 "$SELF/ddw/scripts/hook-gate.py" --dialect "$D" --mode pre \
-    --state "$QF2/.ddw-state.json" --graph "$SELF/ddw/rules/transition-graph.json" \
+  printf '%s' "$QFP_EV" | python3 "$SELF/daw/scripts/hook-gate.py" --dialect "$D" --mode pre \
+    --state "$QF2/.daw-state.json" --graph "$SELF/daw/rules/transition-graph.json" \
     --repo "$QF2" >/dev/null 2>&1
   [ "$?" = "2" ] || QFP_MISS="$QFP_MISS $D"
 done
@@ -9777,7 +9777,7 @@ printf '%s' "$IDLE_STATE" > "$GST"
 python3 - "$SB2" <<'PYEOF' && ok "a second session on the same directory is warned about the first" || bad "the concurrency guard never fires — two sessions clobber one state with no notice"
 import os, subprocess, sys
 repo = sys.argv[1]
-boot = os.path.join(repo, ".ddw", "scripts", "session-boot.py")
+boot = os.path.join(repo, ".daw", "scripts", "session-boot.py")
 subprocess.run([sys.executable, boot, "--repo", repo, "--session-id", "sess-A"],
                capture_output=True, text=True)
 out = subprocess.run([sys.executable, boot, "--repo", repo, "--session-id", "sess-B"],
@@ -9812,7 +9812,7 @@ subprocess.run(["bash", os.path.join(repo, ".claude/hooks/session-start.sh")],
 for _ in range(12):
     subprocess.run(["bash", os.path.join(repo, ".claude/hooks/enforce.sh")],
                    input=event, capture_output=True, text=True, env=env, cwd=repo)
-live = os.path.join(repo, ".ddw-sessions", "live")
+live = os.path.join(repo, ".daw-sessions", "live")
 markers = sorted(os.listdir(live)) if os.path.isdir(live) else []
 assert markers == ["the-one-session"], \
     "twelve edits in one session left %d marker(s): %s" % (len(markers), markers[:6])
@@ -9833,7 +9833,7 @@ import os, re, shutil, subprocess, sys, tempfile
 work = tempfile.mkdtemp(dir=os.environ["WORK"])
 repo = os.path.join(work, "repo")
 shutil.copytree(sys.argv[1], repo, symlinks=True)
-boot = os.path.join(repo, ".ddw", "scripts", "session-boot.py")
+boot = os.path.join(repo, ".daw", "scripts", "session-boot.py")
 
 
 def run(session_id):
@@ -9841,7 +9841,7 @@ def run(session_id):
                           capture_output=True, text=True).stdout
 
 
-live = os.path.join(repo, ".ddw-sessions", "live")
+live = os.path.join(repo, ".daw-sessions", "live")
 shutil.rmtree(live, ignore_errors=True)
 os.makedirs(os.path.dirname(live), exist_ok=True)
 run("sess-A")
@@ -9855,7 +9855,7 @@ assert "could not write its marker" not in out, "a session that DID register is 
 mine = os.path.join(live, "sess-C")
 os.makedirs(mine, exist_ok=True)
 out = run("sess-C")
-seen = [int(n) for n in re.findall(r"DDW: (\d+) other session", out)]
+seen = [int(n) for n in re.findall(r"DAW: (\d+) other session", out)]
 assert seen and seen[0] >= 1, \
     f"the session that could not register also stopped counting the ones that could: {out[:200]}"
 assert "could not write its marker" in out, \
@@ -9867,12 +9867,12 @@ shutil.rmtree(live, ignore_errors=True)
 open(live, "w", encoding="utf-8").write("not a directory\n")
 out = run("sess-D")
 assert "could not write its marker" in out, f"a boot that could not register says nothing: {out[:200]}"
-counts = [int(n) for n in re.findall(r"DDW: (\d+) other session", out)]
+counts = [int(n) for n in re.findall(r"DAW: (\d+) other session", out)]
 assert not counts, f"a boot that saw nobody still reported {counts[0]} other session(s)"
 
 # The id comes from the harness and is used as a FILENAME. Written through, one
 # shaped like a path leaves the sessions directory: `--session-id
-# ../.ddw-state.json` replaces the pipeline state with a marker and reports a
+# ../.daw-state.json` replaces the pipeline state with a marker and reports a
 # clean boot. Whatever the harness calls a session, on disk it is one flat name.
 # The case above left a FILE where the directory goes, and `rmtree` on a file
 # does nothing when it is told to ignore errors.
@@ -9881,10 +9881,10 @@ if os.path.isdir(live):
 elif os.path.exists(live):
     os.remove(live)
 os.makedirs(live, exist_ok=True)
-state = os.path.join(repo, ".ddw-state.json")
+state = os.path.join(repo, ".daw-state.json")
 before = open(state, "rb").read() if os.path.exists(state) else None
 assert before is not None, "this repository has no state file, so the case cannot be planted"
-run("../../.ddw-state.json")
+run("../../.daw-state.json")
 assert open(state, "rb").read() == before, \
     "a session id shaped like a path walked out of the sessions directory and overwrote the state"
 escaped = [n for n in os.listdir(os.path.dirname(live)) if n not in ("live",)]
@@ -9903,7 +9903,7 @@ if os.path.isdir(live):
     shutil.rmtree(live, ignore_errors=True)
 os.makedirs(live, exist_ok=True)
 out = run("sess/A")
-counts = [int(n) for n in re.findall(r"DDW: (\d+) other session", out)]
+counts = [int(n) for n in re.findall(r"DAW: (\d+) other session", out)]
 assert not counts, \
     f"a session alone in the repository was told about {counts[0]} other session(s) — it counted " \
     f"its own marker, because the id is written to disk sanitised and compared raw"
@@ -9923,17 +9923,17 @@ printf '%s' "$IN_CODE" > "$GST"
 # an agent that could not write code rewrite the rules that stopped it: add an
 # edge from PLAN and a FEATURE closes with no spec, no threat model, no tests and
 # no verification, with both hooks green.
-for TARGET in .ddw/rules/transition-graph.json .ddw/scripts/hook-gate.py \
-              .ddw/scripts/validate-transition.py .ddw/orchestrator.md; do
-  ddw_event_path snake "$ALL/$TARGET"
+for TARGET in .daw/rules/transition-graph.json .daw/scripts/hook-gate.py \
+              .daw/scripts/validate-transition.py .daw/orchestrator.md; do
+  daw_event_path snake "$ALL/$TARGET"
   [ "$(gate_pre standard < "$EVENT")" = "2" ] \
     && ok "not even CODE can rewrite $TARGET" \
     || bad "the phase that writes source rewrote $TARGET — the guard exempts its own rulebook"
 done
 
 # ...while the runtime the protocol needs stays writable. Pause is advertised as
-# available from any phase, and step one is saving the state to .ddw-paused/.
-ddw_event_path snake "$ALL/.ddw-paused/TICKET-1.ddw-state.json"
+# available from any phase, and step one is saving the state to .daw-paused/.
+daw_event_path snake "$ALL/.daw-paused/TICKET-1.daw-state.json"
 [ "$(gate_pre standard < "$EVENT")" = "0" ] \
   && ok "and pausing from a blocked phase still works" \
   || bad "the pause protocol is unusable from the phases that most need it"
@@ -9945,9 +9945,9 @@ ddw_event_path snake "$ALL/.ddw-paused/TICKET-1.ddw-state.json"
 # in the one where it works. Measured end to end on a real install: in CODE the
 # agent rewrote the transition graph, added an edge, and closed a FEATURE that
 # never claimed tests, sast, verify, commit or pr, with both hooks green. It
-# could also write its own receipt into .ddw-sessions/ and open six gates with a
+# could also write its own receipt into .daw-sessions/ and open six gates with a
 # touch, or replace the tool's hook script with `exit 0`.
-python3 - "$SELF" <<'PYENF' && ok "DDW's own machinery — the method, the receipts, the wiring, the manifest — is unwritable in EVERY phase, and the repo stays writable" || bad "the pipeline can edit the rules that stop it: see which path and which phase, above"
+python3 - "$SELF" <<'PYENF' && ok "DAW's own machinery — the method, the receipts, the wiring, the manifest — is unwritable in EVERY phase, and the repo stays writable" || bad "the pipeline can edit the rules that stop it: see which path and which phase, above"
 import json, os, subprocess, sys, tempfile
 src = sys.argv[1]
 repo = os.path.join(tempfile.mkdtemp(dir=os.environ["WORK"]), "repo")
@@ -9955,9 +9955,9 @@ os.makedirs(repo)
 subprocess.run(["git", "-C", repo, "init", "-q"], check=True)
 subprocess.run(["bash", os.path.join(src, "install.sh"), repo, "--target", "claude"],
                capture_output=True, text=True)
-vt = os.path.join(repo, ".ddw", "scripts", "validate-transition.py")
-graph = os.path.join(repo, ".ddw", "rules", "transition-graph.json")
-state = os.path.join(repo, ".ddw-state.json")
+vt = os.path.join(repo, ".daw", "scripts", "validate-transition.py")
+graph = os.path.join(repo, ".daw", "rules", "transition-graph.json")
+state = os.path.join(repo, ".daw-state.json")
 EDGES = [("IDLE", "CLASSIFY"), ("CLASSIFY", "DEFINE"), ("DEFINE", "PLAN"), ("PLAN", "CODE"),
          ("CODE", "VERIFY"), ("VERIFY", "CLOSEOUT")]
 UPTO = {"CLASSIFY": 1, "DEFINE": 2, "PLAN": 3, "CODE": 4, "VERIFY": 5, "CLOSEOUT": 6}
@@ -9977,10 +9977,10 @@ def ask(phase, rel):
                           input=ev, capture_output=True, text=True).returncode
 
 
-SEALED = [".ddw/rules/transition-graph.json", ".ddw/scripts/validate-transition.py",
-          ".ddw/scripts/hook-gate.py", ".ddw/orchestrator.md",
-          ".ddw-sessions/prd-validated-deadbeef1234",   # writing your own receipt
-          ".ddw-journal.jsonl", ".ddw-installed.json",
+SEALED = [".daw/rules/transition-graph.json", ".daw/scripts/validate-transition.py",
+          ".daw/scripts/hook-gate.py", ".daw/orchestrator.md",
+          ".daw-sessions/prd-validated-deadbeef1234",   # writing your own receipt
+          ".daw-journal.jsonl", ".daw-installed.json",
           ".claude/hooks/enforce.sh",                   # from the install manifest
           ".claude/settings.json"]                      # what wires the hook to the tool
 # CODE and CLOSEOUT are the point: those are the phases the old guard skipped.
@@ -9988,13 +9988,13 @@ for phase in ("CODE", "CLOSEOUT", "PLAN"):
     for rel in SEALED:
         assert ask(phase, rel) == 2, f"{phase} can write {rel}"
 # …and none of that may cost the writes a ticket is made of.
-for phase, rel in (("CODE", "src/app.py"), ("CODE", "docs/ddw/prd/prd-T-1.md"),
-                   ("PLAN", ".ddw-paused/T-1.ddw-state.json"),
-                   ("PLAN", "docs/ddw/specs/spec-T-1.md"), ("CODE", ".claude/agents/mine.md")):
+for phase, rel in (("CODE", "src/app.py"), ("CODE", "docs/daw/prd/prd-T-1.md"),
+                   ("PLAN", ".daw-paused/T-1.daw-state.json"),
+                   ("PLAN", "docs/daw/specs/spec-T-1.md"), ("CODE", ".claude/agents/mine.md")):
     assert ask(phase, rel) == 0, f"{phase} was refused {rel}, which is legitimate work"
 PYENF
 
-# The other half, for the writes no hook can see. `printf > .ddw/...` is not a
+# The other half, for the writes no hook can see. `printf > .daw/...` is not a
 # tool call with a path in it (docs/RATIONALE.md decision 11), so the manifest
 # carries a hash per installed file — and nothing had ever read it back.
 python3 - "$SELF" <<'PYDRIFT' && ok "a tampered install is reported at boot, and a correct one says nothing — for all six tools" || bad "the enforcement can be replaced through a shell and the next session is never told"
@@ -10008,7 +10008,7 @@ for target in ("claude", "codex", "copilot", "cursor", "gemini", "opencode"):
     subprocess.run(["git", "-C", repo, "init", "-q"], check=True)
     subprocess.run(["bash", os.path.join(src, "install.sh"), repo, "--target", target],
                    capture_output=True, text=True)
-    boot = os.path.join(repo, ".ddw", "scripts", "session-boot.py")
+    boot = os.path.join(repo, ".daw", "scripts", "session-boot.py")
 
     def say():
         return subprocess.run([sys.executable, boot, "--repo", repo, "--session-id", "s"],
@@ -10017,7 +10017,7 @@ for target in ("claude", "codex", "copilot", "cursor", "gemini", "opencode"):
     # A correct install is silent. A drift report that cries on every clean repo
     # is one nobody reads by the third session.
     assert MARK not in say(), f"{target}: a clean install is reported as tampered"
-    manifest = os.path.join(repo, ".ddw-installed.json")
+    manifest = os.path.join(repo, ".daw-installed.json")
     import json
     recorded = json.load(open(manifest, encoding="utf-8"))
     assert recorded, f"{target}: nothing was recorded"
@@ -10044,13 +10044,13 @@ for target in ("claude", "codex", "copilot", "cursor", "gemini", "opencode"):
     # victim above is `sorted(...)[0]`, which on every tool is the first thing
     # under `.claude/` or its equivalent — so this check could never reach the
     # method, and the method was not in the manifest at all: a clean install
-    # recorded 28 entries and none of them under `.ddw/`. Tampering with the
+    # recorded 28 entries and none of them under `.daw/`. Tampering with the
     # graph, the validator and the gate reported NOTHING, while the same byte in
     # a hook script reported CHANGED. The graph decides which gates exist; it was
     # the least watched file in the repository.
-    for rel in (".ddw/rules/transition-graph.json",
-                ".ddw/scripts/validate-transition.py",
-                ".ddw/scripts/hook-gate.py"):
+    for rel in (".daw/rules/transition-graph.json",
+                ".daw/scripts/validate-transition.py",
+                ".daw/scripts/hook-gate.py"):
         assert "method:" + rel in recorded, \
             f"{target}: {rel} is not in the manifest, so no shell edit to it is ever reported"
         with open(os.path.join(repo, rel), "a", encoding="utf-8") as fh:
@@ -10075,14 +10075,14 @@ os.makedirs(repo)
 subprocess.run(["git", "-C", repo, "init", "-q"], check=True)
 subprocess.run(["bash", os.path.join(src, "install.sh"), repo, "--target", "claude"],
                capture_output=True, text=True)
-tr = os.path.join(repo, ".ddw", "scripts", "transition.py")
-graph = os.path.join(repo, ".ddw", "rules", "transition-graph.json")
-state = os.path.join(repo, ".ddw-state.json")
+tr = os.path.join(repo, ".daw", "scripts", "transition.py")
+graph = os.path.join(repo, ".daw", "rules", "transition-graph.json")
+state = os.path.join(repo, ".daw-state.json")
 
 # The classify edge's context check — a different gate than the receipts under
 # test, satisfied so every refusal below is about the missing artifact alone.
-os.makedirs(os.path.join(repo, ".ddw-work"), exist_ok=True)
-open(os.path.join(repo, ".ddw-work", "context-check-T-1.md"), "w", encoding="utf-8").write(
+os.makedirs(os.path.join(repo, ".daw-work"), exist_ok=True)
+open(os.path.join(repo, ".daw-work", "context-check-T-1.md"), "w", encoding="utf-8").write(
     "Nothing to report.\n")
 
 
@@ -10100,7 +10100,7 @@ assert r.returncode != 0, "the define gate opened with no PRD on disk"
 assert "no PRD" in r.stderr and "prd-T-1.md" in r.stderr, \
     "the refusal does not say what is missing or where it goes: " + r.stderr[:200]
 # A document nothing can decode is a document no receipt can name — same answer.
-prd = os.path.join(repo, "docs", "ddw", "prd")
+prd = os.path.join(repo, "docs", "daw", "prd")
 os.makedirs(prd, exist_ok=True)
 open(os.path.join(prd, "prd-T-1.md"), "wb").write(b"# PRD\n\xff\xfe not utf-8\n")
 r = step("--to", "PLAN", "--action", "p", "--gate", "define")
@@ -10109,10 +10109,10 @@ assert r.returncode != 0, "one non-UTF-8 byte turned the refusal into a pass"
 open(os.path.join(prd, "prd-T-1.md"), "w", encoding="utf-8").write("# PRD\n")
 digest = hashlib.sha256(open(os.path.join(prd, "prd-T-1.md"), encoding="utf-8").read()
                         .encode("utf-8")).hexdigest()[:12]
-sess = os.path.join(repo, ".ddw-sessions")
+sess = os.path.join(repo, ".daw-sessions")
 os.makedirs(sess, exist_ok=True)
 open(os.path.join(sess, "prd-validated-%s" % digest), "w").write("prd-T-1.md")
-with open(os.path.join(repo, ".ddw-journal.jsonl"), "a", encoding="utf-8") as fh:
+with open(os.path.join(repo, ".daw-journal.jsonl"), "a", encoding="utf-8") as fh:
     fh.write(json.dumps({"record": "receipt", "name": "prd-validated-%s" % digest,
                          "file": "prd-T-1.md"}, sort_keys=True) + "\n")
 assert step("--to", "PLAN", "--action", "p", "--gate", "define").returncode == 0, \
@@ -10121,22 +10121,22 @@ assert step("--to", "PLAN", "--action", "p", "--gate", "define").returncode == 0
 # search ended by something that is not a document. A DIRECTORY called
 # spec-T-1.md, next to a real validated fix-T-1.md, refused legitimate work when
 # the search asked whether the path existed instead of whether it was a file.
-specs = os.path.join(repo, "docs", "ddw", "specs")
+specs = os.path.join(repo, "docs", "daw", "specs")
 os.makedirs(os.path.join(specs, "spec-T-1.md"), exist_ok=True)
 fix = os.path.join(specs, "fix-T-1.md")
 open(fix, "w", encoding="utf-8").write("# fix plan\n")
 d2 = hashlib.sha256(open(fix, encoding="utf-8").read().encode("utf-8")).hexdigest()[:12]
 open(os.path.join(sess, "spec-validated-%s" % d2), "w").write("fix-T-1.md")
-with open(os.path.join(repo, ".ddw-journal.jsonl"), "a", encoding="utf-8") as fh:
+with open(os.path.join(repo, ".daw-journal.jsonl"), "a", encoding="utf-8") as fh:
     fh.write(json.dumps({"record": "receipt", "name": "spec-validated-%s" % d2,
                          "file": "fix-T-1.md"}, sort_keys=True) + "\n")
-threat = os.path.join(repo, "docs", "ddw", "security")
+threat = os.path.join(repo, "docs", "daw", "security")
 os.makedirs(threat, exist_ok=True)
 tp = os.path.join(threat, "threat-T-1.md")
 open(tp, "w", encoding="utf-8").write("# threat model\n")
 d3 = hashlib.sha256(open(tp, encoding="utf-8").read().encode("utf-8")).hexdigest()[:12]
 open(os.path.join(sess, "threat-validated-%s" % d3), "w").write("threat-T-1.md")
-with open(os.path.join(repo, ".ddw-journal.jsonl"), "a", encoding="utf-8") as fh:
+with open(os.path.join(repo, ".daw-journal.jsonl"), "a", encoding="utf-8") as fh:
     fh.write(json.dumps({"record": "receipt", "name": "threat-validated-%s" % d3,
                          "file": "threat-T-1.md"}, sort_keys=True) + "\n")
 r = step("--to", "CODE", "--action", "co", "--gate", "spec", "--gate", "threat")
@@ -10156,17 +10156,17 @@ os.makedirs(repo)
 subprocess.run(["git", "-C", repo, "init", "-q"], check=True)
 subprocess.run(["bash", os.path.join(src, "install.sh"), repo, "--target", "claude"],
                capture_output=True, text=True)
-tr = os.path.join(repo, ".ddw", "scripts", "transition.py")
-vt = os.path.join(repo, ".ddw", "scripts", "validate-transition.py")
-graph = os.path.join(repo, ".ddw", "rules", "transition-graph.json")
-state = os.path.join(repo, ".ddw-state.json")
-prd_dir = os.path.join(repo, "docs", "ddw", "prd")
+tr = os.path.join(repo, ".daw", "scripts", "transition.py")
+vt = os.path.join(repo, ".daw", "scripts", "validate-transition.py")
+graph = os.path.join(repo, ".daw", "rules", "transition-graph.json")
+state = os.path.join(repo, ".daw-state.json")
+prd_dir = os.path.join(repo, "docs", "daw", "prd")
 os.makedirs(prd_dir)
 prd = os.path.join(prd_dir, "prd-T-1.md")
 open(prd, "w", encoding="utf-8").write("# PRD\n")
 # The classify edge's context check — not the witness rule under test.
-os.makedirs(os.path.join(repo, ".ddw-work"), exist_ok=True)
-open(os.path.join(repo, ".ddw-work", "context-check-T-1.md"), "w", encoding="utf-8").write(
+os.makedirs(os.path.join(repo, ".daw-work"), exist_ok=True)
+open(os.path.join(repo, ".daw-work", "context-check-T-1.md"), "w", encoding="utf-8").write(
     "Nothing to report.\n")
 
 
@@ -10180,11 +10180,11 @@ assert step("--to", "CLASSIFY", "--action", "c", "--tier", "FEATURE",
 assert step("--to", "DEFINE", "--action", "d", "--title", "the fixture ticket").returncode == 0
 subprocess.run([sys.executable, vt, "--mode", "post", "--state", state, "--graph", graph],
                capture_output=True, text=True)
-journal = os.path.join(repo, ".ddw-journal.jsonl")
+journal = os.path.join(repo, ".daw-journal.jsonl")
 assert os.path.exists(journal), "no journal, so the witness rule has nothing to read"
 
 digest = hashlib.sha256(open(prd, encoding="utf-8").read().encode("utf-8")).hexdigest()[:12]
-sess = os.path.join(repo, ".ddw-sessions")
+sess = os.path.join(repo, ".daw-sessions")
 os.makedirs(sess, exist_ok=True)
 forged = os.path.join(sess, "prd-validated-%s" % digest)
 open(forged, "w", encoding="utf-8").write("prd-T-1.md\n")
@@ -10196,7 +10196,7 @@ assert r.returncode == 2 and "no validator is recorded" in r.stderr, \
 # rule has to discriminate, not merely refuse.
 os.remove(forged)
 rspec = importlib.util.spec_from_file_location(
-    "ddw_receipt", os.path.join(repo, ".ddw", "scripts", "ddw_receipt.py"))
+    "daw_receipt", os.path.join(repo, ".daw", "scripts", "daw_receipt.py"))
 rmod = importlib.util.module_from_spec(rspec); rspec.loader.exec_module(rmod)
 rmod.write(prd, "prd", open(prd, encoding="utf-8").read())
 r = step("--to", "PLAN", "--action", "p", "--gate", "define")
@@ -10221,24 +10221,24 @@ subprocess.run(["bash", os.path.join(src, "install.sh"), repo, "--target", "clau
                capture_output=True, text=True)
 bad_graph = os.path.join(repo, "weird.json")
 open(bad_graph, "w", encoding="utf-8").write('{"common": "not a mapping", "tiers": {}}')
-r = subprocess.run([sys.executable, os.path.join(repo, ".ddw/scripts/transition.py"),
-                    "--state", os.path.join(repo, ".ddw-state.json"), "--graph", bad_graph,
+r = subprocess.run([sys.executable, os.path.join(repo, ".daw/scripts/transition.py"),
+                    "--state", os.path.join(repo, ".daw-state.json"), "--graph", bad_graph,
                     "--to", "CLASSIFY", "--action", "x"], capture_output=True, text=True)
 assert r.returncode == 2, "an unexpected fault exited %d, not 2 — exit 1 reads as 'carry on'" % r.returncode
 assert "Traceback" not in r.stderr and "could not reach a verdict" in r.stderr, \
     "the helper answered with a stack instead of a sentence: " + r.stderr[-200:]
 
 # 2. install.sh finds the manifest wherever a previous version left it. It moved
-#    out of .ddw/ once; reading only the new place makes an upgrade look like a
+#    out of .daw/ once; reading only the new place makes an upgrade look like a
 #    first install and re-ask the question the manifest exists to answer.
 legacy = os.path.join(tempfile.mkdtemp(dir=os.environ["WORK"]), "r2")
 os.makedirs(legacy)
 subprocess.run(["git", "-C", legacy, "init", "-q"], check=True)
 subprocess.run(["bash", os.path.join(src, "install.sh"), legacy, "--target", "claude"],
                capture_output=True, text=True)
-os.makedirs(os.path.join(legacy, ".ddw"), exist_ok=True)
-os.rename(os.path.join(legacy, ".ddw-installed.json"),
-          os.path.join(legacy, ".ddw", ".installed.json"))
+os.makedirs(os.path.join(legacy, ".daw"), exist_ok=True)
+os.rename(os.path.join(legacy, ".daw-installed.json"),
+          os.path.join(legacy, ".daw", ".installed.json"))
 out = subprocess.run(["bash", os.path.join(src, "install.sh"), legacy, "--target", "claude"],
                      capture_output=True, text=True).stdout
 # Anchored on the headline, not on line 0: the installer opens with a banner
@@ -10250,7 +10250,7 @@ out = subprocess.run(["bash", os.path.join(src, "install.sh"), legacy, "--target
 assert (any("is updating:" in l for l in out.splitlines())
         and "installing into" not in out), \
     ("an upgrade from a pre-move install announced itself as a first install — it did not find "
-     "the manifest, which is what tells DDW's wiring from yours:\n" + out[:200])
+     "the manifest, which is what tells DAW's wiring from yours:\n" + out[:200])
 
 # 3. The .gitignore: created by the install only when it writes into it, and
 #    removed by the uninstall when nothing of yours is left in it.
@@ -10273,8 +10273,8 @@ subprocess.run(["bash", os.path.join(src, "install.sh"), gi2, "--target", "claud
 subprocess.run(["bash", os.path.join(src, "uninstall.sh"), gi2, "--yes"],
                capture_output=True, text=True)
 kept = open(os.path.join(gi2, ".gitignore"), encoding="utf-8").read()
-assert "node_modules/" in kept and "BEGIN DDW" not in kept, \
-    "a .gitignore of the user's was destroyed or left with DDW's block: %r" % kept
+assert "node_modules/" in kept and "BEGIN DAW" not in kept, \
+    "a .gitignore of the user's was destroyed or left with DAW's block: %r" % kept
 
 # 4b. And BEFORE that: that the hook actually refuses, executed without
 #     python3. The block below reads text and skips the file that lacks it
@@ -10371,11 +10371,11 @@ assert runs("scripts/verify_install.sh"), \
 # 6. Every rule ID a validator SHOWS the user is defined in the catalog. The
 #    catalog's own linter matched only numeric suffixes, so F-SAST-COVERAGE and
 #    its siblings were excused by the pattern rather than by being catalogued.
-catalog = open(os.path.join(src, "ddw/rules/validation-rules.instructions.md"),
+catalog = open(os.path.join(src, "daw/rules/validation-rules.instructions.md"),
                encoding="utf-8").read()
 defined = set(re.findall(r"\b([FW]-[A-Z]+-[A-Z0-9]{2,})\b", catalog))
 shown = set()
-for v in glob.glob(os.path.join(src, "ddw/scripts/validate_*.py")):
+for v in glob.glob(os.path.join(src, "daw/scripts/validate_*.py")):
     shown |= set(re.findall(r'"([FW]-[A-Z]+-[A-Z0-9]{2,})"', open(v, encoding="utf-8").read()))
 missing = sorted(shown - defined)
 assert not missing, "these rule IDs are printed to users and defined in no catalog: %s" % missing
@@ -10385,7 +10385,7 @@ assert not missing, "these rule IDs are printed to users and defined in no catal
 # being catalogued.
 probe = os.path.join(tempfile.mkdtemp(dir=os.environ["WORK"]), "repo")
 subprocess.run(["cp", "-r", src, probe], check=True)
-victim = os.path.join(probe, "ddw/rules/plan.instructions.md")
+victim = os.path.join(probe, "daw/rules/plan.instructions.md")
 open(victim, "a", encoding="utf-8").write("\n\nSee F-MADEUP-RULE for the details.\n")
 r = subprocess.run([sys.executable, os.path.join(probe, "scripts/lint_method.py")],
                    capture_output=True, text=True, cwd=probe)
@@ -10421,10 +10421,10 @@ TRIALS = 8
 wedged = 0
 for _ in range(TRIALS):
     repo = fresh()
-    tr = os.path.join(repo, ".ddw/scripts/transition.py")
-    gate = os.path.join(repo, ".ddw/scripts/hook-gate.py")
-    graph = os.path.join(repo, ".ddw/rules/transition-graph.json")
-    state = os.path.join(repo, ".ddw-state.json")
+    tr = os.path.join(repo, ".daw/scripts/transition.py")
+    gate = os.path.join(repo, ".daw/scripts/hook-gate.py")
+    graph = os.path.join(repo, ".daw/rules/transition-graph.json")
+    state = os.path.join(repo, ".daw-state.json")
 
     def post():
         return subprocess.Popen([sys.executable, gate, "--mode", "post", "--state", state,
@@ -10437,8 +10437,8 @@ for _ in range(TRIALS):
     post().wait()
     # The classify edge's context check — without it the DEFINE below fails
     # silently and the race is measured over one transition instead of two.
-    os.makedirs(os.path.join(repo, ".ddw-work"), exist_ok=True)
-    open(os.path.join(repo, ".ddw-work", "context-check-T-1.md"), "w", encoding="utf-8").write(
+    os.makedirs(os.path.join(repo, ".daw-work"), exist_ok=True)
+    open(os.path.join(repo, ".daw-work", "context-check-T-1.md"), "w", encoding="utf-8").write(
         "Nothing to report.\n")
     subprocess.run([sys.executable, tr, "--state", state, "--graph", graph, "--write",
                     "--to", "DEFINE", "--action", "d", "--title", "the fixture ticket"], capture_output=True)
@@ -10455,10 +10455,10 @@ assert wedged == 0, \
 dupes = 0
 for _ in range(TRIALS):
     repo = fresh()
-    tr = os.path.join(repo, ".ddw/scripts/transition.py")
-    gate = os.path.join(repo, ".ddw/scripts/hook-gate.py")
-    graph = os.path.join(repo, ".ddw/rules/transition-graph.json")
-    state = os.path.join(repo, ".ddw-state.json")
+    tr = os.path.join(repo, ".daw/scripts/transition.py")
+    gate = os.path.join(repo, ".daw/scripts/hook-gate.py")
+    graph = os.path.join(repo, ".daw/rules/transition-graph.json")
+    state = os.path.join(repo, ".daw-state.json")
     subprocess.run([sys.executable, tr, "--state", state, "--graph", graph, "--write",
                     "--to", "CLASSIFY", "--action", "c", "--tier", "FEATURE", "--ticket", "T-1"],
                    capture_output=True)
@@ -10468,7 +10468,7 @@ for _ in range(TRIALS):
              for _ in range(3)]
     for pr in procs:
         pr.wait()
-    lines = [l for l in open(os.path.join(repo, ".ddw-journal.jsonl"), encoding="utf-8")
+    lines = [l for l in open(os.path.join(repo, ".daw-journal.jsonl"), encoding="utf-8")
              if l.strip()]
     if len(lines) != len(set(lines)):
         dupes += 1
@@ -10481,14 +10481,14 @@ assert dupes == 0, \
 # have one, so the comparison has to survive it landing anyway.
 import importlib.util
 spec = importlib.util.spec_from_file_location(
-    "vt", os.path.join(src, "ddw/scripts/validate-transition.py"))
+    "vt", os.path.join(src, "daw/scripts/validate-transition.py"))
 m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
 d = tempfile.mkdtemp(dir=os.environ["WORK"])
-st = os.path.join(d, ".ddw-state.json")
+st = os.path.join(d, ".daw-state.json")
 H = [{"timestamp": "2026-01-01T00:00:00Z", "from": "IDLE", "to": "CLASSIFY", "action": "c"},
      {"timestamp": "2026-01-01T00:01:00Z", "from": "CLASSIFY", "to": "DEFINE", "action": "d"}]
 json.dump({"phase": "DEFINE", "history": H}, open(st, "w", encoding="utf-8"))
-jp = os.path.join(d, ".ddw-journal.jsonl")
+jp = os.path.join(d, ".daw-journal.jsonl")
 open(jp, "w", encoding="utf-8").write(
     "\n".join(json.dumps(e, sort_keys=True) for e in H + [H[1]]) + "\n")
 m._check_state_not_erased(st)                       # raises if a duplicate reads as a deletion
@@ -10501,18 +10501,18 @@ open(jp, "w", encoding="utf-8").write(
     "\n".join(json.dumps(e, sort_keys=True) for e in H + H) + "\n")
 m._check_state_not_erased(st)
 # And deleting the journal outright does not turn the witness check off. `rm
-# .ddw-journal.jsonl` was one command, and it took a hand-written receipt from
+# .daw-journal.jsonl` was one command, and it took a hand-written receipt from
 # "no validator is recorded as having written this" to "nothing to compare
-# against" — which read as permission. A repo where DDW has never run still has
+# against" — which read as permission. A repo where DAW has never run still has
 # to be told apart from one whose record was removed, and the state's own
 # history is what tells them apart.
 os.unlink(jp)
 assert m._receipt_witnesses(d) == set(), \
-    "a run with a history and no journal is read as a repo DDW has never touched, so every " \
+    "a run with a history and no journal is read as a repo DAW has never touched, so every " \
     "receipt on disk is taken on faith"
 json.dump({"phase": "IDLE", "history": []}, open(st, "w", encoding="utf-8"))
 assert m._receipt_witnesses(d) is None, \
-    "a repo where DDW has never run is treated as one whose journal was deleted"
+    "a repo where DAW has never run is treated as one whose journal was deleted"
 json.dump({"phase": "DEFINE", "history": H}, open(st, "w", encoding="utf-8"))
 open(jp, "w", encoding="utf-8").write(
     "\n".join(json.dumps(e, sort_keys=True) for e in H + H) + "\n")
@@ -10532,8 +10532,8 @@ except m.Block:
 # liveness markers used to share one directory, and every ticket longer than two
 # hours had its gates deleted by the bookkeeping.
 repo = fresh()
-boot = os.path.join(repo, ".ddw/scripts/session-boot.py")
-sess = os.path.join(repo, ".ddw-sessions")
+boot = os.path.join(repo, ".daw/scripts/session-boot.py")
+sess = os.path.join(repo, ".daw-sessions")
 os.makedirs(sess, exist_ok=True)
 receipt = os.path.join(sess, "prd-validated-deadbeef1234")
 open(receipt, "w", encoding="utf-8").write("prd-T-1.md\n")
@@ -10567,20 +10567,20 @@ for tier, (subdir, stem, receipt) in WRITES.items():
     subprocess.run(["git", "-C", repo, "init", "-q"], check=True)
     subprocess.run(["bash", os.path.join(src, "install.sh"), repo, "--target", "claude"],
                    capture_output=True, text=True)
-    tr = os.path.join(repo, ".ddw/scripts/transition.py")
-    graph = os.path.join(repo, ".ddw/rules/transition-graph.json")
-    state = os.path.join(repo, ".ddw-state.json")
-    d = os.path.join(repo, "docs", "ddw", subdir)
+    tr = os.path.join(repo, ".daw/scripts/transition.py")
+    graph = os.path.join(repo, ".daw/rules/transition-graph.json")
+    state = os.path.join(repo, ".daw-state.json")
+    d = os.path.join(repo, "docs", "daw", subdir)
     os.makedirs(d, exist_ok=True)
     doc = os.path.join(d, "%s-T-1.md" % stem)
     open(doc, "w", encoding="utf-8").write("# the document this tier's DEFINE writes\n")
     rspec = importlib.util.spec_from_file_location(
-        "ddw_receipt", os.path.join(repo, ".ddw/scripts/ddw_receipt.py"))
+        "daw_receipt", os.path.join(repo, ".daw/scripts/daw_receipt.py"))
     rmod = importlib.util.module_from_spec(rspec); rspec.loader.exec_module(rmod)
     rmod.write(doc, receipt, open(doc, encoding="utf-8").read())
     # The classify edge's context check — a different gate than the one under test.
-    os.makedirs(os.path.join(repo, ".ddw-work"), exist_ok=True)
-    open(os.path.join(repo, ".ddw-work", "context-check-T-1.md"), "w", encoding="utf-8").write(
+    os.makedirs(os.path.join(repo, ".daw-work"), exist_ok=True)
+    open(os.path.join(repo, ".daw-work", "context-check-T-1.md"), "w", encoding="utf-8").write(
         "Nothing to report.\n")
 
     def step(*args):
@@ -10593,14 +10593,14 @@ for tier, (subdir, stem, receipt) in WRITES.items():
     nxt = "CODE" if tier == "QUICK-FIX" else "PLAN"
     r = step("--to", nxt, "--action", "next", "--gate", "define")
     assert r.returncode == 0, \
-        "%s cannot leave DEFINE with the document its own phase writes (docs/ddw/%s/%s-T-1.md): %s" % (
+        "%s cannot leave DEFINE with the document its own phase writes (docs/daw/%s/%s-T-1.md): %s" % (
             tier, subdir, stem, r.stderr[:220])
 
 # The QUICK-FIX sensitive-path guard, in the capitalisation half the ecosystems
 # use. The list calls itself deliberately wide and was case-sensitive, so it was
 # widest exactly where it was least likely to bite.
 spec = importlib.util.spec_from_file_location(
-    "vt", os.path.join(src, "ddw/scripts/validate-transition.py"))
+    "vt", os.path.join(src, "daw/scripts/validate-transition.py"))
 m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
 root = os.path.realpath(tempfile.mkdtemp(dir=os.environ["WORK"]))
 qf = {"tier": "QUICK-FIX"}
@@ -10608,7 +10608,7 @@ for rel in ("app/Http/Middleware/Authenticate.php", "src/API/keys.py",
             "db/Migrations/001.sql", "schema.SQL", "config/.ENV"):
     assert m.quickfix_scope_denied(os.path.realpath(os.path.join(root, rel)), root, qf), \
         "a QUICK-FIX may touch %s — the guard is case-sensitive and the path is not lowercase" % rel
-for rel in ("src/ui/button.py", "docs/ddw/prd/prd-T-1.md"):
+for rel in ("src/ui/button.py", "docs/daw/prd/prd-T-1.md"):
     assert not m.quickfix_scope_denied(os.path.realpath(os.path.join(root, rel)), root, qf), \
         "%s was refused, and a guard that stops ordinary work gets routed around" % rel
 PYTIERS
@@ -10624,14 +10624,14 @@ src = sys.argv[1]
 repo = os.path.join(tempfile.mkdtemp(dir=os.environ["WORK"]), "repo")
 os.makedirs(repo)
 subprocess.run(["git", "-C", repo, "init", "-q"], check=True)
-for k, v in (("user.email", "ddw@test"), ("user.name", "ddw"), ("commit.gpgsign", "false")):
+for k, v in (("user.email", "daw@test"), ("user.name", "daw"), ("commit.gpgsign", "false")):
     subprocess.run(["git", "-C", repo, "config", k, v], check=True)
 subprocess.run(["bash", os.path.join(src, "install.sh"), repo, "--target", "claude"],
                capture_output=True, text=True)
 open(os.path.join(repo, "f.txt"), "w", encoding="utf-8").write("x\n")
 subprocess.run(["git", "-C", repo, "add", "-A"], capture_output=True)
 subprocess.run(["git", "-C", repo, "commit", "-qm", "base"], capture_output=True)
-state = os.path.join(repo, ".ddw-state.json")
+state = os.path.join(repo, ".daw-state.json")
 E = [("IDLE", "CLASSIFY"), ("CLASSIFY", "DEFINE"), ("DEFINE", "PLAN"), ("PLAN", "CODE"),
      ("CODE", "VERIFY"), ("VERIFY", "CLOSEOUT")]
 H = [{"timestamp": "2026-01-01T00:0%d:00Z" % i, "from": f, "to": t, "action": "x",
@@ -10650,9 +10650,9 @@ ev = json.dumps({"tool_name": "Write",
 
 
 def close():
-    return subprocess.run([sys.executable, os.path.join(repo, ".ddw/scripts/validate-transition.py"),
+    return subprocess.run([sys.executable, os.path.join(repo, ".daw/scripts/validate-transition.py"),
                            "--mode", "pre", "--state", state, "--graph",
-                           os.path.join(repo, ".ddw/rules/transition-graph.json"), "--repo", repo],
+                           os.path.join(repo, ".daw/rules/transition-graph.json"), "--repo", repo],
                           input=ev, capture_output=True, text=True)
 
 
@@ -10679,14 +10679,14 @@ src = sys.argv[1]
 repo = os.path.join(tempfile.mkdtemp(dir=os.environ["WORK"]), "repo")
 os.makedirs(repo)
 subprocess.run(["git", "-C", repo, "init", "-q"], check=True)
-for k, v in (("user.email", "ddw@test"), ("user.name", "ddw"), ("commit.gpgsign", "false")):
+for k, v in (("user.email", "daw@test"), ("user.name", "daw"), ("commit.gpgsign", "false")):
     subprocess.run(["git", "-C", repo, "config", k, v], check=True)
 subprocess.run(["bash", os.path.join(src, "install.sh"), repo, "--target", "claude"],
                capture_output=True, text=True)
 open(os.path.join(repo, "f.txt"), "w", encoding="utf-8").write("x\n")
 subprocess.run(["git", "-C", repo, "add", "-A"], capture_output=True)
 subprocess.run(["git", "-C", repo, "commit", "-qm", "base"], capture_output=True)
-state = os.path.join(repo, ".ddw-state.json")
+state = os.path.join(repo, ".daw-state.json")
 E = [("IDLE", "CLASSIFY"), ("CLASSIFY", "DEFINE"), ("DEFINE", "PLAN"), ("PLAN", "CODE"),
      ("CODE", "VERIFY"), ("VERIFY", "CLOSEOUT")]
 H = [{"timestamp": "2026-01-01T00:0%d:00Z" % i, "from": f, "to": t, "action": "x",
@@ -10698,9 +10698,9 @@ cur = {"tier": "FEATURE", "phase": "CLOSEOUT", "ticket": "T-1", "title": None, "
 
 def closeout():
     json.dump(cur, open(state, "w", encoding="utf-8"))
-    return subprocess.run([sys.executable, os.path.join(repo, ".ddw/scripts/transition.py"),
+    return subprocess.run([sys.executable, os.path.join(repo, ".daw/scripts/transition.py"),
                            "--to", "IDLE", "--action", "closeout", "--state", state,
-                           "--graph", os.path.join(repo, ".ddw/rules/transition-graph.json"),
+                           "--graph", os.path.join(repo, ".daw/rules/transition-graph.json"),
                            "--write"], capture_output=True, text=True, cwd=repo)
 
 
@@ -10725,15 +10725,15 @@ PYHELPERCLOSE
 python3 - "$SELF" <<'PYRACEWRITE' && ok "two helper runs racing on one state never both report success for one landed edge" || bad "a concurrent transition is lost: the helper exits 0 on an edge that is not there afterwards"
 import json, os, subprocess, sys, tempfile
 src = sys.argv[1]
-graph = os.path.join(src, "ddw/rules/transition-graph.json")
-helper = os.path.join(src, "ddw/scripts/transition.py")
+graph = os.path.join(src, "daw/rules/transition-graph.json")
+helper = os.path.join(src, "daw/scripts/transition.py")
 TRIALS = 8
 lost = []
 for trial in range(TRIALS):
     repo = os.path.join(tempfile.mkdtemp(dir=os.environ["WORK"]), "repo")
     os.makedirs(repo)
     subprocess.run(["git", "-C", repo, "init", "-q"], check=True)
-    state = os.path.join(repo, ".ddw-state.json")
+    state = os.path.join(repo, ".daw-state.json")
     seed = {"tier": None, "phase": "CLASSIFY", "ticket": None, "title": None, "tracker": None,
             "autonomy": None, "gates": {}, "block": None, "discovery": None,
             "history": [{"timestamp": "2026-01-01T00:00:00Z", "from": "IDLE", "to": "CLASSIFY",
@@ -10760,10 +10760,10 @@ assert not lost, "; ".join(lost[:3])
 # that moved. Driven directly, because a race cannot prove which of the two
 # stopped it.
 import importlib.util
-spec = importlib.util.spec_from_file_location("ddw_transition_probe", helper)
+spec = importlib.util.spec_from_file_location("daw_transition_probe", helper)
 mod = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(mod)
-probe = os.path.join(tempfile.mkdtemp(dir=os.environ["WORK"]), ".ddw-state.json")
+probe = os.path.join(tempfile.mkdtemp(dir=os.environ["WORK"]), ".daw-state.json")
 open(probe, "w", encoding="utf-8").write('{"phase": "CLASSIFY"}\n')
 
 
@@ -10795,8 +10795,8 @@ os.makedirs(repo)
 subprocess.run(["git", "-C", repo, "init", "-q"], check=True)
 subprocess.run(["bash", os.path.join(src, "install.sh"), repo, "--target", "claude"],
                capture_output=True, text=True)
-state = os.path.join(repo, ".ddw-state.json")
-graph = os.path.join(repo, ".ddw/rules/transition-graph.json")
+state = os.path.join(repo, ".daw-state.json")
+graph = os.path.join(repo, ".daw/rules/transition-graph.json")
 E = [("IDLE", "CLASSIFY"), ("CLASSIFY", "DEFINE"), ("DEFINE", "CODE"), ("CODE", "CLOSEOUT")]
 H = [{"timestamp": "2026-01-01T00:0%d:00Z" % i, "from": f, "to": t, "action": "forged",
       "tier": "QUICK-FIX", "ticket": "QF-9"} for i, (f, t) in enumerate(E)]
@@ -10809,7 +10809,7 @@ forged = {"tier": "QUICK-FIX", "phase": "CLOSEOUT", "ticket": "QF-9", "title": N
 
 
 def post():
-    return subprocess.run([sys.executable, os.path.join(repo, ".ddw/scripts/validate-transition.py"),
+    return subprocess.run([sys.executable, os.path.join(repo, ".daw/scripts/validate-transition.py"),
                            "--mode", "post", "--state", state, "--graph", graph, "--repo", repo],
                           capture_output=True, text=True)
 
@@ -10827,12 +10827,12 @@ json.dump(closed, open(state, "w", encoding="utf-8"))
 second = post()
 said = second.stdout + second.stderr
 assert second.returncode == 2, "closing the ticket erased the refusal: " + (said[:200] or "(allowed)")
-assert not os.path.exists(os.path.join(repo, ".ddw-journal.jsonl")), \
+assert not os.path.exists(os.path.join(repo, ".daw-journal.jsonl")), \
     "the run that was refused was recorded in the journal as blessed"
 
 # …and the legitimate closeout of a run the journal DID bless still closes.
 ok_state = dict(forged)
-with open(os.path.join(repo, ".ddw-journal.jsonl"), "w", encoding="utf-8") as fh:
+with open(os.path.join(repo, ".daw-journal.jsonl"), "w", encoding="utf-8") as fh:
     for entry in H:
         fh.write(json.dumps(entry) + "\n")
 json.dump(closed, open(state, "w", encoding="utf-8"))
@@ -10841,7 +10841,7 @@ assert third.returncode == 0, \
     "a closeout whose whole run the journal already blessed was refused: " + (third.stdout + third.stderr)[:200]
 PYCLOSEWIPE
 
-# ── Nothing DDW runs may answer with a stack ─────────────────────────────────
+# ── Nothing DAW runs may answer with a stack ─────────────────────────────────
 #
 # Every entry point is on a path where a traceback is worse than a refusal: the
 # hooks decide whether a write happens, the boot is the session's first line, and
@@ -10852,7 +10852,7 @@ import glob, json, os, shutil, subprocess, sys, tempfile
 src = sys.argv[1]
 
 
-def repo_with_ddw(context=None, install=True):
+def repo_with_daw(context=None, install=True):
     repo = os.path.join(tempfile.mkdtemp(dir=os.environ["WORK"]), "repo")
     os.makedirs(repo)
     subprocess.run(["git", "-C", repo, "init", "-q"], check=True)
@@ -10868,21 +10868,21 @@ def repo_with_ddw(context=None, install=True):
 # 1. A context file that merely MENTIONS the marker in prose. A project
 #    documenting its own setup writes exactly this, and it used to raise
 #    ValueError mid-install, leaving the repo half-wired.
-repo, r = repo_with_ddw("# Notes\n\nWe use a BEGIN DDW block; see the docs.\n")
+repo, r = repo_with_daw("# Notes\n\nWe use a BEGIN DAW block; see the docs.\n")
 assert r.returncode == 0 and "Traceback" not in r.stderr, \
     "the installer crashed on a context file that mentions the marker in prose:\n" + r.stderr[-300:]
-assert os.path.isdir(os.path.join(repo, ".ddw")), "the install did not finish"
+assert os.path.isdir(os.path.join(repo, ".daw")), "the install did not finish"
 
-# 1b. The settings file DDW merges into is the user's, and it arrives in shapes
+# 1b. The settings file DAW merges into is the user's, and it arrives in shapes
 #     the merge was not written for: a mapping where the tool's own schema says
 #     list, a null, a string, a top-level array. Every one of them reached
 #     `cur.append(blk)` and came back an AttributeError mid-install — `.claude/`
-#     and `.ddw/` on disk, no manifest, no hooks wired, and a traceback as the
+#     and `.daw/` on disk, no manifest, no hooks wired, and a traceback as the
 #     entire user-facing report. And the same for a context file that is not
 #     UTF-8, which is what a Spanish AGENTS.md saved as cp1252 is.
 for shape in ('{"hooks":{"PreToolUse":{"matcher":"Edit","hooks":[]}}}', '{"hooks":null}',
               '{"hooks":"x"}', '{"hooks":{"PreToolUse":null}}', '[]', '"x"', '5', 'null'):
-    repo, _ = repo_with_ddw(install=False)
+    repo, _ = repo_with_daw(install=False)
     os.makedirs(os.path.join(repo, ".claude"), exist_ok=True)
     open(os.path.join(repo, ".claude", "settings.json"), "w", encoding="utf-8").write(shape)
     r = subprocess.run(["bash", os.path.join(src, "install.sh"), repo, "--target", "claude"],
@@ -10890,19 +10890,19 @@ for shape in ('{"hooks":{"PreToolUse":{"matcher":"Edit","hooks":[]}}}', '{"hooks
     said = r.stdout + r.stderr
     assert "Traceback" not in said, \
         "a settings.json shaped %s crashed the installer:\n%s" % (shape[:28], said[-300:])
-    assert os.path.exists(os.path.join(repo, ".ddw-installed.json")), \
+    assert os.path.exists(os.path.join(repo, ".daw-installed.json")), \
         "the install stopped before the manifest on a settings.json shaped %s — the drift " \
         "detector is off in a repo that looks installed" % shape[:28]
-    assert "ddw-settings.json" in said, \
-        "a settings.json DDW could not merge into was passed over in silence: %s" % said[-200:]
+    assert "daw-settings.json" in said, \
+        "a settings.json DAW could not merge into was passed over in silence: %s" % said[-200:]
 
-repo, _ = repo_with_ddw(install=False)
+repo, _ = repo_with_daw(install=False)
 open(os.path.join(repo, "AGENTS.md"), "wb").write("# Reglas\n\nfunci\xf3n\n".encode("cp1252"))
 r = subprocess.run(["bash", os.path.join(src, "install.sh"), repo, "--target", "claude"],
                    capture_output=True, text=True)
 said = r.stdout + r.stderr
 assert "Traceback" not in said, "a context file that is not UTF-8 crashed the installer:\n" + said[-300:]
-assert os.path.exists(os.path.join(repo, ".ddw-installed.json")), \
+assert os.path.exists(os.path.join(repo, ".daw-installed.json")), \
     "the install stopped before the manifest on a context file it could not read"
 assert open(os.path.join(repo, "AGENTS.md"), "rb").read() == "# Reglas\n\nfunci\xf3n\n".encode("cp1252"), \
     "the installer rewrote a file it could not decode, so the user's bytes are gone"
@@ -10914,10 +10914,10 @@ assert open(os.path.join(repo, "AGENTS.md"), "rb").read() == "# Reglas\n\nfunci\
 #    parses fine and comes back a list, so the check was measuring the
 #    "not an object" branch and never the RecursionError it was written for —
 #    and the fault it was guarding stayed invisible with the check green.
-repo, _ = repo_with_ddw()
-open(os.path.join(repo, ".ddw-state.json"), "w", encoding="utf-8").write(
+repo, _ = repo_with_daw()
+open(os.path.join(repo, ".daw-state.json"), "w", encoding="utf-8").write(
     "[" * 100000 + "]" * 100000)
-r = subprocess.run([sys.executable, os.path.join(repo, ".ddw/scripts/session-boot.py"),
+r = subprocess.run([sys.executable, os.path.join(repo, ".daw/scripts/session-boot.py"),
                     "--repo", repo, "--session-id", "s"], capture_output=True, text=True)
 assert r.returncode == 0 and "Traceback" not in r.stderr, \
     "the session boot answered with a stack: " + (r.stderr[-300:] or "exit %d" % r.returncode)
@@ -10925,19 +10925,19 @@ assert "cannot be read" in r.stdout or "could not run" in r.stdout, \
     "the boot said nothing about a state it could not read: " + r.stdout[-200:]
 #    And the same fault reached through a file the state is not: the manifest is
 #    read by the drift detector, whose own catch is narrower than the fault.
-repo, _ = repo_with_ddw()
-open(os.path.join(repo, ".ddw-installed.json"), "w", encoding="utf-8").write(
+repo, _ = repo_with_daw()
+open(os.path.join(repo, ".daw-installed.json"), "w", encoding="utf-8").write(
     "[" * 100000 + "]" * 100000)
-r = subprocess.run([sys.executable, os.path.join(repo, ".ddw/scripts/session-boot.py"),
+r = subprocess.run([sys.executable, os.path.join(repo, ".daw/scripts/session-boot.py"),
                     "--repo", repo, "--session-id", "s"], capture_output=True, text=True)
 assert r.returncode == 0 and "Traceback" not in r.stderr, \
     "a manifest the parser gives up on takes the whole boot down: " + \
     (r.stderr[-300:] or "exit %d" % r.returncode)
 
 # 3. A manifest whose shape nobody expected. The uninstaller is what you reach
-#    for when DDW is in a state you do not want; it has to run.
-repo, _ = repo_with_ddw()
-open(os.path.join(repo, ".ddw-installed.json"), "w", encoding="utf-8").write('["not","a","mapping"]')
+#    for when DAW is in a state you do not want; it has to run.
+repo, _ = repo_with_daw()
+open(os.path.join(repo, ".daw-installed.json"), "w", encoding="utf-8").write('["not","a","mapping"]')
 r = subprocess.run(["bash", os.path.join(src, "uninstall.sh"), repo, "--yes"],
                    capture_output=True, text=True)
 assert r.returncode == 0 and "Traceback" not in r.stderr, \
@@ -10953,10 +10953,10 @@ POISON = [
     (".claude/settings.json", '"x"'),
     (".claude/settings.json", '{"hooks":"x"}'),
     (".claude/settings.json", '{"hooks":{"PreToolUse":"oops"}}'),
-    (".ddw-installed.json", "[" * 100000 + "]" * 100000),
+    (".daw-installed.json", "[" * 100000 + "]" * 100000),
 ]
 for rel, payload in POISON:
-    repo, _ = repo_with_ddw()
+    repo, _ = repo_with_daw()
     target = os.path.join(repo, rel)
     os.makedirs(os.path.dirname(target), exist_ok=True)
     open(target, "w", encoding="utf-8").write(payload)
@@ -10965,18 +10965,18 @@ for rel, payload in POISON:
     said = r.stdout + r.stderr
     assert r.returncode == 0 and "Traceback" not in said, \
         "the uninstaller crashed on %s = %s:\n%s" % (rel, payload[:24], said[-300:])
-    assert not os.path.isdir(os.path.join(repo, ".ddw")), \
+    assert not os.path.isdir(os.path.join(repo, ".daw")), \
         "the uninstall stopped at %s = %s and left the method behind" % (rel, payload[:24])
     if rel.endswith("settings.json") and os.path.exists(target):
         after = open(target, encoding="utf-8").read()
         assert after.strip() == payload.strip(), \
             "the uninstaller rewrote a settings file it could not read as hooks:\n" + after[:200]
 
-# The corruption needs DDW's own blocks to still be there: the un-merge only
+# The corruption needs DAW's own blocks to still be there: the un-merge only
 # writes the file back when it removed something, so a settings.json whose every
 # event is odd is left alone and proves nothing. One event of the user's shaped
-# differently, next to the event DDW installed into, is the real shape.
-repo, _ = repo_with_ddw()
+# differently, next to the event DAW installed into, is the real shape.
+repo, _ = repo_with_daw()
 spath = os.path.join(repo, ".claude", "settings.json")
 settings = json.load(open(spath, encoding="utf-8"))
 assert settings.get("hooks", {}).get("PreToolUse"), "the install wired no PreToolUse to remove"
@@ -10992,7 +10992,7 @@ if os.path.exists(spath):
         ("the uninstaller rewrote an event it could not read as hooks, one list element per "
          "character: %r" % (after.get("hooks", {}).get("SessionEnd"),))
 
-repo, _ = repo_with_ddw()
+repo, _ = repo_with_daw()
 odd = "# Notas\n\nfunci\xf3n\n".encode("cp1252")
 open(os.path.join(repo, "CLAUDE.md"), "wb").write(odd)
 r = subprocess.run(["bash", os.path.join(src, "uninstall.sh"), repo, "--yes"],
@@ -11007,7 +11007,7 @@ assert open(os.path.join(repo, "CLAUDE.md"), "rb").read() == odd, \
 d = tempfile.mkdtemp(dir=os.environ["WORK"])
 bad = os.path.join(d, "not-utf8.md")
 open(bad, "wb").write(b"# report\n\xff\xfe\n")
-for v in sorted(glob.glob(os.path.join(src, "ddw/scripts/validate_*.py"))):
+for v in sorted(glob.glob(os.path.join(src, "daw/scripts/validate_*.py"))):
     r = subprocess.run([sys.executable, v, bad, "--tier", "FEATURE"],
                        capture_output=True, text=True)
     assert r.returncode == 3 and "Traceback" not in r.stderr, \
@@ -11020,22 +11020,22 @@ for v in sorted(glob.glob(os.path.join(src, "ddw/scripts/validate_*.py"))):
 #     involved — and those four reads kept a bare `except OSError`, so the
 #     everyday case exited 1 with a stack from a validator whose contract has an
 #     exit code for exactly this.
-repo, _ = repo_with_ddw()
+repo, _ = repo_with_daw()
 for sub, stem in (("prd", "prd"), ("specs", "spec")):
-    os.makedirs(os.path.join(repo, "docs", "ddw", sub), exist_ok=True)
-open(os.path.join(repo, "docs/ddw/prd/prd-T-1.md"), "wb").write(
+    os.makedirs(os.path.join(repo, "docs", "daw", sub), exist_ok=True)
+open(os.path.join(repo, "docs/daw/prd/prd-T-1.md"), "wb").write(
     "# PRD T-1\n\n- FR-01: la funci\xf3n\n".encode("cp1252"))
-open(os.path.join(repo, "docs/ddw/specs/spec-T-1.md"), "w", encoding="utf-8").write(
+open(os.path.join(repo, "docs/daw/specs/spec-T-1.md"), "w", encoding="utf-8").write(
     "# Spec T-1\n\n| Field | Value |\n|---|---|\n| Ticket | T-1 |\n\n## Block 1 — algo\n")
-for v, doc in (("validate_spec.py", "docs/ddw/specs/spec-T-1.md"),
-               ("validate_verify.py", "docs/ddw/reports/verify-T-1.md"),
-               ("validate_threat.py", "docs/ddw/security/threat-T-1.md")):
+for v, doc in (("validate_spec.py", "docs/daw/specs/spec-T-1.md"),
+               ("validate_verify.py", "docs/daw/reports/verify-T-1.md"),
+               ("validate_threat.py", "docs/daw/security/threat-T-1.md")):
     target = os.path.join(repo, doc)
     os.makedirs(os.path.dirname(target), exist_ok=True)
     if not os.path.exists(target):
         open(target, "w", encoding="utf-8").write(
             "# %s\n\n| Field | Value |\n|---|---|\n| Ticket | T-1 |\n" % os.path.basename(doc))
-    r = subprocess.run([sys.executable, os.path.join(src, "ddw/scripts", v), target,
+    r = subprocess.run([sys.executable, os.path.join(src, "daw/scripts", v), target,
                         "--tier", "FEATURE"], capture_output=True, text=True, cwd=repo)
     assert "Traceback" not in r.stderr, \
         "%s crashed on a counterpart document that is not UTF-8:\n%s" % (v, r.stderr[-300:])
@@ -11049,7 +11049,7 @@ for v, doc in (("validate_spec.py", "docs/ddw/specs/spec-T-1.md"),
 probe = os.path.join(tempfile.mkdtemp(dir=os.environ["WORK"]), "method")
 shutil.copytree(src, probe, symlinks=True,
                 ignore=shutil.ignore_patterns(".git", "__pycache__"))
-open(os.path.join(probe, "ddw/rules/odd-encoding.instructions.md"), "wb").write(b"texto\xf3\n")
+open(os.path.join(probe, "daw/rules/odd-encoding.instructions.md"), "wb").write(b"texto\xf3\n")
 r = subprocess.run([sys.executable, os.path.join(probe, "scripts/lint_method.py")],
                    capture_output=True, text=True, cwd=probe)
 assert "Traceback" not in r.stderr, \
@@ -11068,9 +11068,9 @@ python3 - "$SELF" <<'PYSKIP2' && ok "a run cannot begin somewhere the state is n
 import importlib.util, json, os, sys
 src = sys.argv[1]
 spec = importlib.util.spec_from_file_location(
-    "vt", os.path.join(src, "ddw/scripts/validate-transition.py"))
+    "vt", os.path.join(src, "daw/scripts/validate-transition.py"))
 m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
-g = json.load(open(os.path.join(src, "ddw/rules/transition-graph.json"), encoding="utf-8"))
+g = json.load(open(os.path.join(src, "daw/rules/transition-graph.json"), encoding="utf-8"))
 idle = {"tier": None, "phase": "IDLE", "ticket": None, "title": None, "tracker": None,
         "autonomy": None, "gates": {}, "block": None, "discovery": None, "history": []}
 # `title` filled, and the refusal read rather than merely counted. The fixture
@@ -11096,11 +11096,11 @@ first = dict(idle, tier="FEATURE", phase="CLASSIFY", ticket="T-1", autonomy="min
 m.validate(idle, first, g, max_appended=1)
 PYSKIP2
 
-# An edge the journal already blessed was legal when it landed. Upgrading DDW
+# An edge the journal already blessed was legal when it landed. Upgrading DAW
 # mid-ticket changed the graph under an open run, the new graph was applied to
 # the whole history, and post mode then refused every tool call over a step taken
 # days earlier — with no message naming a way out.
-python3 - "$SELF" <<'PYUPGRADE' && ok "a graph change under an open ticket does not condemn the steps already taken, and a new illegal step is still refused" || bad "upgrading DDW mid-ticket strands the ticket permanently, or the window that allows it lets anything through"
+python3 - "$SELF" <<'PYUPGRADE' && ok "a graph change under an open ticket does not condemn the steps already taken, and a new illegal step is still refused" || bad "upgrading DAW mid-ticket strands the ticket permanently, or the window that allows it lets anything through"
 import json, os, subprocess, sys, tempfile
 src = sys.argv[1]
 repo = os.path.join(tempfile.mkdtemp(dir=os.environ["WORK"]), "repo")
@@ -11108,10 +11108,10 @@ os.makedirs(repo)
 subprocess.run(["git", "-C", repo, "init", "-q"], check=True)
 subprocess.run(["bash", os.path.join(src, "install.sh"), repo, "--target", "claude"],
                capture_output=True, text=True)
-tr = os.path.join(repo, ".ddw/scripts/transition.py")
-vt = os.path.join(repo, ".ddw/scripts/validate-transition.py")
-graph = os.path.join(repo, ".ddw/rules/transition-graph.json")
-state = os.path.join(repo, ".ddw-state.json")
+tr = os.path.join(repo, ".daw/scripts/transition.py")
+vt = os.path.join(repo, ".daw/scripts/validate-transition.py")
+graph = os.path.join(repo, ".daw/rules/transition-graph.json")
+state = os.path.join(repo, ".daw-state.json")
 
 
 def post():
@@ -11132,8 +11132,8 @@ assert step("--to", "CLASSIFY", "--action", "c", "--tier", "FEATURE",
 # post's exit, not the helper's), the graph-change scenario never gets built,
 # and the fault this check exists to catch survives on a fixture that broke.
 # Measured: exactly that, on the first CI run after the gate shipped.
-os.makedirs(os.path.join(repo, ".ddw-work"), exist_ok=True)
-open(os.path.join(repo, ".ddw-work", "context-check-T-1.md"), "w", encoding="utf-8").write(
+os.makedirs(os.path.join(repo, ".daw-work"), exist_ok=True)
+open(os.path.join(repo, ".daw-work", "context-check-T-1.md"), "w", encoding="utf-8").write(
     "Nothing to report.\n")
 assert step("--to", "DEFINE", "--action", "d", "--title", "the fixture ticket").returncode == 0
 # …and the edge has to have LANDED, or everything after this line measures a
@@ -11259,7 +11259,7 @@ text = open(mut, encoding="utf-8").read()
 anchor = "MUTATIONS = [\n"
 assert anchor in text, "the mutation list no longer starts where this check looks"
 text = text.replace(anchor, anchor + '    ("a mutation that only stops the file parsing",\n'
-                                     '     edit("ddw/scripts/session-boot.py", "def safe_id(",\n'
+                                     '     edit("daw/scripts/session-boot.py", "def safe_id(",\n'
                                      '          "def safe_id_UNUSED(\\n    pass\\n\\n\\ndef safe_id(")),\n', 1)
 open(mut, "w", encoding="utf-8").write(text)
 r = subprocess.run([sys.executable, mut, "--check-anchors"], capture_output=True, text=True)
@@ -11278,7 +11278,7 @@ text = open(mut, encoding="utf-8").read()
 anchor = "MUTATIONS = [\n"
 assert anchor in text, "the mutation list no longer starts where this check looks"
 twin = ('    ("one fault, written down twice",\n'
-        '     edit("ddw/scripts/session-boot.py", "def safe_id(", "def safe_id_RENAMED(")),\n')
+        '     edit("daw/scripts/session-boot.py", "def safe_id(", "def safe_id_RENAMED(")),\n')
 open(mut, "w", encoding="utf-8").write(text.replace(anchor, anchor + twin + twin, 1))
 r = subprocess.run([sys.executable, mut, "--check-anchors"], capture_output=True, text=True)
 assert r.returncode != 0 and "twice" in r.stdout, \
@@ -11297,7 +11297,7 @@ assert r.returncode != 0 and "twice" in r.stdout, \
 # footprint. `mutate.py` carries this exact warning about the same check having
 # lived in this file for one afternoon and fabricated 180 kills; it is the same
 # mistake, made again, four hundred lines away from the comment describing it.
-_dupe_spec = importlib.util.spec_from_file_location("ddw_mut_dupes",
+_dupe_spec = importlib.util.spec_from_file_location("daw_mut_dupes",
                                                     os.path.join(src, "scripts/mutate.py"))
 _dupe_mut = importlib.util.module_from_spec(_dupe_spec)
 _dupe_spec.loader.exec_module(_dupe_mut)
@@ -11407,7 +11407,7 @@ assert r.returncode != 0 and "more than once" in r.stdout, \
 # forks until the machine gives up, from a check whose whole subject is a
 # selection that matches no mutation. Past the end of the list is a fact about
 # the list.
-_mspec = importlib.util.spec_from_file_location("ddw_mut", os.path.join(src, "scripts/mutate.py"))
+_mspec = importlib.util.spec_from_file_location("daw_mut", os.path.join(src, "scripts/mutate.py"))
 _mut = importlib.util.module_from_spec(_mspec); _mspec.loader.exec_module(_mut)
 _past_end = "%d/%d" % (len(_mut.MUTATIONS) + 1, len(_mut.MUTATIONS) + 1)
 
@@ -11514,9 +11514,9 @@ os.makedirs(repo)
 subprocess.run(["git", "-C", repo, "init", "-q"], check=True)
 subprocess.run(["bash", os.path.join(src, "install.sh"), repo, "--target", "claude"],
                capture_output=True, text=True)
-tr = os.path.join(repo, ".ddw", "scripts", "transition.py")
-graph = os.path.join(repo, ".ddw", "rules", "transition-graph.json")
-state = os.path.join(repo, ".ddw-state.json")
+tr = os.path.join(repo, ".daw", "scripts", "transition.py")
+graph = os.path.join(repo, ".daw", "rules", "transition-graph.json")
+state = os.path.join(repo, ".daw-state.json")
 subprocess.run([sys.executable, tr, "--state", state, "--graph", graph, "--write",
                 "--to", "CLASSIFY", "--action", "c", "--tier", "FEATURE", "--ticket", "T-1"],
                capture_output=True, text=True)
@@ -11533,7 +11533,7 @@ for broken in ('{ "phase": "CLAS', "not json at all", '{"phase": "CODE", "histor
     assert "cannot be read" in r.stderr, f"the refusal does not say why: {r.stderr[:160]}"
 PYCORRUPT
 
-# Adding a SECOND tool to a repo that already has DDW. `had_manifest` was asked
+# Adding a SECOND tool to a repo that already has DAW. `had_manifest` was asked
 # of the whole manifest, so a target that had never been installed was treated as
 # an upgrade — and the user's own hooks, under exactly the names a user of that
 # agent already has, were overwritten with no backup, no warning and exit 0.
@@ -11546,7 +11546,7 @@ subprocess.run(["git", "-C", repo, "init", "-q"], check=True)
 subprocess.run(["bash", os.path.join(src, "install.sh"), repo, "--target", "claude"],
                capture_output=True, text=True)
 MINE = "#!/bin/sh\n# the user's own hook\necho mine\n"
-own = os.path.join(repo, ".codex", "hooks", "ddw")
+own = os.path.join(repo, ".codex", "hooks", "daw")
 os.makedirs(own, exist_ok=True)
 for name in ("session-start.sh", "enforce.sh"):
     open(os.path.join(own, name), "w", encoding="utf-8").write(MINE)
@@ -11562,7 +11562,7 @@ PYSECOND
 python3 - "$SELF" <<'PYPATHS' && ok "every gate's document path is the one its skill tells you to write, and its validator the one its skill tells you to run" || bad "a gate reads one path and its skill documents another — the gate is disarmed and nothing said so"
 import os, re, sys
 src = sys.argv[1]
-vt = open(os.path.join(src, "ddw/scripts/validate-transition.py"), encoding="utf-8").read()
+vt = open(os.path.join(src, "daw/scripts/validate-transition.py"), encoding="utf-8").read()
 calls = re.findall(
     r'_receipt_missing\(root, state, "(\w+)", "(\w+)", "(\w+)", \(([^)]*)\),\s*"([\w.]+)"',
     vt)
@@ -11575,11 +11575,11 @@ assert len({c[0] for c in calls}) == 6, \
 # skill for most of them; the `define` gate resolves three documents across three
 # tiers and the FIX tier's RCA is documented by the phase rule rather than by a
 # skill, so the question is asked of the whole method rather than of one file.
-SKILL = {"define": "ddw-validate-prd", "spec": "ddw-validate-spec",
-         "threat": "ddw-threat-modeling", "verify": "ddw-verify-module",
-         "tests": "ddw-test", "sast": "ddw-security-sast"}
-EXTRA = {"define": ["skills/ddw-create-prd/SKILL.md",
-                    "ddw/rules/define.instructions.md"]}
+SKILL = {"define": "daw-validate-prd", "spec": "daw-validate-spec",
+         "threat": "daw-threat-modeling", "verify": "daw-verify-module",
+         "tests": "daw-test", "sast": "daw-security-sast"}
+EXTRA = {"define": ["skills/daw-create-prd/SKILL.md",
+                    "daw/rules/define.instructions.md"]}
 for gate, receipt, subdir, stems_raw, script in calls:
     stems = re.findall(r'"(\w+)"', stems_raw)
     skill = os.path.join(src, "skills", SKILL[gate], "SKILL.md")
@@ -11588,7 +11588,7 @@ for gate, receipt, subdir, stems_raw, script in calls:
     for extra in EXTRA.get(gate, []):
         text += "\n" + open(os.path.join(src, extra), encoding="utf-8").read()
     # The directory the gate looks in has to be the directory the skill names…
-    wanted = "docs/ddw/%s/" % subdir
+    wanted = "docs/daw/%s/" % subdir
     assert wanted in text, \
         f"the {gate} gate reads {wanted}, and {SKILL[gate]} never names it"
     # …under one of the filenames the gate accepts…
@@ -11597,17 +11597,17 @@ for gate, receipt, subdir, stems_raw, script in calls:
     # …and the script the refusal tells you to run has to be the one the skill
     # tells you to run, and has to exist.
     assert script in text, f"the {gate} refusal names {script}; {SKILL[gate]} names something else"
-    assert os.path.exists(os.path.join(src, "ddw/scripts", script)), \
-        f"{script} is named by the {gate} gate and is not in ddw/scripts/"
+    assert os.path.exists(os.path.join(src, "daw/scripts", script)), \
+        f"{script} is named by the {gate} gate and is not in daw/scripts/"
     # …and EVERY path in the skill that carries one of the gate's filenames has
     # to be under the directory the gate reads. "It says the right thing
     # somewhere" is not the property: the model follows whichever line it lands
     # on, and one drifted line sends the document where the gate does not look.
-    for said_dir, said_stem in re.findall(r"docs/ddw/(\w+)/(\w+)-", text):
+    for said_dir, said_stem in re.findall(r"docs/daw/(\w+)/(\w+)-", text):
         if said_stem in stems:
             assert said_dir == subdir, \
-                (f"the method tells you to write docs/ddw/{said_dir}/{said_stem}-… "
-                 f"and the {gate} gate reads docs/ddw/{subdir}/{said_stem}-")
+                (f"the method tells you to write docs/daw/{said_dir}/{said_stem}-… "
+                 f"and the {gate} gate reads docs/daw/{subdir}/{said_stem}-")
 PYPATHS
 
 # Ten of the seventeen skills could have their entire body replaced with "TODO."
@@ -11618,26 +11618,26 @@ python3 - "$SELF" <<'PYSKILLS' && ok "every skill's load-bearing claim is assert
 import os, re, sys
 src = sys.argv[1]
 CLAIMS = {
-    "ddw-commit":            ["AI-assisted:", "gitmoji", "git status"],
-    "ddw-create-adr":        ["docs/adr/", "ADR"],
-    "ddw-create-pr":         ["gh pr create", "gates.pr"],
-    "ddw-create-prd":        ["docs/ddw/prd/", "PRD loops"],
-    "ddw-create-spec":       ["docs/ddw/specs/", "Spec loops"],
-    "ddw-context-check":     ["AGENTS.md", "## Stack"],
-    "ddw-family-catalog":    ["family_catalog.py", "## Repo family", "--write-members"],
-    "ddw-family-impact":     ["family_impact.py", "impact-data-", "--validate", "Sin impacto"],
-    "ddw-family-status":     ["family_next.py", "origin/main", "update-row", "Never improvise"],
-    "ddw-eject":             [".ddw/", "The repo wins", "CLAUDE_PLUGIN_ROOT"],
-    "ddw-help":              ["/ddw-status", "/ddw-self-check"],
-    "ddw-security-sast":     ["validate_sast.py", "docs/ddw/security/sast-"],
-    "ddw-self-check":        ["INCONSISTENCY", "```bash"],
-    "ddw-status":            [".ddw-state.json"],
-    "ddw-test":              ["validate_tests.py", "docs/ddw/reports/tests-"],
-    "ddw-threat-modeling":   ["validate_threat.py", "docs/ddw/security/threat-"],
-    "ddw-validate-arch":     ["architecture", "AGENTS.md"],
-    "ddw-validate-prd":      ["validate_prd.py", "docs/ddw/prd/prd-"],
-    "ddw-validate-spec":     ["validate_spec.py", "docs/ddw/specs/"],
-    "ddw-verify-module":     ["validate_verify.py", "docs/ddw/reports/verify-"],
+    "daw-commit":            ["AI-assisted:", "gitmoji", "git status"],
+    "daw-create-adr":        ["docs/adr/", "ADR"],
+    "daw-create-pr":         ["gh pr create", "gates.pr"],
+    "daw-create-prd":        ["docs/daw/prd/", "PRD loops"],
+    "daw-create-spec":       ["docs/daw/specs/", "Spec loops"],
+    "daw-context-check":     ["AGENTS.md", "## Stack"],
+    "daw-family-catalog":    ["family_catalog.py", "## Repo family", "--write-members"],
+    "daw-family-impact":     ["family_impact.py", "impact-data-", "--validate", "Sin impacto"],
+    "daw-family-status":     ["family_next.py", "origin/main", "update-row", "Never improvise"],
+    "daw-eject":             [".daw/", "The repo wins", "CLAUDE_PLUGIN_ROOT"],
+    "daw-help":              ["/daw-status", "/daw-self-check"],
+    "daw-security-sast":     ["validate_sast.py", "docs/daw/security/sast-"],
+    "daw-self-check":        ["INCONSISTENCY", "```bash"],
+    "daw-status":            [".daw-state.json"],
+    "daw-test":              ["validate_tests.py", "docs/daw/reports/tests-"],
+    "daw-threat-modeling":   ["validate_threat.py", "docs/daw/security/threat-"],
+    "daw-validate-arch":     ["architecture", "AGENTS.md"],
+    "daw-validate-prd":      ["validate_prd.py", "docs/daw/prd/prd-"],
+    "daw-validate-spec":     ["validate_spec.py", "docs/daw/specs/"],
+    "daw-verify-module":     ["validate_verify.py", "docs/daw/reports/verify-"],
 }
 present = {d for d in os.listdir(os.path.join(src, "skills"))
            if os.path.isdir(os.path.join(src, "skills", d))}
@@ -11655,16 +11655,16 @@ for skill, claims in sorted(CLAIMS.items()):
         assert claim in body, f"{skill}/SKILL.md no longer says {claim!r}"
 PYSKILLS
 
-# /ddw-eject rests on one rule — the repo's `.ddw/` wins, the plugin is the
+# /daw-eject rests on one rule — the repo's `.daw/` wins, the plugin is the
 # fallback — asserted in four documents and executed by one shell function.
 # Swapping the two branches left the suite green.
-python3 - "$SELF" <<'PYEJECT' && ok "the method resolves to the repo's copy when there is one, and to the plugin only when there is not" || bad "the repo/plugin precedence /ddw-eject depends on can be inverted with nothing noticing"
+python3 - "$SELF" <<'PYEJECT' && ok "the method resolves to the repo's copy when there is one, and to the plugin only when there is not" || bad "the repo/plugin precedence /daw-eject depends on can be inverted with nothing noticing"
 import os, shutil, subprocess, sys, tempfile
 src = sys.argv[1]
 guard = os.path.join(src, "adapters/claude/hooks/lib/guard.sh")
 work = tempfile.mkdtemp(dir=os.environ["WORK"])
 repo, plugin = os.path.join(work, "repo"), os.path.join(work, "plugin")
-for d, name in ((os.path.join(repo, ".ddw"), "repo"), (os.path.join(plugin, "ddw"), "plugin")):
+for d, name in ((os.path.join(repo, ".daw"), "repo"), (os.path.join(plugin, "daw"), "plugin")):
     os.makedirs(os.path.join(d, "scripts"))
     open(os.path.join(d, "orchestrator.md"), "w", encoding="utf-8").write(name)
     # An install is the method's SCRIPTS being there. The fixture used to be a
@@ -11674,50 +11674,50 @@ for d, name in ((os.path.join(repo, ".ddw"), "repo"), (os.path.join(plugin, "ddw
 
 
 def resolved():
-    out = subprocess.run(["bash", "-c", "source %s; ddw_method" % guard],
+    out = subprocess.run(["bash", "-c", "source %s; daw_method" % guard],
                          capture_output=True, text=True,
                          env=dict(os.environ, CLAUDE_PROJECT_DIR=repo,
                                   CLAUDE_PLUGIN_ROOT=plugin))
     return out.stdout.strip()
 
 
-assert resolved() == os.path.join(repo, ".ddw"), \
-    "with both present the plugin won: %r — /ddw-eject's whole promise is the other way" % resolved()
-shutil.rmtree(os.path.join(repo, ".ddw"))
-assert resolved() == os.path.join(plugin, "ddw"), \
+assert resolved() == os.path.join(repo, ".daw"), \
+    "with both present the plugin won: %r — /daw-eject's whole promise is the other way" % resolved()
+shutil.rmtree(os.path.join(repo, ".daw"))
+assert resolved() == os.path.join(plugin, "daw"), \
     "with no repo copy it did not fall back to the plugin: %r" % resolved()
 
-# A directory is not an install. Chosen by directory, `mkdir .ddw` resolved the
+# A directory is not an install. Chosen by directory, `mkdir .daw` resolved the
 # method to an empty folder, and every hook then bowed out at its
-# `[ -f "$DDW/scripts/hook-gate.py" ] || exit 0` — so one command with no
+# `[ -f "$DAW/scripts/hook-gate.py" ] || exit 0` — so one command with no
 # privileges and no content turned enforcement off for the repo.
-os.makedirs(os.path.join(repo, ".ddw"))
-assert resolved() == os.path.join(plugin, "ddw"), \
-    "an empty .ddw won the method: `mkdir .ddw` resolves DDW to a folder with no gate in it, " \
+os.makedirs(os.path.join(repo, ".daw"))
+assert resolved() == os.path.join(plugin, "daw"), \
+    "an empty .daw won the method: `mkdir .daw` resolves DAW to a folder with no gate in it, " \
     "and every hook exits 0 rather than falling back to the copy that does: %r" % resolved()
 PYEJECT
 
 # …and the same question asked of the hooks themselves, because resolving a path
 # correctly is not the thing that has to hold — refusing the write is. Under a
-# plugin install the fallback an empty `.ddw` skips is the only copy of the
+# plugin install the fallback an empty `.daw` skips is the only copy of the
 # method there is, so the hook that refused a write exits 0 for the same write
 # once the directory exists. Driven through the shipped hook scripts, both
 # modes, with the plugin as the only place the method lives.
-python3 - "$SELF" <<'PYEMPTYDDW' && ok "an empty .ddw does not disarm the hooks: enforcement falls back to the plugin, not open" || bad "\`mkdir .ddw\` turns every Claude hook off — one command, no privileges, and the refusal becomes exit 0"
+python3 - "$SELF" <<'PYEMPTYDAW' && ok "an empty .daw does not disarm the hooks: enforcement falls back to the plugin, not open" || bad "\`mkdir .daw\` turns every Claude hook off — one command, no privileges, and the refusal becomes exit 0"
 import json, os, shutil, subprocess, sys, tempfile
 src = sys.argv[1]
 work = tempfile.mkdtemp(dir=os.environ["WORK"])
 repo, plugin = os.path.join(work, "repo"), os.path.join(work, "plugin")
 os.makedirs(repo)
 subprocess.run(["git", "-C", repo, "init", "-q"], check=True)
-shutil.copytree(os.path.join(src, "ddw"), os.path.join(plugin, "ddw"),
+shutil.copytree(os.path.join(src, "daw"), os.path.join(plugin, "daw"),
                 ignore=shutil.ignore_patterns("__pycache__"))
 shutil.copytree(os.path.join(src, "adapters/claude/hooks"), os.path.join(plugin, "hooks"))
 
 H = [{"timestamp": "2026-01-01T00:00:00Z", "from": "IDLE", "to": "CLASSIFY", "action": "a"},
      {"timestamp": "2026-01-01T00:01:00Z", "from": "CLASSIFY", "to": "DEFINE", "action": "b",
       "tier": "FEATURE", "ticket": "T-1"}]
-open(os.path.join(repo, ".ddw-state.json"), "w", encoding="utf-8").write(json.dumps(
+open(os.path.join(repo, ".daw-state.json"), "w", encoding="utf-8").write(json.dumps(
     {"tier": "FEATURE", "phase": "DEFINE", "ticket": "T-1", "gates": {}, "history": H}))
 event = json.dumps({"tool_name": "Write",
                     "tool_input": {"file_path": os.path.join(repo, "src", "app.ts"),
@@ -11735,36 +11735,36 @@ before = hook("validate-state-transition.sh")
 assert before == 2, \
     "the fixture does not refuse this write to begin with (rc %s), so it cannot show anything " \
     "being turned off" % before
-os.makedirs(os.path.join(repo, ".ddw"))
+os.makedirs(os.path.join(repo, ".daw"))
 after = hook("validate-state-transition.sh")
 assert after == 2, \
-    "`mkdir .ddw` turned a refused write (exit 2) into an allowed one (exit %s): the method " \
+    "`mkdir .daw` turned a refused write (exit 2) into an allowed one (exit %s): the method " \
     "resolved to the empty directory and the hook bowed out instead of using the plugin" % after
-PYEMPTYDDW
+PYEMPTYDAW
 
 # ── The method is protected where the method actually is ─────────────────────
 #
-# Every guard on DDW's own files asked "is this path under the repo root?",
+# Every guard on DAW's own files asked "is this path under the repo root?",
 # which is the whole story for a drop-in install and none of it for a plugin
 # one: there the method sits in a plugin root SHARED BY EVERY PROJECT, so a
 # write to it was outside the repo, therefore "not ours", therefore allowed. One
 # write to the graph — `"PLAN->CLOSEOUT": {"gates": []}` — and a FEATURE reaches
 # CLOSEOUT with no spec, threat, tests, sast or verify, in every repository that
-# installs DDW as a plugin.
-python3 - "$SELF" <<'PYPLUGINSEAL' && ok "under a plugin install the method itself is sealed, and the out-of-repo recovery path still is not" || bad "the plugin's graph, gate and validator are writable from inside a ticket — one write disarms DDW in every repo using it"
+# installs DAW as a plugin.
+python3 - "$SELF" <<'PYPLUGINSEAL' && ok "under a plugin install the method itself is sealed, and the out-of-repo recovery path still is not" || bad "the plugin's graph, gate and validator are writable from inside a ticket — one write disarms DAW in every repo using it"
 import json, os, shutil, subprocess, sys, tempfile
 src = sys.argv[1]
 work = tempfile.mkdtemp(dir=os.environ["WORK"])
 repo, plugin = os.path.join(work, "repo"), os.path.join(work, "plugin")
 os.makedirs(repo)
 subprocess.run(["git", "-C", repo, "init", "-q"], check=True)
-shutil.copytree(os.path.join(src, "ddw"), os.path.join(plugin, "ddw"),
+shutil.copytree(os.path.join(src, "daw"), os.path.join(plugin, "daw"),
                 ignore=shutil.ignore_patterns("__pycache__"))
 shutil.copytree(os.path.join(src, "adapters/claude/hooks"), os.path.join(plugin, "hooks"))
 H = [{"timestamp": "2026-01-01T00:00:00Z", "from": "IDLE", "to": "CLASSIFY", "action": "a"},
      {"timestamp": "2026-01-01T00:01:00Z", "from": "CLASSIFY", "to": "DEFINE", "action": "b",
       "tier": "FEATURE", "ticket": "T-1"}]
-open(os.path.join(repo, ".ddw-state.json"), "w", encoding="utf-8").write(json.dumps(
+open(os.path.join(repo, ".daw-state.json"), "w", encoding="utf-8").write(json.dumps(
     {"tier": "FEATURE", "phase": "DEFINE", "ticket": "T-1", "gates": {}, "history": H}))
 
 
@@ -11779,12 +11779,12 @@ def write_to(path):
 
 
 # The three that matter: the rules, the gate, and the code that judges.
-for rel in ("ddw/rules/transition-graph.json", "ddw/scripts/hook-gate.py",
-            "ddw/scripts/validate-transition.py"):
+for rel in ("daw/rules/transition-graph.json", "daw/scripts/hook-gate.py",
+            "daw/scripts/validate-transition.py"):
     r = write_to(os.path.join(plugin, rel))
     assert r.returncode == 2, \
         "a write to the plugin's %s was allowed (rc %s) — the method is shared, so this " \
-        "disarms DDW for every repository using it, not just this one" % (rel, r.returncode)
+        "disarms DAW for every repository using it, not just this one" % (rel, r.returncode)
 
 # The control: the same event shape, inside the repo, still refused for its own
 # reason. Without it a gate that refused everything would pass this check.
@@ -11795,7 +11795,7 @@ assert write_to(os.path.join(repo, "src", "app.ts")).returncode == 2, \
 # product prescribes tells the model to write the corrected state to a scratch
 # path outside the repo. That path is not under the method root, and sealing the
 # method must not turn that instruction into a painted door a second time.
-out = os.path.join(work, "ddw-recovery-state.json")
+out = os.path.join(work, "daw-recovery-state.json")
 r = write_to(out)
 assert r.returncode == 0, \
     "the out-of-repo scratch path the corrupt-state refusal tells the model to use is now " \
@@ -11808,8 +11808,8 @@ PYPLUGINSEAL
 # byte raised `UnicodeDecodeError` from the file ITERATION, not from
 # `json.loads`, so it escaped both `except` clauses and came out of the hook as
 # a traceback — every write in the repository refused, permanently, with the
-# refusal naming `.ddw-state.json`, a file with nothing wrong in it. And
-# `mkfifo .ddw-journal.jsonl` makes `open()` itself block until a writer that
+# refusal naming `.daw-state.json`, a file with nothing wrong in it. And
+# `mkfifo .daw-journal.jsonl` makes `open()` itself block until a writer that
 # never comes: every hook hangs, with no output and no exit code. A hung hook is
 # not a refusal — nothing tells the user anything at all.
 #
@@ -11819,7 +11819,7 @@ python3 - "$SELF" <<'PYHOSTILEJOURNAL' && ok "a journal that cannot be decoded, 
 import importlib.util, os, subprocess, sys, tempfile
 src = sys.argv[1]
 spec = importlib.util.spec_from_file_location(
-    "vt", os.path.join(src, "ddw/scripts/validate-transition.py"))
+    "vt", os.path.join(src, "daw/scripts/validate-transition.py"))
 vt = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(vt)
 
@@ -11828,13 +11828,13 @@ STATE = '{"phase":"IDLE","tier":null,"gates":{},"history":[]}'
 
 def fresh():
     repo = tempfile.mkdtemp(dir=os.environ["WORK"])
-    open(os.path.join(repo, ".ddw-state.json"), "w", encoding="utf-8").write(STATE)
-    return repo, os.path.join(repo, ".ddw-state.json")
+    open(os.path.join(repo, ".daw-state.json"), "w", encoding="utf-8").write(STATE)
+    return repo, os.path.join(repo, ".daw-state.json")
 
 
 # One byte that is not UTF-8, on its own line.
 repo, state = fresh()
-with open(os.path.join(repo, ".ddw-journal.jsonl"), "wb") as fh:
+with open(os.path.join(repo, ".daw-journal.jsonl"), "wb") as fh:
     fh.write(b'{"from":"IDLE","to":"CLASSIFY"}\n\xff\xfe\n')
 try:
     vt._check_state_not_erased(state)
@@ -11842,8 +11842,8 @@ try:
                          "evidence for can be short by one transition and nothing says so")
 except vt.Block as exc:
     why = str(exc)
-assert ".ddw-journal.jsonl" in why, \
-    "the refusal does not name the journal — it used to name .ddw-state.json, which is the file " \
+assert ".daw-journal.jsonl" in why, \
+    "the refusal does not name the journal — it used to name .daw-state.json, which is the file " \
     "the reader then goes and inspects for nothing: %s" % why
 # The lines that ARE readable still parse: one bad byte is not the whole file.
 assert vt._journal_lines(state) == [{"from": "IDLE", "to": "CLASSIFY"}], \
@@ -11857,10 +11857,10 @@ spec = importlib.util.spec_from_file_location("vt", sys.argv[1])
 vt = importlib.util.module_from_spec(spec); spec.loader.exec_module(vt)
 victim, state_text = sys.argv[2], sys.argv[3]
 repo = tempfile.mkdtemp(dir=os.environ["WORK"])
-state = os.path.join(repo, ".ddw-state.json")
+state = os.path.join(repo, ".daw-state.json")
 # The FIFO goes where the victim says; whatever is NOT the fifo is a real file,
 # so the only unusual thing in the repo is the one under test.
-if victim != ".ddw-state.json":
+if victim != ".daw-state.json":
     open(state, "w", encoding="utf-8").write(state_text)
 os.mkfifo(os.path.join(repo, victim))
 try:
@@ -11869,10 +11869,10 @@ try:
 except vt.Block as exc:
     print("BLOCK " + str(exc))
 """
-for victim in (".ddw-journal.jsonl", ".ddw-state.json"):
+for victim in (".daw-journal.jsonl", ".daw-state.json"):
     try:
         out = subprocess.run([sys.executable, "-c", probe,
-                              os.path.join(src, "ddw/scripts/validate-transition.py"),
+                              os.path.join(src, "daw/scripts/validate-transition.py"),
                               victim, STATE],
                              capture_output=True, text=True, timeout=20).stdout
     except subprocess.TimeoutExpired:
@@ -11884,7 +11884,7 @@ for victim in (".ddw-journal.jsonl", ".ddw-state.json"):
 
 # The everyday journal is untouched by any of this.
 repo, state = fresh()
-open(os.path.join(repo, ".ddw-journal.jsonl"), "w", encoding="utf-8").write(
+open(os.path.join(repo, ".daw-journal.jsonl"), "w", encoding="utf-8").write(
     '{"from":"IDLE","to":"CLASSIFY"}\n')
 open(state, "w", encoding="utf-8").write(
     '{"phase":"CLASSIFY","tier":null,"gates":{},"history":'
@@ -11910,12 +11910,12 @@ subprocess.run(["git", "-C", repo, "init", "-q"], check=True)
 subprocess.run(["bash", os.path.join(src, "install.sh"), repo, "--target", "claude"],
                capture_output=True, text=True)
 for sub in ("prd", "specs", "security", "reports"):
-    os.makedirs(os.path.join(repo, "docs", "ddw", sub), exist_ok=True)
-os.makedirs(os.path.join(repo, ".ddw-sessions"), exist_ok=True)
-tr = os.path.join(repo, ".ddw", "scripts", "transition.py")
-vt = os.path.join(repo, ".ddw", "scripts", "validate-transition.py")
-graph = os.path.join(repo, ".ddw", "rules", "transition-graph.json")
-state = os.path.join(repo, ".ddw-state.json")
+    os.makedirs(os.path.join(repo, "docs", "daw", sub), exist_ok=True)
+os.makedirs(os.path.join(repo, ".daw-sessions"), exist_ok=True)
+tr = os.path.join(repo, ".daw", "scripts", "transition.py")
+vt = os.path.join(repo, ".daw", "scripts", "validate-transition.py")
+graph = os.path.join(repo, ".daw", "rules", "transition-graph.json")
+state = os.path.join(repo, ".daw-state.json")
 
 
 def receipt(prefix, rel):
@@ -11924,9 +11924,9 @@ def receipt(prefix, rel):
     open(path, "w", encoding="utf-8").write("# %s\n" % rel)
     digest = hashlib.sha256(open(path, encoding="utf-8").read().encode("utf-8")).hexdigest()[:12]
     name = "%s-validated-%s" % (prefix, digest)
-    open(os.path.join(repo, ".ddw-sessions", name), "w", encoding="utf-8").write(
+    open(os.path.join(repo, ".daw-sessions", name), "w", encoding="utf-8").write(
         os.path.basename(path))
-    with open(os.path.join(repo, ".ddw-journal.jsonl"), "a", encoding="utf-8") as fh:
+    with open(os.path.join(repo, ".daw-journal.jsonl"), "a", encoding="utf-8") as fh:
         fh.write(json.dumps({"record": "receipt", "name": name,
                              "file": os.path.basename(path)}, sort_keys=True) + "\n")
 
@@ -11940,15 +11940,15 @@ def step(*args):
     return r.returncode, (r.stderr or "").strip()
 
 
-receipt("prd", "docs/ddw/prd/prd-T-9.md")
-receipt("spec", "docs/ddw/specs/spec-T-9.md")
-receipt("threat", "docs/ddw/security/threat-T-9.md")
+receipt("prd", "docs/daw/prd/prd-T-9.md")
+receipt("spec", "docs/daw/specs/spec-T-9.md")
+receipt("threat", "docs/daw/security/threat-T-9.md")
 # The classify edge's context check and CODE's decisions record — other gates
 # than the spent-receipt rule under test.
-os.makedirs(os.path.join(repo, ".ddw-work"), exist_ok=True)
-open(os.path.join(repo, ".ddw-work", "context-check-T-9.md"), "w", encoding="utf-8").write(
+os.makedirs(os.path.join(repo, ".daw-work"), exist_ok=True)
+open(os.path.join(repo, ".daw-work", "context-check-T-9.md"), "w", encoding="utf-8").write(
     "Nothing to report.\n")
-open(os.path.join(repo, "docs", "ddw", "specs", "decisions-T-9.md"), "w", encoding="utf-8").write(
+open(os.path.join(repo, "docs", "daw", "specs", "decisions-T-9.md"), "w", encoding="utf-8").write(
     "No decisions were approved outside the spec during this ticket.\n")
 for args in (("--to", "CLASSIFY", "--action", "classify: a feature",
               "--tier", "FEATURE", "--ticket", "T-9"),
@@ -11958,8 +11958,8 @@ for args in (("--to", "CLASSIFY", "--action", "classify: a feature",
     rc, why = step(*args)
     assert rc == 0, "the walk to CODE was refused: %s" % why
 
-receipt("tests", "docs/ddw/reports/tests-T-9.md")
-receipt("sast", "docs/ddw/security/sast-T-9.md")
+receipt("tests", "docs/daw/reports/tests-T-9.md")
+receipt("sast", "docs/daw/security/sast-T-9.md")
 rc, why = step("--to", "VERIFY", "--action", "verify it", "--gate", "tests", "--gate", "sast")
 assert rc == 0, "the first VERIFY was refused: %s" % why
 
@@ -11978,8 +11978,8 @@ assert "corrective loop" in why or "cleared" in why, \
 # …and re-running the validators is what pays for it. Same bytes, same digest,
 # same marker name — a new journal line, which is the only thing that can record
 # that a report was produced again.
-receipt("tests", "docs/ddw/reports/tests-T-9.md")
-receipt("sast", "docs/ddw/security/sast-T-9.md")
+receipt("tests", "docs/daw/reports/tests-T-9.md")
+receipt("sast", "docs/daw/security/sast-T-9.md")
 rc, why = step("--to", "VERIFY", "--action", "verify again", "--gate", "tests", "--gate", "sast")
 assert rc == 0, \
     "re-running the validators does not re-open the gate, so the corrective loop is a dead end: %s" % why
@@ -11990,17 +11990,17 @@ PYSPENT
 # Paths are resolved through symlinks before being judged, and they have to be:
 # that is what stops a guarded file being written under an unguarded name. But
 # the sealed lists are about names, so resolving first answers the question
-# about a different one. With `.ddw` made a symlink to a directory outside the
-# repository, `.ddw/rules/transition-graph.json` and `.ddw/scripts/hook-gate.py`
-# resolved outside it, and the guard said "nothing here is DDW's to judge" about
-# DDW's own graph — while `src/app.ts`, in the same phase and the same event
+# about a different one. With `.daw` made a symlink to a directory outside the
+# repository, `.daw/rules/transition-graph.json` and `.daw/scripts/hook-gate.py`
+# resolved outside it, and the guard said "nothing here is DAW's to judge" about
+# DAW's own graph — while `src/app.ts`, in the same phase and the same event
 # shape, was refused.
 #
-# `install.sh` never builds that topology, and `.ddw-sessions/` and
-# `.ddw-installed.json` were never affected. Both halves are asserted, so the
+# `install.sh` never builds that topology, and `.daw-sessions/` and
+# `.daw-installed.json` were never affected. Both halves are asserted, so the
 # refusal rests on what is true rather than on the wider claim it was reported
 # with.
-python3 - "$SELF" <<'PYSYMSEAL' && ok "a .ddw symlinked out of the repository is still sealed, under the name it was written as" || bad "moving .ddw behind a symlink makes DDW's own graph and gate writable from inside a ticket"
+python3 - "$SELF" <<'PYSYMSEAL' && ok "a .daw symlinked out of the repository is still sealed, under the name it was written as" || bad "moving .daw behind a symlink makes DAW's own graph and gate writable from inside a ticket"
 import json, os, shutil, subprocess, sys, tempfile
 src = sys.argv[1]
 work = tempfile.mkdtemp(dir=os.environ["WORK"])
@@ -12010,16 +12010,16 @@ os.makedirs(outside)
 subprocess.run(["git", "-C", repo, "init", "-q"], check=True)
 subprocess.run(["bash", os.path.join(src, "install.sh"), repo, "--target", "claude"],
                capture_output=True, text=True)
-shutil.move(os.path.join(repo, ".ddw"), os.path.join(outside, "ddw"))
-os.symlink(os.path.join(outside, "ddw"), os.path.join(repo, ".ddw"))
+shutil.move(os.path.join(repo, ".daw"), os.path.join(outside, "daw"))
+os.symlink(os.path.join(outside, "daw"), os.path.join(repo, ".daw"))
 
 H = [{"timestamp": "2026-01-01T00:00:00Z", "from": "IDLE", "to": "CLASSIFY", "action": "a"},
      {"timestamp": "2026-01-01T00:01:00Z", "from": "CLASSIFY", "to": "DEFINE", "action": "b",
       "tier": "FEATURE", "ticket": "T-1"}]
-state = os.path.join(repo, ".ddw-state.json")
+state = os.path.join(repo, ".daw-state.json")
 open(state, "w", encoding="utf-8").write(json.dumps(
     {"tier": "FEATURE", "phase": "DEFINE", "ticket": "T-1", "gates": {}, "history": H}))
-ddw = os.path.join(repo, ".ddw")
+daw = os.path.join(repo, ".daw")
 
 
 def write_to(path):
@@ -12027,21 +12027,21 @@ def write_to(path):
     # lives, and it would mask whether the name-based seal still holds. This is
     # the guard underneath it.
     event = json.dumps({"tool_name": "Write", "tool_input": {"file_path": path, "content": "x"}})
-    return subprocess.run([sys.executable, os.path.join(ddw, "scripts", "hook-gate.py"),
+    return subprocess.run([sys.executable, os.path.join(daw, "scripts", "hook-gate.py"),
                            "--mode", "pre", "--state", state, "--repo", repo,
-                           "--graph", os.path.join(ddw, "rules", "transition-graph.json")],
+                           "--graph", os.path.join(daw, "rules", "transition-graph.json")],
                           input=event, capture_output=True, text=True).returncode
 
 
-for rel in (".ddw/rules/transition-graph.json", ".ddw/scripts/hook-gate.py",
-            ".ddw/scripts/validate-transition.py"):
+for rel in (".daw/rules/transition-graph.json", ".daw/scripts/hook-gate.py",
+            ".daw/scripts/validate-transition.py"):
     assert write_to(os.path.join(repo, rel)) == 2, \
-        "`%s` was writable once .ddw pointed outside the repo: the seal is on the name, and " \
-        "the name is still `.ddw/`" % rel
+        "`%s` was writable once .daw pointed outside the repo: the seal is on the name, and " \
+        "the name is still `.daw/`" % rel
 
 # The two the finding also claimed and that were never affected — asserted so
 # the record says what is true rather than what was reported.
-for rel in (".ddw-sessions/forged", ".ddw-installed.json"):
+for rel in (".daw-sessions/forged", ".daw-installed.json"):
     assert write_to(os.path.join(repo, rel)) == 2, "%s stopped being sealed" % rel
 assert write_to(os.path.join(repo, "src", "app.ts")) == 2, \
     "the control write is no longer refused, so the assertions above prove nothing"
@@ -12049,7 +12049,7 @@ assert write_to(os.path.join(repo, "src", "app.ts")) == 2, \
 # And the scratch path outside the repo that the corrupt-state refusal tells the
 # model to use has to stay reachable: judging the written name must not turn
 # every out-of-repo path into a refusal.
-assert write_to(os.path.join(work, "ddw-recovery-state.json")) == 0, \
+assert write_to(os.path.join(work, "daw-recovery-state.json")) == 0, \
     "the out-of-repo recovery path the refusal prescribes is now refused as well"
 PYSYMSEAL
 
@@ -12061,7 +12061,7 @@ PYSYMSEAL
 # repository" for its whole length and nothing under it was sealed at all. It
 # held on Linux and not on macOS — same source, same commit, and the suite could
 # not see the difference because it never built the shape.
-python3 - "$SELF" <<'PYSYMROOT' && ok "the seal still holds when the repository itself is reached through a symlink, which is the ordinary case on macOS" || bad "a repo behind a symlinked path leaves DDW's own graph and gate writable from inside a ticket"
+python3 - "$SELF" <<'PYSYMROOT' && ok "the seal still holds when the repository itself is reached through a symlink, which is the ordinary case on macOS" || bad "a repo behind a symlinked path leaves DAW's own graph and gate writable from inside a ticket"
 import json, os, shutil, subprocess, sys, tempfile
 src = sys.argv[1]
 real = tempfile.mkdtemp(dir=os.environ["WORK"])
@@ -12073,35 +12073,35 @@ os.makedirs(outside)
 subprocess.run(["git", "-C", repo, "init", "-q"], check=True)
 subprocess.run(["bash", os.path.join(src, "install.sh"), repo, "--target", "claude"],
                capture_output=True, text=True)
-shutil.move(os.path.join(repo, ".ddw"), os.path.join(outside, "ddw"))
-os.symlink(os.path.join(outside, "ddw"), os.path.join(repo, ".ddw"))
+shutil.move(os.path.join(repo, ".daw"), os.path.join(outside, "daw"))
+os.symlink(os.path.join(outside, "daw"), os.path.join(repo, ".daw"))
 
 H = [{"timestamp": "2026-01-01T00:00:00Z", "from": "IDLE", "to": "CLASSIFY", "action": "a"},
      {"timestamp": "2026-01-01T00:01:00Z", "from": "CLASSIFY", "to": "DEFINE", "action": "b",
       "tier": "FEATURE", "ticket": "T-1"}]
-state = os.path.join(repo, ".ddw-state.json")
+state = os.path.join(repo, ".daw-state.json")
 open(state, "w", encoding="utf-8").write(json.dumps(
     {"tier": "FEATURE", "phase": "DEFINE", "ticket": "T-1", "gates": {}, "history": H}))
-ddw = os.path.join(repo, ".ddw")
+daw = os.path.join(repo, ".daw")
 
 
 def write_to(path):
     event = json.dumps({"tool_name": "Write", "tool_input": {"file_path": path, "content": "x"}})
-    return subprocess.run([sys.executable, os.path.join(ddw, "scripts", "hook-gate.py"),
+    return subprocess.run([sys.executable, os.path.join(daw, "scripts", "hook-gate.py"),
                            "--mode", "pre", "--state", state, "--repo", repo,
-                           "--graph", os.path.join(ddw, "rules", "transition-graph.json")],
+                           "--graph", os.path.join(daw, "rules", "transition-graph.json")],
                           input=event, capture_output=True, text=True).returncode
 
 
-for rel in (".ddw/rules/transition-graph.json", ".ddw/scripts/hook-gate.py",
-            ".ddw-sessions/forged", ".ddw-installed.json"):
+for rel in (".daw/rules/transition-graph.json", ".daw/scripts/hook-gate.py",
+            ".daw-sessions/forged", ".daw-installed.json"):
     assert write_to(os.path.join(repo, rel)) == 2, \
         ("`%s` is writable when the repo is reached through a symlink: the seal compared a path "
          "written one way against a root resolved another, and everything under it read as "
          "outside the repository" % rel)
 assert write_to(os.path.join(repo, "src", "app.ts")) == 2, \
     "the control write is no longer refused, so the assertions above prove nothing"
-assert write_to(os.path.join(work, "ddw-recovery-state.json")) == 0, \
+assert write_to(os.path.join(work, "daw-recovery-state.json")) == 0, \
     "the out-of-repo recovery path the refusal prescribes is refused under a symlinked root"
 PYSYMROOT
 
@@ -12121,10 +12121,10 @@ python3 - "$SELF" <<'PYGATEOWNER' && ok "a gate cannot be claimed from a phase t
 import importlib.util, json, os, sys
 src = sys.argv[1]
 spec = importlib.util.spec_from_file_location(
-    "vt", os.path.join(src, "ddw/scripts/validate-transition.py"))
+    "vt", os.path.join(src, "daw/scripts/validate-transition.py"))
 vt = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(vt)
-graph = json.load(open(os.path.join(src, "ddw/rules/transition-graph.json"), encoding="utf-8"))
+graph = json.load(open(os.path.join(src, "daw/rules/transition-graph.json"), encoding="utf-8"))
 
 owners = vt._gate_owners(graph, "QUICK-FIX")
 assert owners.get("tests") == {"CODE"} and owners.get("sast") == {"CODE"}, \
@@ -12188,12 +12188,12 @@ PYGATEOWNER
 # ── Deleting the manifest is not an uninstall ────────────────────────────────
 #
 # `_manifest_paths` returns an empty set when it cannot read
-# `.ddw-installed.json`, and every hook script was protected by nothing else. So
-# `rm .ddw-installed.json` — one file whose name reads like a build artifact —
+# `.daw-installed.json`, and every hook script was protected by nothing else. So
+# `rm .daw-installed.json` — one file whose name reads like a build artifact —
 # turned a refused write to the gate script into exit 0, and turned drift
 # detection off permanently, which is the worse half: the write leaves evidence,
 # and this removes what would have reported it.
-python3 - "$SELF" <<'PYNOMANIFEST' && ok "deleting the install manifest neither unseals the hooks nor silences the drift report" || bad "\`rm .ddw-installed.json\` unseals every hook script and leaves a tampered repo reading like a clean one"
+python3 - "$SELF" <<'PYNOMANIFEST' && ok "deleting the install manifest neither unseals the hooks nor silences the drift report" || bad "\`rm .daw-installed.json\` unseals every hook script and leaves a tampered repo reading like a clean one"
 import json, os, subprocess, sys, tempfile
 src = sys.argv[1]
 repo = os.path.join(tempfile.mkdtemp(dir=os.environ["WORK"]), "repo")
@@ -12204,28 +12204,28 @@ subprocess.run(["bash", os.path.join(src, "install.sh"), repo, "--target", "clau
 H = [{"timestamp": "2026-01-01T00:00:00Z", "from": "IDLE", "to": "CLASSIFY", "action": "a"},
      {"timestamp": "2026-01-01T00:01:00Z", "from": "CLASSIFY", "to": "DEFINE", "action": "b",
       "tier": "FEATURE", "ticket": "T-1"}]
-state_p = os.path.join(repo, ".ddw-state.json")
+state_p = os.path.join(repo, ".daw-state.json")
 open(state_p, "w", encoding="utf-8").write(json.dumps(
     {"tier": "FEATURE", "phase": "DEFINE", "ticket": "T-1", "gates": {}, "history": H}))
-ddw = os.path.join(repo, ".ddw")
+daw = os.path.join(repo, ".daw")
 
 
 def write_to(rel):
     event = json.dumps({"tool_name": "Write",
                         "tool_input": {"file_path": os.path.join(repo, rel), "content": "x"}})
-    return subprocess.run([sys.executable, os.path.join(ddw, "scripts", "hook-gate.py"),
+    return subprocess.run([sys.executable, os.path.join(daw, "scripts", "hook-gate.py"),
                            "--mode", "pre", "--state", state_p, "--repo", repo,
-                           "--method", ddw,
-                           "--graph", os.path.join(ddw, "rules", "transition-graph.json")],
+                           "--method", daw,
+                           "--graph", os.path.join(daw, "rules", "transition-graph.json")],
                           input=event, capture_output=True, text=True).returncode
 
 
 SEALED = (".claude/hooks/validate-state-transition.sh", ".claude/hooks/enforce.sh",
-          ".claude/settings.json", ".ddw/rules/transition-graph.json")
+          ".claude/settings.json", ".daw/rules/transition-graph.json")
 for rel in SEALED:
     assert write_to(rel) == 2, "%s is not sealed even WITH the manifest present" % rel
 
-os.remove(os.path.join(repo, ".ddw-installed.json"))
+os.remove(os.path.join(repo, ".daw-installed.json"))
 for rel in SEALED:
     assert write_to(rel) == 2, \
         "with the manifest deleted, `%s` became writable: the only thing protecting the hook " \
@@ -12234,23 +12234,23 @@ for rel in SEALED:
 # And the boot has to say so. Silence here is the permanent half: nothing in the
 # repository can be compared against anything again, and every later session
 # reads a tampered install as a clean one.
-sb = os.path.join(ddw, "scripts", "session-boot.py")
+sb = os.path.join(daw, "scripts", "session-boot.py")
 out = subprocess.run([sys.executable, sb, "--repo", repo, "--session-id", "s"],
                      capture_output=True, text=True).stdout
-assert ".ddw-installed.json" in out, \
-    "the boot says nothing about a missing manifest in a repo that plainly has `.ddw/` in it: " \
+assert ".daw-installed.json" in out, \
+    "the boot says nothing about a missing manifest in a repo that plainly has `.daw/` in it: " \
     + out[:200]
 
 # …and it must stay quiet where the manifest is legitimately absent. A plugin
-# install writes nothing into the repository, so there is no `.ddw/` and no
+# install writes nothing into the repository, so there is no `.daw/` and no
 # manifest, and warning there would train the reader to ignore this.
 plugin_repo = os.path.join(tempfile.mkdtemp(dir=os.environ["WORK"]), "plain")
 os.makedirs(plugin_repo)
 subprocess.run(["git", "-C", plugin_repo, "init", "-q"], check=True)
 quiet = subprocess.run([sys.executable, sb, "--repo", plugin_repo, "--session-id", "s"],
                        capture_output=True, text=True).stdout
-assert ".ddw-installed.json" not in quiet, \
-    "a repo DDW was never installed into is reported as having lost its manifest: " + quiet[:200]
+assert ".daw-installed.json" not in quiet, \
+    "a repo DAW was never installed into is reported as having lost its manifest: " + quiet[:200]
 PYNOMANIFEST
 
 # The sealed wiring directories are a closed literal in the shipped validator,
@@ -12260,7 +12260,7 @@ PYNOMANIFEST
 python3 - "$SELF" <<'PYWIRINGSEAL' && ok "every adapter's hook destination is in the validator's sealed set" || bad "an adapter installs its hooks somewhere the validator does not seal"
 import json, glob, os, re, sys
 src = sys.argv[1]
-vt = open(os.path.join(src, "ddw/scripts/validate-transition.py"), encoding="utf-8").read()
+vt = open(os.path.join(src, "daw/scripts/validate-transition.py"), encoding="utf-8").read()
 m = re.search(r"PROTECTED_WIRING_DIRS = \(([^)]*)\)", vt, re.S)
 assert m, "the validator no longer carries a sealed set of wiring directories"
 sealed = tuple(s.strip().strip('"').strip("'") for s in m.group(1).split(",") if s.strip())
@@ -12325,17 +12325,17 @@ assert len(pre) >= 6, \
 for rel, call in pre:
     assert "--method" in call, \
         "%s runs the gate in pre mode without --method: under a plugin install the method " \
-        "root is outside the repo, and every guard on DDW's own files answers 'not ours'" % rel
+        "root is outside the repo, and every guard on DAW's own files answers 'not ours'" % rel
 PYMETHODARG
 
-# /ddw-commit's template against the rule this repo enforces on itself. The
+# /daw-commit's template against the rule this repo enforces on itself. The
 # template could be changed to emit the trailer `check_commits.py` refuses, and
 # nothing joined the two — so the skill would teach every user to write a commit
-# DDW's own checker rejects.
-python3 - "$SELF" <<'PYTRAILER' && ok "the commit template writes the attribution the repo's own checker demands" || bad "the commit skill's template and the attribution rule disagree — the skill teaches a commit DDW rejects"
+# DAW's own checker rejects.
+python3 - "$SELF" <<'PYTRAILER' && ok "the commit template writes the attribution the repo's own checker demands" || bad "the commit skill's template and the attribution rule disagree — the skill teaches a commit DAW rejects"
 import os, re, subprocess, sys, tempfile
 src = sys.argv[1]
-skill = open(os.path.join(src, "skills/ddw-commit/SKILL.md"), encoding="utf-8").read()
+skill = open(os.path.join(src, "skills/daw-commit/SKILL.md"), encoding="utf-8").read()
 assert "Co-Authored-By" not in skill, \
     "the template teaches a Co-Authored-By trailer, which scripts/check_commits.py refuses"
 m = re.search(r"^AI-assisted:.*$", skill, re.M)
@@ -12344,7 +12344,7 @@ assert m, "the template no longer carries the attribution trailer at all"
 # says has to pass the script that guards this repo's own history.
 repo = tempfile.mkdtemp(dir=os.environ["WORK"])
 subprocess.run(["git", "-C", repo, "init", "-q", "-b", "main"], check=True)
-for k, v in (("user.email", "ddw@test"), ("user.name", "ddw"), ("commit.gpgsign", "false")):
+for k, v in (("user.email", "daw@test"), ("user.name", "daw"), ("commit.gpgsign", "false")):
     subprocess.run(["git", "-C", repo, "config", k, v], check=True)
 subprocess.run(["git", "-C", repo, "commit", "-q", "--allow-empty", "-m", "base"], check=True)
 base = subprocess.run(["git", "-C", repo, "rev-parse", "HEAD"],
@@ -12361,9 +12361,9 @@ PYTRAILER
 python3 - "$ALL" <<'PYEOF' && ok "a resume requires a pause, from the phase it paused at" || bad "the word resume is a skeleton key: it opens an edge from IDLE to any phase, with any gates"
 import json, os, subprocess, sys
 repo = sys.argv[1]
-gate = os.path.join(repo, ".ddw", "scripts", "hook-gate.py")
-graph = os.path.join(repo, ".ddw", "rules", "transition-graph.json")
-state = os.path.join(repo, ".ddw-state.json")
+gate = os.path.join(repo, ".daw", "scripts", "hook-gate.py")
+graph = os.path.join(repo, ".daw", "rules", "transition-graph.json")
+state = os.path.join(repo, ".daw-state.json")
 
 def h(f, t, a="a", tier="FEATURE"):
     e = {"timestamp": "2026-01-01T00:00:00Z", "from": f, "to": t, "action": a}
@@ -12409,9 +12409,9 @@ PYEOF
 python3 - "$ALL" <<'PYEOF' && ok "post mode's compatibility hatch is not a way to disable post mode" || bad "one untiered entry ending at IDLE turned off the only net against a state forged with sed"
 import json, os, subprocess, sys
 repo = sys.argv[1]
-gate = os.path.join(repo, ".ddw", "scripts", "hook-gate.py")
-graph = os.path.join(repo, ".ddw", "rules", "transition-graph.json")
-state = os.path.join(repo, ".ddw-state.json")
+gate = os.path.join(repo, ".daw", "scripts", "hook-gate.py")
+graph = os.path.join(repo, ".daw", "rules", "transition-graph.json")
+state = os.path.join(repo, ".daw-state.json")
 # The hatch exists so a ticket closed before edges carried their tier is not
 # called illegal. Returning early skipped append-only and the IDLE invariant too,
 # so this shape — mid-phase, every gate set, one entry — walked straight through.
@@ -12478,7 +12478,7 @@ fi
 printf '%s' "$IN_PLAN" > "$GST"
 mkdir -p "$ALL/docs" "$ALL/src"
 ln -sfn ../src/app.py "$ALL/docs/alias.md"
-ddw_event_path snake "$ALL/docs/alias.md"
+daw_event_path snake "$ALL/docs/alias.md"
 [ "$(gate_pre standard < "$EVENT")" = "2" ] \
   && ok "a symlink from an allowed directory into source is resolved, not taken at face value" \
   || bad "docs/alias.md -> ../src/app.py shipped source during PLAN: the path was resolved lexically"
@@ -12492,7 +12492,7 @@ json.dump({"phase": sys.argv[2], "tier": "FEATURE", "gates": {},
            "history": [{"timestamp": "2026-07-27T10:00:00Z", "from": "IDLE",
                         "to": sys.argv[2], "action": "x"}]}, open(sys.argv[1], "w"))
 PYEOF
-  ddw_event_path snake "$ALL/src/app.py"
+  daw_event_path snake "$ALL/src/app.py"
   [ "$(gate_pre standard < "$EVENT")" = "2" ] \
     && ok "product source is refused in $PH too" \
     || bad "$PH writes product source — the guard covers it on paper only"
@@ -12520,9 +12520,9 @@ python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); sys.exit(0 if d.get
 python3 - "$ALL" <<'PYEOF' && ok "the audit trail cannot be rewritten or misdated" || bad "a past history entry was rewritten, or a non-timestamp accepted — the trail is forgeable"
 import json, os, subprocess, sys
 repo = sys.argv[1]
-gate = os.path.join(repo, ".ddw", "scripts", "hook-gate.py")
-graph = os.path.join(repo, ".ddw", "rules", "transition-graph.json")
-state = os.path.join(repo, ".ddw-state.json")
+gate = os.path.join(repo, ".daw", "scripts", "hook-gate.py")
+graph = os.path.join(repo, ".daw", "rules", "transition-graph.json")
+state = os.path.join(repo, ".daw-state.json")
 
 def h(f, t, a="a", ts="2026-01-01T00:00:00Z", tier="FEATURE"):
     return {"timestamp": ts, "from": f, "to": t, "action": a, "tier": tier}
@@ -12554,7 +12554,7 @@ PYEOF
 
 # Every tier must have a route out. A tier that cannot finish traps whoever gets
 # classified into it, and nothing above would have noticed.
-python3 - "$SELF/ddw/rules/transition-graph.json" <<'PYEOF' && ok "every tier can reach IDLE from CLASSIFY" || bad "a tier has no route out — the pipeline traps whoever lands in it"
+python3 - "$SELF/daw/rules/transition-graph.json" <<'PYEOF' && ok "every tier can reach IDLE from CLASSIFY" || bad "a tier has no route out — the pipeline traps whoever lands in it"
 import json, sys
 g = json.load(open(sys.argv[1], encoding="utf-8"))
 
@@ -12609,9 +12609,9 @@ PYEOF
 python3 - "$ALL" <<'PYEOF' && ok "a falsy tier is refused even when there is no previous tier to fall back on" || bad "an empty tier was written at CLASSIFY and disarms the lock for every write after it"
 import json, os, subprocess, sys
 repo = sys.argv[1]
-gate = os.path.join(repo, ".ddw", "scripts", "hook-gate.py")
-graph = os.path.join(repo, ".ddw", "rules", "transition-graph.json")
-state = os.path.join(repo, ".ddw-state.json")
+gate = os.path.join(repo, ".daw", "scripts", "hook-gate.py")
+graph = os.path.join(repo, ".daw", "rules", "transition-graph.json")
+state = os.path.join(repo, ".daw-state.json")
 h = {"timestamp": "2026-01-01T00:00:00Z", "from": "IDLE", "to": "CLASSIFY", "action": "a"}
 disk = {"tier": None, "phase": "CLASSIFY", "gates": {}, "history": [h]}
 # In-phase, appending nothing: with a transition, a falsy tier also breaks the
@@ -12640,7 +12640,7 @@ spec = importlib.util.spec_from_file_location(
 m = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(m)
 block = "\n".join(m.yaml_block({
-    "name": "ddw-x",
+    "name": "daw-x",
     "description": "Read-only auditor: detects violations. Also: quotes \" and \\ backslashes.",
     "tools": "Read, Grep",
     "readonly": True,
@@ -12654,17 +12654,17 @@ PYEOF
 # An upgrade must not take a file of the user's with it. This needs a genuine
 # upstream change, because that is the path where the old directory is removed.
 UP2="$WORK/upgrade-userfile"; mkdir -p "$UP2"; git -C "$UP2" init -q .
-cp -R "$SELF" "$WORK/ddw-next" 2>/dev/null
-rm -rf "$WORK/ddw-next/.git"
-bash "$WORK/ddw-next/install.sh" "$UP2" --target claude >/dev/null 2>&1
-printf 'MY OWN NOTES\n' > "$UP2/.claude/skills/ddw-status/my-notes.md"
+cp -R "$SELF" "$WORK/daw-next" 2>/dev/null
+rm -rf "$WORK/daw-next/.git"
+bash "$WORK/daw-next/install.sh" "$UP2" --target claude >/dev/null 2>&1
+printf 'MY OWN NOTES\n' > "$UP2/.claude/skills/daw-status/my-notes.md"
 # This middle run is the whole mechanism: comparing only source -> destination,
 # the directory reads as identical, gets fingerprinted WITH the user's file
 # counted as ours, and only then does an upgrade remove it.
-bash "$WORK/ddw-next/install.sh" "$UP2" --target claude >/dev/null 2>&1
-printf '\n<!-- upstream change -->\n' >> "$WORK/ddw-next/skills/ddw-status/SKILL.md"
-bash "$WORK/ddw-next/install.sh" "$UP2" --target claude >/dev/null 2>&1
-[ -f "$UP2/.claude/skills/ddw-status/my-notes.md" ] \
+bash "$WORK/daw-next/install.sh" "$UP2" --target claude >/dev/null 2>&1
+printf '\n<!-- upstream change -->\n' >> "$WORK/daw-next/skills/daw-status/SKILL.md"
+bash "$WORK/daw-next/install.sh" "$UP2" --target claude >/dev/null 2>&1
+[ -f "$UP2/.claude/skills/daw-status/my-notes.md" ] \
   && ok "an upgrade of a skill leaves a file the user added inside it alone" \
   || bad "the upgrade removed the directory wholesale, taking the user's file with it"
 
@@ -12678,12 +12678,12 @@ section "A legal run, end to end, stays silent"
 
 RUN="$WORK/legalrun"; mkdir -p "$RUN"; git -C "$RUN" init -q .
 bash "$SELF/install.sh" "$RUN" --target claude >/dev/null 2>&1
-RST="$RUN/.ddw-state.json"; RG="$RUN/.ddw/rules/transition-graph.json"
-rstep() { python3 "$RUN/.ddw/scripts/transition.py" "$@" --state "$RST" --graph "$RG" \
+RST="$RUN/.daw-state.json"; RG="$RUN/.daw/rules/transition-graph.json"
+rstep() { python3 "$RUN/.daw/scripts/transition.py" "$@" --state "$RST" --graph "$RG" \
             > "$RUN/.s" 2>/dev/null && mv "$RUN/.s" "$RST"; }
-rpost() { python3 "$RUN/.ddw/scripts/hook-gate.py" --mode post --state "$RST" --graph "$RG" \
+rpost() { python3 "$RUN/.daw/scripts/hook-gate.py" --mode post --state "$RST" --graph "$RG" \
             --repo "$RUN" </dev/null >/dev/null 2>&1; }
-python3 "$RUN/.ddw/scripts/transition.py" --to CLASSIFY --action start --ticket T-1 --state "$RST" \
+python3 "$RUN/.daw/scripts/transition.py" --to CLASSIFY --action start --ticket T-1 --state "$RST" \
         --graph "$RG" > "$RST" 2>/dev/null
 rstep --to DEFINE  --action classify --tier FEATURE
 rstep --to PLAN    --action define   --gate define
@@ -12727,12 +12727,12 @@ rpost && bad "a forged closeout that skipped the whole pipeline went unnoticed" 
 # OpenCode wires a JS plugin rather than a shell hook: drive the plugin itself.
 if command -v node >/dev/null 2>&1; then
   cat > "$WORK/opencode-probe.mjs" <<PROBE
-import { DdwPlugin } from "$ALL/.opencode/plugins/ddw.js"
-const p = await DdwPlugin({ directory: "$ALL" })
+import { DawPlugin } from "$ALL/.opencode/plugins/daw.js"
+const p = await DawPlugin({ directory: "$ALL" })
 let blocked = false
 try {
   await p["tool.execute.before"]({ tool: "write" },
-    { args: { filePath: "$ALL/.ddw-state.json", content: process.argv[2] } })
+    { args: { filePath: "$ALL/.daw-state.json", content: process.argv[2] } })
 } catch { blocked = true }
 process.exit(blocked ? 2 : 0)
 PROBE
@@ -12744,8 +12744,8 @@ PROBE
     || bad "OpenCode blocks a LEGAL transition"
 
   cat > "$WORK/opencode-src-probe.mjs" <<PROBE
-import { DdwPlugin } from "$ALL/.opencode/plugins/ddw.js"
-const p = await DdwPlugin({ directory: "$ALL" })
+import { DawPlugin } from "$ALL/.opencode/plugins/daw.js"
+const p = await DawPlugin({ directory: "$ALL" })
 let blocked = false
 try {
   await p["tool.execute.before"]({ tool: "write" },
@@ -12753,56 +12753,56 @@ try {
 } catch { blocked = true }
 process.exit(blocked ? 2 : 0)
 PROBE
-  printf '%s' "$IN_PLAN" > "$ALL/.ddw-state.json"
+  printf '%s' "$IN_PLAN" > "$ALL/.daw-state.json"
   node "$WORK/opencode-src-probe.mjs" "$ALL/src/app.py" >/dev/null 2>&1 \
     && bad "OpenCode: source code was written in PLAN — the core rule is not enforced" \
     || ok "OpenCode refuses product source while in PLAN"
-  printf '%s' "$IN_CODE" > "$ALL/.ddw-state.json"
+  printf '%s' "$IN_CODE" > "$ALL/.daw-state.json"
   node "$WORK/opencode-src-probe.mjs" "$ALL/src/app.py" >/dev/null 2>&1 \
     && ok "OpenCode lets source through once CODE was reached" \
     || bad "OpenCode blocks source in CODE — the guard refuses everything"
-  printf '%s' "$IDLE_STATE" > "$ALL/.ddw-state.json"
+  printf '%s' "$IDLE_STATE" > "$ALL/.daw-state.json"
 
-  # The global install (~/.config/opencode/plugins/ + ~/.config/opencode/ddw/)
-  # has no .ddw/ in the project. If ddw.js only ever looked in the repo, that
+  # The global install (~/.config/opencode/plugins/ + ~/.config/opencode/daw/)
+  # has no .daw/ in the project. If daw.js only ever looked in the repo, that
   # install would load, enforce nothing, and look identical to working.
   mkdir -p "$WORK/fakecfg/plugins" "$WORK/blankrepo"
-  cp "$SELF/adapters/opencode/plugin/ddw.js" "$WORK/fakecfg/plugins/ddw.js"
-  cp -r "$SELF/ddw" "$WORK/fakecfg/ddw"
+  cp "$SELF/adapters/opencode/plugin/daw.js" "$WORK/fakecfg/plugins/daw.js"
+  cp -r "$SELF/daw" "$WORK/fakecfg/daw"
   cat > "$WORK/opencode-global-probe.mjs" <<PROBE
-import { DdwPlugin } from "$WORK/fakecfg/plugins/ddw.js"
-const p = await DdwPlugin({ directory: "$WORK/blankrepo" })
+import { DawPlugin } from "$WORK/fakecfg/plugins/daw.js"
+const p = await DawPlugin({ directory: "$WORK/blankrepo" })
 let blocked = false
 try {
   await p["tool.execute.before"]({ tool: "write" },
-    { args: { filePath: "$WORK/blankrepo/.ddw-state.json", content: process.argv[2] } })
+    { args: { filePath: "$WORK/blankrepo/.daw-state.json", content: process.argv[2] } })
 } catch { blocked = true }
 process.exit(blocked ? 2 : 0)
 PROBE
   node "$WORK/opencode-global-probe.mjs" "$ILLEGAL" >/dev/null 2>&1 \
-    && bad "OpenCode global install: no .ddw/ in the repo and the plugin enforced NOTHING" \
+    && bad "OpenCode global install: no .daw/ in the repo and the plugin enforced NOTHING" \
     || ok "OpenCode global install still enforces: the method is found next to the plugin"
 
   # A plugin install that enforces but never steers is the failure the first
   # live PRD run showed: the model coded a monorepo straight from IDLE. The
   # steering is two hooks — skills registered with OpenCode's discovery, and a
   # bootstrap prefixed to the first user message — and both have to survive.
-  mkdir -p "$WORK/fakecfg/skills/ddw-classify"
-  printf '%s\n' "name: ddw-classify" > "$WORK/fakecfg/skills/ddw-classify/SKILL.md"
+  mkdir -p "$WORK/fakecfg/skills/daw-classify"
+  printf '%s\n' "name: daw-classify" > "$WORK/fakecfg/skills/daw-classify/SKILL.md"
   cat > "$WORK/opencode-steer-probe.mjs" <<PROBE
-import { DdwPlugin } from "$WORK/fakecfg/plugins/ddw.js"
-const p = await DdwPlugin({ directory: "$WORK/blankrepo" })
+import { DawPlugin } from "$WORK/fakecfg/plugins/daw.js"
+const p = await DawPlugin({ directory: "$WORK/blankrepo" })
 const config = {}
 await p["config"](config)
 const registered = (config.skills?.paths ?? []).some((x) => x.includes("fakecfg/skills"))
 const output = { messages: [{ info: { role: "user" }, parts: [{ type: "text", text: "implement the PRD" }] }] }
 await p["experimental.chat.messages.transform"]({}, output)
 const first = output.messages[0].parts[0]
-const steered = first.type === "text" && first.text.includes("DDW_BOOTSTRAP") && first.text.includes("CLASSIFYING")
-  && first.text.includes("do NOT install DDW into this repo")
-  && first.text.includes("Never put DDW content in it")
+const steered = first.type === "text" && first.text.includes("DAW_BOOTSTRAP") && first.text.includes("CLASSIFYING")
+  && first.text.includes("do NOT install DAW into this repo")
+  && first.text.includes("Never put DAW content in it")
 await p["experimental.chat.messages.transform"]({}, output)
-const once = output.messages[0].parts.filter((x) => x.text?.includes("DDW_BOOTSTRAP")).length === 1
+const once = output.messages[0].parts.filter((x) => x.text?.includes("DAW_BOOTSTRAP")).length === 1
 process.exit(registered && steered && once ? 0 : 2)
 PROBE
   node "$WORK/opencode-steer-probe.mjs" >/dev/null 2>&1 \
@@ -12812,11 +12812,11 @@ else
   echo "  · node not available — OpenCode's plugin was not exercised"
 fi
 
-# OpenCode's package manager reaches ddw.js through package.json. An entry
+# OpenCode's package manager reaches daw.js through package.json. An entry
 # point that names a file that moved loads as undefined and hooks nothing.
 ENTRY=$(python3 -c "import json; print(json.load(open('$SELF/package.json'))['main'])" 2>/dev/null)
 [ -n "$ENTRY" ] && [ -f "$SELF/$ENTRY" ] \
-  && ok "package.json points OpenCode at a ddw.js that exists" \
+  && ok "package.json points OpenCode at a daw.js that exists" \
   || bad "package.json's entry point does not resolve to a file — the npm install would hook nothing"
 
 # Codex takes its subagents as TOML, so a broken emitter is a silent no-op.
@@ -12839,7 +12839,7 @@ fi
 python3 - "$G" "$R" <<'PY' && ok "walking away cannot dodge the closeout gates" || bad "the closeout gate is bypassable"
 import importlib.util, json, sys
 g = json.load(open(sys.argv[1]))
-s = importlib.util.spec_from_file_location("v", f"{sys.argv[2]}/.ddw/scripts/validate-transition.py")
+s = importlib.util.spec_from_file_location("v", f"{sys.argv[2]}/.daw/scripts/validate-transition.py")
 m = importlib.util.module_from_spec(s); s.loader.exec_module(m)
 T = "2026-07-27T10:00:00Z"
 run = [{"timestamp": T, "from": a, "to": b} for a, b in
@@ -12881,7 +12881,7 @@ PY
 python3 - "$G" "$R" <<'PY' && ok "one write, one transition; tier and gates cannot leak past IDLE" || bad "sequencing or gate isolation is broken"
 import importlib.util, json, sys
 g = json.load(open(sys.argv[1]))
-s = importlib.util.spec_from_file_location("v", f"{sys.argv[2]}/.ddw/scripts/validate-transition.py")
+s = importlib.util.spec_from_file_location("v", f"{sys.argv[2]}/.daw/scripts/validate-transition.py")
 m = importlib.util.module_from_spec(s); s.loader.exec_module(m)
 T = "2026-07-27T10:00:00Z"
 run = [{"timestamp": T, "from": a, "to": b} for a, b in
@@ -12926,11 +12926,11 @@ PY
 # it. It used to reject it, because it replayed old edges against today's gates.
 LOOP="$WORK/loop"; mkdir -p "$LOOP"; git -C "$LOOP" init -q .
 bash "$SELF/install.sh" "$LOOP" --target claude >/dev/null 2>&1
-TRL="$LOOP/.ddw/scripts/transition.py"
-lstep() { python3 "$TRL" "$@" --state "$LOOP/.ddw-state.json" --graph "$G" > "$LOOP/s" 2>/dev/null \
-          && cp "$LOOP/s" "$LOOP/.ddw-state.json"; }
-python3 "$TRL" --to CLASSIFY --action r --ticket T-1 --state "$LOOP/.ddw-state.json" --graph "$G" > "$LOOP/.ddw-state.json"
-# The gates, EARNED. Without `ddw_earn` every step fails silently — `lstep`
+TRL="$LOOP/.daw/scripts/transition.py"
+lstep() { python3 "$TRL" "$@" --state "$LOOP/.daw-state.json" --graph "$G" > "$LOOP/s" 2>/dev/null \
+          && cp "$LOOP/s" "$LOOP/.daw-state.json"; }
+python3 "$TRL" --to CLASSIFY --action r --ticket T-1 --state "$LOOP/.daw-state.json" --graph "$G" > "$LOOP/.daw-state.json"
+# The gates, EARNED. Without `daw_earn` every step fails silently — `lstep`
 # redirects stderr and only copies the state if the helper exited 0 — and the
 # fixture stayed in DEFINE: the two checks below asked about a DEFINE→VERIFY
 # edge that is not in the graph, so one reported green for a reason that had
@@ -12940,17 +12940,17 @@ python3 "$TRL" --to CLASSIFY --action r --ticket T-1 --state "$LOOP/.ddw-state.j
 # Claiming and MOVING are two calls: `--claim` marks gates in the current
 # phase and takes no edge. In a single one, the helper refuses both things.
 lstep --to DEFINE --action c --tier FEATURE --title "the fixture ticket"
-ddw_earn "$LOOP" define T-1;  lstep --claim define
+daw_earn "$LOOP" define T-1;  lstep --claim define
 lstep --to PLAN   --action p
-ddw_earn "$LOOP" spec T-1; ddw_earn "$LOOP" threat T-1;  lstep --claim spec --claim threat
+daw_earn "$LOOP" spec T-1; daw_earn "$LOOP" threat T-1;  lstep --claim spec --claim threat
 lstep --to CODE   --action x
-ddw_earn "$LOOP" tests T-1; ddw_earn "$LOOP" sast T-1;  lstep --claim tests --claim sast
+daw_earn "$LOOP" tests T-1; daw_earn "$LOOP" sast T-1;  lstep --claim tests --claim sast
 lstep --to VERIFY --action x
 lstep --to CODE   --action "corrective loop" --clear-gate tests --clear-gate sast
-python3 "$LOOP/.ddw/scripts/validate-transition.py" --mode post --state "$LOOP/.ddw-state.json" --graph "$G" >/dev/null 2>&1 \
+python3 "$LOOP/.daw/scripts/validate-transition.py" --mode post --state "$LOOP/.daw-state.json" --graph "$G" >/dev/null 2>&1 \
   && ok "post mode accepts the corrective loop it used to reject" \
   || bad "post mode rejects the documented corrective loop"
-python3 "$TRL" --to VERIFY --action x --state "$LOOP/.ddw-state.json" --graph "$G" >/dev/null 2>&1 \
+python3 "$TRL" --to VERIFY --action x --state "$LOOP/.daw-state.json" --graph "$G" >/dev/null 2>&1 \
   && bad "the corrective loop returned to VERIFY on gates it had already invalidated" \
   || ok "--clear-gate makes the fix re-earn tests+sast"
 
@@ -12960,21 +12960,21 @@ python3 "$TRL" --to VERIFY --action x --state "$LOOP/.ddw-state.json" --graph "$
 # committed artifacts against a budget meant for code.
 QF="$WORK/qf"; mkdir -p "$QF"
 git -C "$QF" init -q -b master .
-git -C "$QF" config user.email ddw@test && git -C "$QF" config user.name ddw
+git -C "$QF" config user.email daw@test && git -C "$QF" config user.name daw
 # This is the only fixture that commits. Whoever runs the suite may sign their
 # commits by default; a throwaway repo must not ask them for a passphrase, and
 # a signing timeout must not read as "the size guard is broken".
 git -C "$QF" config commit.gpgsign false
-mkdir -p "$QF/src" "$QF/docs/ddw/prd"
+mkdir -p "$QF/src" "$QF/docs/daw/prd"
 echo "x = 1" > "$QF/src/a.py"
 bash "$SELF/install.sh" "$QF" --target claude >/dev/null 2>&1
-# DDW's own files belong to the trunk, like any other tooling: commit them there
+# DAW's own files belong to the trunk, like any other tooling: commit them there
 # so they are not part of a later branch's diff.
-git -C "$QF" add -A && git -C "$QF" commit -qm "base + ddw"
-echo '{"tier":"QUICK-FIX","phase":"CODE","gates":{},"history":[]}' > "$QF/.ddw-state.json"
+git -C "$QF" add -A && git -C "$QF" commit -qm "base + daw"
+echo '{"tier":"QUICK-FIX","phase":"CODE","gates":{},"history":[]}' > "$QF/.daw-state.json"
 qf_write() { printf '{"tool_name":"Write","tool_input":{"file_path":"%s","content":"x"}}' "$QF/src/a.py" \
-  | python3 "$QF/.ddw/scripts/hook-gate.py" --dialect standard --mode pre \
-      --state "$QF/.ddw-state.json" --graph "$QF/.ddw/rules/transition-graph.json" --repo "$QF"; }
+  | python3 "$QF/.daw/scripts/hook-gate.py" --dialect standard --mode pre \
+      --state "$QF/.daw-state.json" --graph "$QF/.daw/rules/transition-graph.json" --repo "$QF"; }
 
 git -C "$QF" checkout -qb fix/QF-1
 seq 1 40 >> "$QF/src/a.py"
@@ -12984,12 +12984,12 @@ qf_write >/dev/null 2>&1 \
   || ok "QUICK-FIX size guard detects the base branch (not hardcoded to main)"
 
 git -C "$QF" checkout -q master && git -C "$QF" checkout -qb fix/QF-2
-seq 1 30 | sed 's/^/brief line /' > "$QF/docs/ddw/prd/fix-QF-2.md"
+seq 1 30 | sed 's/^/brief line /' > "$QF/docs/daw/prd/fix-QF-2.md"
 echo "y = 2" >> "$QF/src/a.py"
 git -C "$QF" add -A && git -C "$QF" commit -qm "brief + one line of code"
 qf_write >/dev/null 2>&1 \
   && ok "QUICK-FIX budget counts code, not the phase's own committed artifacts" \
-  || bad "QUICK-FIX blocked by its own fix-brief (docs/ddw/ must not count)"
+  || bad "QUICK-FIX blocked by its own fix-brief (docs/daw/ must not count)"
 
 # ── One ticket, walked the way a user walks it ───────────────────────────────
 #
@@ -13008,12 +13008,12 @@ bash "$SELF/install.sh" "$E2E" --target claude >/dev/null 2>&1
 python3 - "$E2E" <<'PYE2E' && ok "a full ticket — classify, define, plan, code, pause, another ticket, resume, corrective loop, closeout — walks the sanctioned path with both hooks green" || bad "the pipeline cannot be walked end to end through its own helper: see which step, above"
 import hashlib, json, os, subprocess, sys
 repo = sys.argv[1]
-tr = os.path.join(repo, ".ddw", "scripts", "transition.py")
-vt = os.path.join(repo, ".ddw", "scripts", "validate-transition.py")
-graph = os.path.join(repo, ".ddw", "rules", "transition-graph.json")
-state = os.path.join(repo, ".ddw-state.json")
-for sub in ("docs/ddw/prd", "docs/ddw/specs", "docs/ddw/security", "docs/ddw/reports",
-            ".ddw-sessions"):
+tr = os.path.join(repo, ".daw", "scripts", "transition.py")
+vt = os.path.join(repo, ".daw", "scripts", "validate-transition.py")
+graph = os.path.join(repo, ".daw", "rules", "transition-graph.json")
+state = os.path.join(repo, ".daw-state.json")
+for sub in ("docs/daw/prd", "docs/daw/specs", "docs/daw/security", "docs/daw/reports",
+            ".daw-sessions"):
     os.makedirs(os.path.join(repo, sub), exist_ok=True)
 
 
@@ -13024,10 +13024,10 @@ def receipt(prefix, rel):
     open(path, "w", encoding="utf-8").write("# %s\n" % rel)
     digest = hashlib.sha256(open(path, encoding="utf-8").read().encode("utf-8")).hexdigest()[:12]
     name = "%s-validated-%s" % (prefix, digest)
-    open(os.path.join(repo, ".ddw-sessions", name), "w").write(os.path.basename(path))
+    open(os.path.join(repo, ".daw-sessions", name), "w").write(os.path.basename(path))
     # The journal line a real validator leaves. Without it this fixture is
     # minting the forgery the gate now refuses.
-    with open(os.path.join(repo, ".ddw-journal.jsonl"), "a", encoding="utf-8") as fh:
+    with open(os.path.join(repo, ".daw-journal.jsonl"), "a", encoding="utf-8") as fh:
         fh.write(json.dumps({"record": "receipt", "name": name,
                              "file": os.path.basename(path)}, sort_keys=True) + "\n")
 
@@ -13041,16 +13041,16 @@ def step(label, *args):
     assert p.returncode == 0, "%s refused by the post hook: %s" % (label, (p.stdout + p.stderr).strip()[:220])
 
 
-receipt("prd", "docs/ddw/prd/prd-T-1.md")
-receipt("spec", "docs/ddw/specs/spec-T-1.md")
-receipt("threat", "docs/ddw/security/threat-T-1.md")
+receipt("prd", "docs/daw/prd/prd-T-1.md")
+receipt("spec", "docs/daw/specs/spec-T-1.md")
+receipt("threat", "docs/daw/security/threat-T-1.md")
 # What CLASSIFY and CODE leave behind on a real run — the context check and the
 # decisions record — created where a real run creates them, so the walk is the
 # walk a compliant ticket takes.
-os.makedirs(os.path.join(repo, ".ddw-work"), exist_ok=True)
-open(os.path.join(repo, ".ddw-work", "context-check-T-1.md"), "w", encoding="utf-8").write(
+os.makedirs(os.path.join(repo, ".daw-work"), exist_ok=True)
+open(os.path.join(repo, ".daw-work", "context-check-T-1.md"), "w", encoding="utf-8").write(
     "Nothing to report.\n")
-open(os.path.join(repo, "docs", "ddw", "specs", "decisions-T-1.md"), "w", encoding="utf-8").write(
+open(os.path.join(repo, "docs", "daw", "specs", "decisions-T-1.md"), "w", encoding="utf-8").write(
     "No decisions were approved outside the spec during this ticket.\n")
 step("classify", "--to", "CLASSIFY", "--action", "classify: a feature",
      "--tier", "FEATURE", "--ticket", "T-1", "--autonomy", "minimal")
@@ -13065,8 +13065,8 @@ step("drop it", "--to", "IDLE", "--action", "abandon: not worth it")
 step("resume", "--to", "CODE", "--action", "resume: back to T-1", "--tier", "FEATURE",
      "--ticket", "T-1", "--autonomy", "minimal",
      "--gate", "define", "--gate", "spec", "--gate", "threat")
-receipt("tests", "docs/ddw/reports/tests-T-1.md")
-receipt("sast", "docs/ddw/security/sast-T-1.md")
+receipt("tests", "docs/daw/reports/tests-T-1.md")
+receipt("sast", "docs/daw/security/sast-T-1.md")
 step("verify", "--to", "VERIFY", "--action", "verify it", "--gate", "tests", "--gate", "sast")
 # The corrective loop: back to CODE, giving up what VERIFY granted, then forward
 # again re-earning it. The pipeline's own documented recovery path.
@@ -13076,10 +13076,10 @@ step("corrective loop", "--to", "CODE", "--action", "fix what verification found
 # code — so the content hash cannot tell the two runs apart, and reusing the old
 # receipts used to cost nothing. What distinguishes them is the journal line a
 # validator leaves when it passes, which is what these two calls model.
-receipt("tests", "docs/ddw/reports/tests-T-1.md")
-receipt("sast", "docs/ddw/security/sast-T-1.md")
+receipt("tests", "docs/daw/reports/tests-T-1.md")
+receipt("sast", "docs/daw/security/sast-T-1.md")
 step("re-verify", "--to", "VERIFY", "--action", "verify again", "--gate", "tests", "--gate", "sast")
-receipt("verify", "docs/ddw/reports/verify-T-1.md")
+receipt("verify", "docs/daw/reports/verify-T-1.md")
 step("closeout", "--to", "CLOSEOUT", "--action", "close it out", "--gate", "verify")
 d = json.load(open(state, encoding="utf-8"))
 assert d["ticket"] == "T-1" and d["phase"] == "CLOSEOUT", d
@@ -13099,7 +13099,7 @@ assert all(e.get("autonomy") == "minimal" for e in d["history"][7:]), \
 PYE2E
 
 # ── What the installer promises about a plugin, against what it does ─────────
-# The banner said "Nothing of DDW is written into your repo" and thirty lines
+# The banner said "Nothing of DAW is written into your repo" and thirty lines
 # below the same run printed "scope: project". Both cannot be true: a
 # project-scope install records the activation in the repo's own settings file.
 # This is not a check for a sentence — it compares two facts inside the file, so
@@ -13127,19 +13127,19 @@ PYCHK
 # ── The two writers of .gitignore write the same list ──────────────────
 # `install.sh` writes the block on an install; `session-boot.py` writes it at
 # every boot, and under a plugin install it is the ONLY writer — nothing there
-# ever runs the installer. They drifted: `.ddw-work/` was in one and not the
+# ever runs the installer. They drifted: `.daw-work/` was in one and not the
 # other, so the runtime that never saw an installer offered the drafted commit
 # message and PR body to the next `git add -A`.
 python3 - "$SELF" <<'PYCHK' && ok "both writers of the .gitignore block agree on what is runtime" || bad "install.sh and session-boot.py disagree about which paths are runtime"
 import ast, re, sys
 root = sys.argv[1]
 sh = open(f"{root}/install.sh", encoding="utf-8").read()
-py = open(f"{root}/ddw/scripts/session-boot.py", encoding="utf-8").read()
+py = open(f"{root}/daw/scripts/session-boot.py", encoding="utf-8").read()
 m = re.search(r"GITIGNORE_ENTRIES\s*=\s*(\([^)]*\))", py, re.S)
 assert m, "GITIGNORE_ENTRIES not found in session-boot.py"
 runtime = set(ast.literal_eval(m.group(1)))
-start = sh.index("'# BEGIN DDW")
-end = sh.index("'# END DDW", start)
+start = sh.index("'# BEGIN DAW")
+end = sh.index("'# END DAW", start)
 shipped = set(re.findall(r"^\s*'(\.[^']+)'\s*\\?$", sh[start:end], re.M))
 assert shipped, "the installer's .gitignore block has no entries to compare"
 assert shipped == runtime, (
@@ -13148,18 +13148,18 @@ assert shipped == runtime, (
 PYCHK
 
 # ── This repository obeys the block it writes into everybody else's ──────────
-# DDW is developed with DDW, so its own runtime lands here too. It ignored three
-# of the six paths, by hand, without the markers — and `.ddw-journal.jsonl` was
+# DAW is developed with DAW, so its own runtime lands here too. It ignored three
+# of the six paths, by hand, without the markers — and `.daw-journal.jsonl` was
 # committed, seventeen transitions of one machine's local history.
-python3 - "$SELF" <<'PYCHK' && ok "this repo ignores its own runtime, and tracks none of it" || bad "DDW does not obey the .gitignore block it writes into other repos"
+python3 - "$SELF" <<'PYCHK' && ok "this repo ignores its own runtime, and tracks none of it" || bad "DAW does not obey the .gitignore block it writes into other repos"
 import ast, re, subprocess, sys
 root = sys.argv[1]
-py = open(f"{root}/ddw/scripts/session-boot.py", encoding="utf-8").read()
+py = open(f"{root}/daw/scripts/session-boot.py", encoding="utf-8").read()
 runtime = set(ast.literal_eval(re.search(r"GITIGNORE_ENTRIES\s*=\s*(\([^)]*\))", py, re.S).group(1)))
 own = open(f"{root}/.gitignore", encoding="utf-8").read()
-assert "# BEGIN DDW" in own and "# END DDW" in own, "no DDW block in this repo's own .gitignore"
+assert "# BEGIN DAW" in own and "# END DAW" in own, "no DAW block in this repo's own .gitignore"
 # RULES, not text. The block documents each path in a comment above the rules,
-# so a substring search found `.ddw-journal.jsonl` in its own explanation and
+# so a substring search found `.daw-journal.jsonl` in its own explanation and
 # passed while the rule beneath it was gone — the file describing what it
 # ignores answering for the ignoring.
 rules = {l.strip() for l in own.splitlines() if l.strip() and not l.lstrip().startswith("#")}
@@ -13167,7 +13167,7 @@ missing = [e for e in runtime if e not in rules]
 assert not missing, "this repo's .gitignore is missing %s" % missing
 tracked = subprocess.run(["git", "-C", root, "ls-files"], capture_output=True, text=True).stdout.split()
 leaked = [f for f in tracked
-          if any(f == e or f.startswith(e) for e in runtime if not e.startswith(".ddw/"))]
+          if any(f == e or f.startswith(e) for e in runtime if not e.startswith(".daw/"))]
 assert not leaked, "runtime files are committed in this repository: %s" % leaked
 PYCHK
 

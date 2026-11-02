@@ -38,7 +38,7 @@ body:
     attributes:
       label: Could a hook enforce it?
       description: >
-        The line DDW draws: if a rule matters it is executable, and if it cannot
+        The line DAW draws: if a rule matters it is executable, and if it cannot
         be executed it does not get to call itself a gate.
       options:
         - "Yes — a script could verify it from the repo"

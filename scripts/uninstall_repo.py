@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
-"""Work out what DDW put in this repo, and take exactly that back out.
+"""Work out what DAW put in this repo, and take exactly that back out.
 
 The hard part of an uninstaller is not deleting things. It is knowing what is
-yours. `.claude/` is not DDW's directory — it is Claude Code's, and your own
+yours. `.claude/` is not DAW's directory — it is Claude Code's, and your own
 skills and hooks live there too. Removing it wholesale would be the same defect
 the installer spends its whole life avoiding, run in reverse and with no undo.
 
-So this reads `.ddw-installed.json`, which lists every file DDW wrote and what
-it looked like. A file still matching its recorded fingerprint is DDW's and goes.
+So this reads `.daw-installed.json`, which lists every file DAW wrote and what
+it looked like. A file still matching its recorded fingerprint is DAW's and goes.
 A file that has changed is one you edited, and it stays unless you say otherwise.
-Anything not in the manifest was never DDW's and is not touched.
+Anything not in the manifest was never DAW's and is not touched.
 
 `docs/` is never removed. The PRDs, specs, threat models and verification
 reports are the record of what was decided and why — the whole reason they are
@@ -26,19 +26,19 @@ import json
 import os
 import shutil
 
-MANIFEST = ".ddw-installed.json"
+MANIFEST = ".daw-installed.json"
 
 # The pipeline's runtime. Not in the manifest — it is created as you work, not
-# by the installer — and every one of these is DDW's alone.
-RUNTIME = (".ddw-state.json", ".ddw-paused", ".ddw-sessions", ".ddw-work",
-           ".ddw-journal.jsonl")
+# by the installer — and every one of these is DAW's alone.
+RUNTIME = (".daw-state.json", ".daw-paused", ".daw-sessions", ".daw-work",
+           ".daw-journal.jsonl")
 
-# The method itself. Byte-identical in every repo, entirely DDW's.
-METHOD = (".ddw",)
+# The method itself. Byte-identical in every repo, entirely DAW's.
+METHOD = (".daw",)
 
 CONTEXT_FILES = ("AGENTS.md", "CLAUDE.md", "GEMINI.md")
-BEGIN, END = "<!-- BEGIN DDW", "<!-- END DDW -->"
-GI_BEGIN, GI_END = "# BEGIN DDW", "# END DDW"
+BEGIN, END = "<!-- BEGIN DAW", "<!-- END DAW -->"
+GI_BEGIN, GI_END = "# BEGIN DAW", "# END DAW"
 
 
 def fingerprint(path):
@@ -56,11 +56,11 @@ def fingerprint(path):
 
 
 def _names_installed_file(block, manifest, tool):
-    """Does this settings block run a file the manifest says DDW installed?
+    """Does this settings block run a file the manifest says DAW installed?
 
     One definition, and the installer holds the same one — it has to prune the
     same blocks on an upgrade that this removes on the way out. Kept as a copy
-    rather than an import because this script is what you reach for when DDW is
+    rather than an import because this script is what you reach for when DAW is
     in a state you do not want, and it must not depend on the other one being
     present or importable.
     """
@@ -93,7 +93,7 @@ def resolve(key, self_dir):
     The manifest speaks two dialects, because the installer writes them from two
     places. Wiring is recorded whole — `claude:.claude/hooks/enforce.sh`. Skills
     and agents are recorded relative to the adapter's own directory —
-    `claude:skills/ddw-commit` — because that is what the recipe declares, and
+    `claude:skills/daw-commit` — because that is what the recipe declares, and
     where it actually lands depends on the recipe's `skills.dir`.
 
     Reading only the first dialect is not a crash: those paths simply do not
@@ -125,10 +125,10 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--repo", required=True)
     ap.add_argument("--self", required=True,
-                    help="the DDW repo, for the adapter recipes the manifest keys refer to")
+                    help="the DAW repo, for the adapter recipes the manifest keys refer to")
     ap.add_argument("--plan", action="store_true")
     ap.add_argument("--force", action="store_true",
-                    help="also remove DDW files you have edited since installing")
+                    help="also remove DAW files you have edited since installing")
     args = ap.parse_args()
     repo = os.path.abspath(args.repo)
     act = not args.plan
@@ -147,15 +147,15 @@ def main():
             manifest = {}
         # A manifest arrives with the clone and may be anything. A list where a
         # mapping was expected raised on `.items()` and the uninstaller could not
-        # run at all — on a repo whose whole problem is that DDW is in a state
+        # run at all — on a repo whose whole problem is that DAW is in a state
         # nobody wants.
         if not isinstance(manifest, dict):
             manifest = {}
 
     if not manifest:
-        print("  ! No .ddw-installed.json here. Only the method and the runtime can be")
+        print("  ! No .daw-installed.json here. Only the method and the runtime can be")
         print("    removed with confidence — each tool's wiring is identified by that file,")
-        print("    and without it there is no way to tell DDW's hooks from yours.")
+        print("    and without it there is no way to tell DAW's hooks from yours.")
 
     # 1. The wiring, one entry at a time, verified against what was installed.
     for key, recorded in sorted(manifest.items()):
@@ -164,15 +164,15 @@ def main():
         # The manifest is COMMITTED, so it arrives with the clone — from whoever
         # wrote it. A key of `../../.ssh` or `/etc` names a path outside this
         # repository, and the loop below removes what the key names. Nothing
-        # DDW installs is outside the repo, so anything that resolves outside it
+        # DAW installs is outside the repo, so anything that resolves outside it
         # is refused and reported rather than acted on.
         #
         # Inside the repo is not enough. `claude:.` resolves to the repository
         # ITSELF, which passed the containment check and was then handed to
         # `shutil.rmtree` — the working tree, `.git` and every file the user has
         # ever written, removed by an uninstaller, from a file that arrives with
-        # the clone. `.git` is the same defect one directory down. DDW installs
-        # neither, so neither is DDW's to remove.
+        # the clone. `.git` is the same defect one directory down. DAW installs
+        # neither, so neither is DAW's to remove.
         real = os.path.realpath(path)
         repo_real = os.path.realpath(repo)
         git_dir = os.path.join(repo_real, ".git")
@@ -207,9 +207,9 @@ def main():
     # reverse has to be just as careful — and skipping it is not a tidiness
     # problem. The settings would go on wiring hook scripts that no longer
     # exist, and every session in the repo would fail on a command not found,
-    # with DDW uninstalled and nothing left to explain why.
+    # with DAW uninstalled and nothing left to explain why.
     #
-    # A block is DDW's when it is byte-for-byte one the installer would add,
+    # A block is DAW's when it is byte-for-byte one the installer would add,
     # compared the same way the installer compares. Anything else is yours.
     for target in sorted({k.split(":", 1)[0] for k in manifest if ":" in k}):
         recipe_path = os.path.join(os.path.abspath(args.self), "adapters", target,
@@ -228,8 +228,8 @@ def main():
         # `hooks` that is not a mapping, a nesting deep enough for the parser to
         # give up: every one of those came out as an AttributeError or a
         # TypeError from the loop below, and this is the script you reach for
-        # when DDW is in a state you do not want — a traceback here means the
-        # repo cannot be uninstalled at all. Nothing of DDW's is in a file shaped
+        # when DAW is in a state you do not want — a traceback here means the
+        # repo cannot be uninstalled at all. Nothing of DAW's is in a file shaped
         # like that, so there is nothing here to remove.
         try:
             with open(dst_path, encoding="utf-8") as fh:
@@ -256,9 +256,9 @@ def main():
             # doing the asking: rename a hook script between releases and the
             # block from before belongs to nobody, so it survived the uninstall
             # while the script it names was deleted — a repo that cannot be left
-            # cleanly, failing on a command not found at every write, with DDW
+            # cleanly, failing on a command not found at every write, with DAW
             # gone and nothing left to explain it. The manifest is the record of
-            # what DDW installed, and a block naming one of those files is DDW's
+            # what DAW installed, and a block naming one of those files is DAW's
             # whichever version wired it.
             keep = [b for b in dst[key][event]
                     if json.dumps(b, sort_keys=True) not in mine.get(event, ())
@@ -272,8 +272,8 @@ def main():
         if not changed:
             continue
         # Nothing of yours left in it: the base keys a recipe seeds (Cursor's
-        # schema `version`) are DDW's doing too, so a file holding only those is
-        # a file DDW created.
+        # schema `version`) are DAW's doing too, so a file holding only those is
+        # a file DAW created.
         leftovers = {k: v for k, v in dst.items()
                      if k != key and k not in (sm.get("base") or {})}
         if not dst.get(key) and not leftovers:
@@ -300,15 +300,15 @@ def main():
             # could not read is how a user loses the file we were only supposed
             # to take one block out of. If the marker is in there, it stays, and
             # the summary below is what says so.
-            kept.append(name + " (not UTF-8: the DDW block, if any, was left in place)")
+            kept.append(name + " (not UTF-8: the DAW block, if any, was left in place)")
             continue
         out, found = strip_block(text, BEGIN, END)
         if not found:
             continue
-        # A file left with nothing but whitespace held only DDW's pointer — it
+        # A file left with nothing but whitespace held only DAW's pointer — it
         # did not exist before the install, so leaving an empty husk behind is
         # litter. AGENTS.md is never removed: it is the project's context file
-        # whether or not DDW created the first draft of it.
+        # whether or not DAW created the first draft of it.
         #
         # Decided the same way in both modes. Working this out only when acting
         # made the plan a different answer from the run — it promised to clear a
@@ -330,7 +330,7 @@ def main():
         out, found = strip_block(text, GI_BEGIN, GI_END)
         if found:
             # The same rule the context files already follow: a file that held
-            # nothing but DDW's block is removed rather than left as an empty
+            # nothing but DAW's block is removed rather than left as an empty
             # husk. Installing into a repo with no .gitignore used to create one
             # and uninstalling used to leave it behind, so the repo ended up
             # carrying a file it never had and nobody wrote.
@@ -346,10 +346,10 @@ def main():
     # 5. The manifest last: until now it was the record of what to remove.
     #
     # …and NOT AT ALL when files were kept. The manifest is the only thing that
-    # can tell DDW's hook from yours, so deleting it while the run is still
+    # can tell DAW's hook from yours, so deleting it while the run is still
     # printing "re-run with --force to remove them" makes that advice
     # unactionable: the second run has nothing left to identify them by, prints
-    # "no .ddw-installed.json here", and the files stay forever. Measured.
+    # "no .daw-installed.json here", and the files stay forever. Measured.
     if os.path.exists(mpath) and not kept:
         if act:
             os.remove(mpath)
@@ -371,18 +371,18 @@ def main():
         print(f"      {r}")
     if blocks:
         v = "Would clear" if args.plan else "Cleared"
-        print(f"\n  {v} the DDW block from {len(blocks)} file(s), leaving the rest:")
+        print(f"\n  {v} the DAW block from {len(blocks)} file(s), leaving the rest:")
         for b in sorted(blocks):
             print(f"      {b}")
     if outside:
         print(f"\n  ⚠ REFUSED {len(outside)} manifest entr(ies): a path outside this repo, the")
-        print("    repository root itself, or something under .git. DDW installs none of the")
+        print("    repository root itself, or something under .git. DAW installs none of the")
         print("    three, so this manifest was not written by an install here. Nothing was")
         print("    removed for them:")
         for o in sorted(outside):
             print(f"      {o}")
     if kept:
-        print(f"\n  ⚠ Kept {len(kept)} file(s) that no longer match what DDW installed —")
+        print(f"\n  ⚠ Kept {len(kept)} file(s) that no longer match what DAW installed —")
         print("    you edited them, so they are yours now. Re-run with --force to remove them:")
         for k in sorted(kept):
             print(f"      {k}")

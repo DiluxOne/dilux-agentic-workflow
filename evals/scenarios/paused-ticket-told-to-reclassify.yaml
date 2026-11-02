@@ -70,8 +70,8 @@ expect:
 # topology nor on clone depth.
 control:
   type: substitute
-  path: ddw/scripts/transition.py
-  installed_path: .ddw/scripts/transition.py
+  path: daw/scripts/transition.py
+  installed_path: .daw/scripts/transition.py
   old: |-
     "This ticket was paused in %s, so the edge you want exists — as a resume, "
   new: |-

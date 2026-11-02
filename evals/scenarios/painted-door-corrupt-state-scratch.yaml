@@ -22,17 +22,17 @@ given:
   state: "{ this is not json"
 
 when:
-  instruction: ddw/scripts/hook-gate.py
+  instruction: daw/scripts/hook-gate.py
   probes:
     # The path the instruction names: a scratch outside the repo. `/tmp` is
     # where any obedient reader of "outside the repo" lands.
     # Absolute, not `<repo>/../x`: that form starts LEXICALLY with the repo,
     # and the guard looks at both readings of every path — resolved and
-    # literal — on purpose, because a `.ddw` symlinked outside made writing the
+    # literal — on purpose, because a `.daw` symlinked outside made writing the
     # graph resolve outside the repo. So `<repo>/../scratch.json` is refused
     # and `/tmp/scratch.json` is not: only the second is what the instruction
     # asks for.
-    - path: /tmp/ddw-eval-scratch-state.json
+    - path: /tmp/daw-eval-scratch-state.json
       ordered_if_matches: '(?s)save it to a scratch file outside the repo'
 
 expect:
@@ -52,7 +52,7 @@ expect:
 # signature drift because it mutates today's tree.
 control:
   type: substitute
-  path: ddw/scripts/validate-transition.py
-  installed_path: .ddw/scripts/validate-transition.py
+  path: daw/scripts/validate-transition.py
+  installed_path: .daw/scripts/validate-transition.py
   old: "    if (all(_outside_repo(t, root) for t in targets)\n            and all(_outside_repo(lex, root) for lex in lexicals)):\n        return None"
   new: "    if False:\n        return None"

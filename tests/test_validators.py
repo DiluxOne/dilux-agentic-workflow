@@ -34,7 +34,7 @@ def _load(name, rel):
     return mod
 
 
-boot = _load("boot", "ddw/scripts/session-boot.py")
+boot = _load("boot", "daw/scripts/session-boot.py")
 
 
 # ── The installed enforcement stopped being what was installed ───────────────
@@ -48,7 +48,7 @@ def installed(tmp_path):
     hook.write_text("#!/usr/bin/env bash\nexit 0\n")
     digest = subprocess.run(["sha256sum", str(hook)], capture_output=True, text=True
                             ).stdout.split()[0]
-    (repo / ".ddw-installed.json").write_text(
+    (repo / ".daw-installed.json").write_text(
         json.dumps({"claude:.claude/hooks/enforce.sh": digest}))
     return repo
 
@@ -88,7 +88,7 @@ def _template():
     bitten this repo the most times is a template and a gate that stopped
     agreeing. It is read from the skill so they cannot.
     """
-    skill = open(os.path.join(ROOT, "skills/ddw-security-sast/SKILL.md"),
+    skill = open(os.path.join(ROOT, "skills/daw-security-sast/SKILL.md"),
                  encoding="utf-8").read()
     at = skill.index("### The report, in the shape the validator reads")
     m = re.search(r"```markdown\n(.*?)```", skill[at:], re.S)
@@ -120,7 +120,7 @@ def _suppression(written, review):
     would be a third version of the same thing, and whichever falls behind
     decides in silence.
     """
-    rules = open(os.path.join(ROOT, "ddw/rules/validation-rules.instructions.md"),
+    rules = open(os.path.join(ROOT, "daw/rules/validation-rules.instructions.md"),
                  encoding="utf-8").read()
     at = rules.index("### 4.4 Finding Suppression Protocol")
     m = re.search(r"```markdown\n(.*?)```", rules[at:], re.S)
@@ -147,7 +147,7 @@ def _suppression(written, review):
 def _sast(tmp_path, body, ticket="T-1", expect_suppression=False):
     path = tmp_path / f"sast-{ticket}.md"
     path.write_text(body, encoding="utf-8")
-    r = subprocess.run(["python3", os.path.join(ROOT, "ddw/scripts/validate_sast.py"),
+    r = subprocess.run(["python3", os.path.join(ROOT, "daw/scripts/validate_sast.py"),
                         str(path), "--tier", "FEATURE"],
                        capture_output=True, text=True, cwd=str(tmp_path))
     # That the block was PARSED, before reading anything about it. The
@@ -194,7 +194,7 @@ def test_the_report_the_skill_teaches_passes_as_written(tmp_path):
     mean nothing."""
     r, refused = _sast(tmp_path, _template())
     assert r.returncode == 0 and not refused, \
-        "the report ddw-security-sast tells the model to write is refused: " + \
+        "the report daw-security-sast tells the model to write is refused: " + \
         ("\n".join(refused) or r.stderr[-200:])
 
 
@@ -222,7 +222,7 @@ def _worked(skill, heading, ticket="T-1"):
 def _validate(tmp_path, validator, name, body, *extra):
     path = tmp_path / name
     path.write_text(body, encoding="utf-8")
-    r = subprocess.run(["python3", os.path.join(ROOT, "ddw/scripts", validator),
+    r = subprocess.run(["python3", os.path.join(ROOT, "daw/scripts", validator),
                         str(path), "--tier", "FEATURE", *extra],
                        capture_output=True, text=True, cwd=str(tmp_path))
     return r, [ln for ln in r.stdout.splitlines() if ln.strip().startswith("❌")]
@@ -269,7 +269,7 @@ def _spec_arg(tmp_path):
     # The components come out of the worked model itself: a spec written by
     # hand here would name other files, and F-TM-06 — precisely the rule
     # being measured — would refuse the healthy document for not matching it.
-    worked = _worked("ddw-threat-modeling", THREAT)
+    worked = _worked("daw-threat-modeling", THREAT)
     files = re.findall(r"`([\w./-]+\.\w+)`", worked)
     assert files, "the worked model names no files at all"
     blocks = "".join("## Block %d — %s\n- `%s` — the component\n- POST /api/%d\nCovers FR-0%d.\n\n"
@@ -284,7 +284,7 @@ def test_a_threat_model_that_names_nothing_from_its_design_is_refused(tmp_path):
     """F-TM-06. A model that cites not one file, not one endpoint, not one FR
     of its spec is an essay about an imaginary system: it can be impeccable
     and say nothing about this code."""
-    base = _worked("ddw-threat-modeling", THREAT)
+    base = _worked("daw-threat-modeling", THREAT)
     r, refused = _validate(tmp_path, "validate_threat.py", "threat-T-1.md", base, *_spec_arg(tmp_path))
     assert r.returncode == 0 and not refused, \
         "the model the skill teaches no longer passes, so the check below measures nothing: " + \
@@ -300,7 +300,7 @@ def test_a_design_handling_sensitive_data_classifies_it(tmp_path):
     """F-TM-05. Without the table, F-TM-07 says «no PII to encrypt» and the
     document comes out clean: the absence of the classification reads as the
     absence of sensitive data, which is the opposite of what happened."""
-    base = _worked("ddw-threat-modeling", THREAT)
+    base = _worked("daw-threat-modeling", THREAT)
     assert "## Data classification" in base, "the worked model no longer carries the table"
     cut = re.split(r"^## Data classification\s*$", base, flags=re.M)[0]
     tail = re.split(r"^## Risks and mitigations\s*$", base, flags=re.M)
@@ -316,7 +316,7 @@ def test_a_threat_model_written_in_spanish_is_not_told_it_skipped_a_category(tmp
     """The method orders the artifacts written in the user's language, so the
     aliases exist for real documents. Without them, a complete model in
     Spanish is refused over a category it did analyze."""
-    base = _worked("ddw-threat-modeling", THREAT)
+    base = _worked("daw-threat-modeling", THREAT)
     es = (base.replace("**Elevation of Privilege:**", "**Elevación de privilegios:**")
               .replace("**Spoofing:**", "**Suplantación:**")
               .replace("**Repudiation:**", "**Repudio:**"))
@@ -336,7 +336,7 @@ def test_a_report_cannot_pick_a_floor_it_can_clear(tmp_path):
     """F-TEST-05 + F-TEST-04. The floor is the project's to set; a report that
     cites one lower than the pipeline's minimum and compares itself against
     THAT approves itself. The ⚠️ stays, and a warning stops nothing."""
-    base = _worked("ddw-test", TESTS_DOC)
+    base = _worked("daw-test", TESTS_DOC)
     r, refused = _validate(tmp_path, "validate_tests.py", "tests-T-1.md", base)
     assert r.returncode == 0 and not refused, \
         "the report the skill teaches no longer passes: " + ("\n".join(refused) or r.stderr[-200:])
@@ -354,18 +354,18 @@ def test_a_report_cannot_pick_a_floor_it_can_clear(tmp_path):
 def test_a_report_that_states_no_floor_is_refused_not_given_one(tmp_path):
     """F-TEST-05. Silently inheriting the flag's default leaves the document
     graded against a number nobody wrote in it."""
-    base = _worked("ddw-test", TESTS_DOC)
+    base = _worked("daw-test", TESTS_DOC)
     nofloor = re.sub(r"^\| Coverage floor \|.*\n", "", base, flags=re.M)
     assert nofloor != base, "the worked report no longer declares a floor"
     _, refused = _validate(tmp_path, "validate_tests.py", "tests-T-3.md", nofloor)
     assert _refuses(refused, "F-TEST-05"), \
-        "a report with no floor passed against one DDW invented for it: " + "\n".join(refused)
+        "a report with no floor passed against one DAW invented for it: " + "\n".join(refused)
 
 
 def test_a_skipped_test_owes_a_reason(tmp_path):
     """F-TEST-06. Skipping is the cheapest way to put a suite in green, and a
     skip without a reason is indistinguishable from one covering a failure."""
-    base = _worked("ddw-test", TESTS_DOC)
+    base = _worked("daw-test", TESTS_DOC)
     # The worked report skips nothing, so the case has to be PLANTED: two
     # tests skipped and not one line saying why.
     mute = re.sub(r"^\| Skipped \|.*$", "| Skipped | 2 |", base, flags=re.M)
@@ -387,7 +387,7 @@ def test_a_real_run_of_a_thousand_tests_is_not_refused_for_its_punctuation(tmp_p
     runner prints the thousands separator, and without stripping it `1,204`
     reads as `1`. The gate refuses the TRUE document, and its author has
     nothing to correct."""
-    base = _worked("ddw-test", TESTS_DOC)
+    base = _worked("daw-test", TESTS_DOC)
     big = base
     for field, value in (("Total", "1,204"), ("Passed", "1,202"),
                          ("Failed", "0"), ("Skipped", "2")):
@@ -420,7 +420,7 @@ def _prd(tmp_path):
     """The spec is validated AGAINST its PRD; without it the coverage is not
     checked and the healthy document is refused for a reason that is not the
     one being measured."""
-    body = _fixture('cat > "$VP/docs/ddw/prd/prd-FEAT-001.md" <<\'PRDEOF\'', "PRDEOF")
+    body = _fixture('cat > "$VP/docs/daw/prd/prd-FEAT-001.md" <<\'PRDEOF\'', "PRDEOF")
     path = tmp_path / "prd-FEAT-001.md"
     path.write_text(body, encoding="utf-8")
     return "--prd", str(path)
@@ -588,7 +588,7 @@ def _adr(tmp_path, body, name="adr-001-limite.md"):
     d = tmp_path / "docs" / "adr"
     d.mkdir(parents=True, exist_ok=True)
     (d / name).write_text(body, encoding="utf-8")
-    r = subprocess.run(["python3", os.path.join(ROOT, "ddw/scripts/validate_adr.py"),
+    r = subprocess.run(["python3", os.path.join(ROOT, "daw/scripts/validate_adr.py"),
                         str(d / name)], capture_output=True, text=True)
     return r, [ln for ln in r.stdout.splitlines() if ln.strip().startswith("❌")]
 
@@ -665,7 +665,7 @@ INDICE = """# Parent PRD: Triage IA
 def _indice(tmp_path, body, name="prd-FEAT-001.md"):
     path = tmp_path / name
     path.write_text(body, encoding="utf-8")
-    r = subprocess.run(["python3", os.path.join(ROOT, "ddw/scripts/validate_prd.py"),
+    r = subprocess.run(["python3", os.path.join(ROOT, "daw/scripts/validate_prd.py"),
                         str(path), "--tier", "FEATURE"], capture_output=True, text=True,
                        cwd=str(tmp_path))
     return r, [ln for ln in r.stdout.splitlines() if ln.strip().startswith("❌")]
@@ -771,7 +771,7 @@ def test_un_sub_prd_mas_grande_que_el_umbral_avisa(tmp_path):
     """W-PRD-06. The split that shrank nothing: a warning, never a block —
     keeping the whole ticket is the user's decision, but the number is not
     theirs to lose."""
-    base = _worked("ddw-create-prd", "## PRD Template")
+    base = _worked("daw-create-prd", "## PRD Template")
     extra = "\n".join("- AC-%02d (FR-01): WHEN algo pasa, THE sistema SHALL responder." % n
                       for n in range(4, 13))
     grande = base.replace("- AC-03 (FR-02): WHILE [state], THE [system] SHALL [response].",
@@ -787,14 +787,14 @@ def test_un_sub_prd_mas_grande_que_el_umbral_avisa(tmp_path):
 # PreToolUse matcher was Edit|Write|NotebookEdit and a commit is a Bash call.
 # Measured: five documents committed and the user reading the hash afterwards.
 
-GATE = os.path.join(ROOT, "ddw/scripts/hook-gate.py")
-GRAPH_PATH = os.path.join(ROOT, "ddw/rules/transition-graph.json")
-PROPOSAL = os.path.join(".ddw-work", "commit-message.txt")
+GATE = os.path.join(ROOT, "daw/scripts/hook-gate.py")
+GRAPH_PATH = os.path.join(ROOT, "daw/rules/transition-graph.json")
+PROPOSAL = os.path.join(".daw-work", "commit-message.txt")
 MENSAJE = "\U0001F4DD docs(prd): definir el triage\n\nRefs: F-1\nAI-assisted: yes\n"
 
 
 def _repo_en_define(tmp_path, autonomy="assisted"):
-    state = tmp_path / ".ddw-state.json"
+    state = tmp_path / ".daw-state.json"
     state.write_text(json.dumps({"phase": "DEFINE", "tier": "FEATURE", "ticket": "F-1",
                                  "autonomy": autonomy, "gates": {},
                                  "history": [{"from": "IDLE", "to": "CLASSIFY", "action": "c",
@@ -803,23 +803,23 @@ def _repo_en_define(tmp_path, autonomy="assisted"):
     return state
 
 
-def _commit(tmp_path, command="git commit -F .ddw-work/commit-message.txt"):
+def _commit(tmp_path, command="git commit -F .daw-work/commit-message.txt"):
     event = json.dumps({"tool_name": "Bash", "tool_input": {"command": command}})
     return subprocess.run([sys.executable, GATE, "--mode", "commit",
-                           "--state", str(tmp_path / ".ddw-state.json"),
+                           "--state", str(tmp_path / ".daw-state.json"),
                            "--graph", GRAPH_PATH, "--repo", str(tmp_path)],
                           input=event, capture_output=True, text=True)
 
 
 def _habla_el_usuario(tmp_path):
     subprocess.run([sys.executable, GATE, "--mode", "turn",
-                    "--state", str(tmp_path / ".ddw-state.json"),
+                    "--state", str(tmp_path / ".daw-state.json"),
                     "--graph", GRAPH_PATH, "--repo", str(tmp_path)],
                    input="{}", capture_output=True, text=True)
 
 
 def _propone(tmp_path, texto=MENSAJE):
-    d = tmp_path / ".ddw-work"
+    d = tmp_path / ".daw-work"
     d.mkdir(exist_ok=True)
     (d / "commit-message.txt").write_text(texto, encoding="utf-8")
 
@@ -880,7 +880,7 @@ def test_mostrar_un_mensaje_y_commitear_otro_es_rechazado(tmp_path):
 def _post(tmp_path):
     """The PostToolUse that runs after every Bash — consumer of the permission."""
     return subprocess.run([sys.executable, GATE, "--mode", "post",
-                           "--state", str(tmp_path / ".ddw-state.json"),
+                           "--state", str(tmp_path / ".daw-state.json"),
                            "--graph", GRAPH_PATH, "--repo", str(tmp_path)],
                           input="{}", capture_output=True, text=True)
 
@@ -913,7 +913,7 @@ def test_un_commit_que_fallo_no_gasta_el_permiso(tmp_path):
     """The gate allowed, git failed (GPG without a TTY, pre-commit, empty
     index): the approval has to stay standing and the retry pass without
     another turn. The first version deleted proposal and stamp on allowing,
-    the model found `.ddw-work/` empty, rewrote the same bytes and was
+    the model found `.daw-work/` empty, rewrote the same bytes and was
     refused as never-seen. Measured, on the first manual run that got here."""
     _repo_en_define(tmp_path)
     _propone(tmp_path)
@@ -954,7 +954,7 @@ def test_minimal_no_espera(tmp_path):
 def test_un_prd_cuyos_ids_no_parsean_no_pasa_la_bateria(tmp_path):
     """F-PRD-05: "0 FR, 0 NFR, 0 AC — unique, gapless" was a PASS, and with
     the lists empty F-PRD-01/03/06/09 passed too."""
-    body = _fixture('cat > "$VP/docs/ddw/prd/prd-FEAT-001.md" <<\'PRDEOF\'', "PRDEOF")
+    body = _fixture('cat > "$VP/docs/daw/prd/prd-FEAT-001.md" <<\'PRDEOF\'', "PRDEOF")
     sin_ids = body.replace("FR-", "Req ").replace("NFR-", "NReq ").replace("AC-", "Crit ")
     r, refused = _validate(tmp_path, "validate_prd.py", "prd-FEAT-002.md", sin_ids)
     assert _refuses(refused, "F-PRD-05"), \
@@ -979,7 +979,7 @@ def _f_ver_06(tmp_path, report, spec):
     rp.write_text(report, encoding="utf-8")
     sp = tmp_path / "spec.md"
     sp.write_text(spec, encoding="utf-8")
-    r = subprocess.run(["python3", os.path.join(ROOT, "ddw/scripts/validate_verify.py"),
+    r = subprocess.run(["python3", os.path.join(ROOT, "daw/scripts/validate_verify.py"),
                         str(rp), "--spec", str(sp)],
                        capture_output=True, text=True, cwd=str(tmp_path))
     return [ln for ln in r.stdout.splitlines() if "F-VER-06" in ln]
@@ -1062,27 +1062,27 @@ def test_required_tests_ilegibles_no_es_un_pass(tmp_path):
 # hook receives. Same design as the commit gate — proposal + stamp — with the
 # difference the act demands: it governs in BOTH autonomy modes.
 
-MERGE_PROP = os.path.join(".ddw-work", "merge-proposal.txt")
+MERGE_PROP = os.path.join(".daw-work", "merge-proposal.txt")
 PROPUESTA_MERGE = "merge PR #7 into main — Recepción de tickets\n"
 
 
 def _merge(tmp_path, command="gh pr merge 7 --squash", env=None):
     event = json.dumps({"tool_name": "Bash", "tool_input": {"command": command}})
     return subprocess.run([sys.executable, GATE, "--mode", "commit",
-                           "--state", str(tmp_path / ".ddw-state.json"),
+                           "--state", str(tmp_path / ".daw-state.json"),
                            "--graph", GRAPH_PATH, "--repo", str(tmp_path)],
                           input=event, capture_output=True, text=True, env=env)
 
 
 def _propone_merge(tmp_path, texto=PROPUESTA_MERGE):
-    d = tmp_path / ".ddw-work"
+    d = tmp_path / ".daw-work"
     d.mkdir(exist_ok=True)
     (d / "merge-proposal.txt").write_text(texto, encoding="utf-8")
 
 
 def _post_hook(tmp_path, env=None):
     return subprocess.run([sys.executable, GATE, "--mode", "post",
-                           "--state", str(tmp_path / ".ddw-state.json"),
+                           "--state", str(tmp_path / ".daw-state.json"),
                            "--graph", GRAPH_PATH, "--repo", str(tmp_path)],
                           input="{}", capture_output=True, text=True, env=env)
 
@@ -1177,12 +1177,12 @@ def test_instalar_en_un_directorio_sin_git_instala_y_avisa(tmp_path):
                        stdin=subprocess.DEVNULL, capture_output=True, text=True)
     assert r.returncode == 0, "the installer died on a git-less destination: rc=%s %s" % (
         r.returncode, r.stderr[-200:])
-    assert (target / ".ddw" / "orchestrator.md").exists(), "it installed nothing"
+    assert (target / ".daw" / "orchestrator.md").exists(), "it installed nothing"
     assert "not a git repository" in r.stdout, \
         "it installed in silence where the first ticket will die in CLASSIFY"
 
 
-# ── The installer's git flow (DDW_GIT_FLOW is the no-terminal spelling) ──────
+# ── The installer's git flow (DAW_GIT_FLOW is the no-terminal spelling) ──────
 
 def _repo_para_instalar(tmp_path, con_commit=True):
     r = tmp_path / "repo"
@@ -1197,9 +1197,9 @@ def _repo_para_instalar(tmp_path, con_commit=True):
 
 
 def _instala(r, flow, push=None):
-    env = dict(os.environ, DDW_GIT_FLOW=flow)
+    env = dict(os.environ, DAW_GIT_FLOW=flow)
     if push is not None:
-        env["DDW_GIT_PUSH"] = push
+        env["DAW_GIT_PUSH"] = push
     return subprocess.run(["bash", os.path.join(ROOT, "install.sh"), str(r),
                            "--target", "claude", "--mode", "dropin"],
                           stdin=subprocess.DEVNULL, env=env,
@@ -1221,7 +1221,7 @@ def test_flow_setup_instala_commitea_en_su_rama_y_deja_limpio(tmp_path):
     r = _repo_para_instalar(tmp_path)
     res = _instala(r, "setup", push="n")
     assert res.returncode == 0, res.stderr[-300:]
-    assert _rama(r).startswith("ddw-setup-"), \
+    assert _rama(r).startswith("daw-setup-"), \
         "it chose the setup branch and ended up on %r" % _rama(r)
     assert _sucios(r) == 0, "the install did not end up committed on the setup branch"
     assert "stays local" in res.stdout, "it did not say what happens to the branch without a push"
@@ -1351,7 +1351,7 @@ def test_un_shard_sin_mutaciones_del_diff_contesta_vacio_y_no_muere(tmp_path):
         "mut_shard", os.path.join(ROOT, "scripts/mutate.py"))
     mut = importlib.util.module_from_spec(spec_)
     spec_.loader.exec_module(mut)
-    objetivo = "ddw/rules/define.instructions.md"
+    objetivo = "daw/rules/define.instructions.md"
     tocadas = {i for i, (_l, m) in enumerate(mut.MUTATIONS, 1)
                if getattr(m, "probe", None) is None or m.probe[1] == objetivo}
     assert tocadas, "no fault names the scenario's file"
@@ -1446,16 +1446,16 @@ def test_el_indice_no_puede_agendar_un_repo_que_el_mapa_no_conoce(tmp_path):
     index, a phantom row and a forgotten member are both refused BY NAME, and
     the honest index — every member a row or an exclusion in words — passes.
     The map here keeps the DEPRECATED name on purpose: existing families must
-    keep working while new ones are born as ddw-family.md."""
+    keep working while new ones are born as daw-family.md."""
     root = tmp_path
-    (root / "docs/ddw/prd").mkdir(parents=True)
+    (root / "docs/daw/prd").mkdir(parents=True)
     (root / "familia.md").write_text(
         "# Familia\n| Repo | Qué hace | Expone | Consumed by | Consume |\n"
         "|---|---|---|---|---|\n"
         "| acme/uno | a | api | dos | none |\n"
         "| acme/dos | b | ui | none | uno |\n"
         "| acme/tres | c | worker | none | none |\n", encoding="utf-8")
-    prd = root / "docs/ddw/prd/prd-T-9.md"
+    prd = root / "docs/daw/prd/prd-T-9.md"
     tramposo = (
         "# Parent PRD: x\n| Metric | Value |\n|--------|-------|\n"
         "| Ticket | T-9 |\n| Status | Multirepo split |\n\n## Repos\n"
@@ -1463,7 +1463,7 @@ def test_el_indice_no_puede_agendar_un_repo_que_el_mapa_no_conoce(tmp_path):
         "| acme/uno | T-9 | parte uno | none | active |\n"
         "| acme/cuatro | T-9 | fantasma | none | pending |\n")
     prd.write_text(tramposo, encoding="utf-8")
-    out = subprocess.run(["python3", os.path.join(ROOT, "ddw/scripts/validate_prd.py"),
+    out = subprocess.run(["python3", os.path.join(ROOT, "daw/scripts/validate_prd.py"),
                           str(prd), "--tier", "FEATURE"], capture_output=True, text=True)
     assert out.returncode != 0
     assert "cuatro" in out.stdout and "family map" in out.stdout, out.stdout[-400:]
@@ -1474,6 +1474,6 @@ def test_el_indice_no_puede_agendar_un_repo_que_el_mapa_no_conoce(tmp_path):
         "| acme/dos | T-9 | parte dos | uno | pending |",
     ) + "\n## Sin impacto\n- tres: Sin impacto — el worker no consume nada de esto\n"
     prd.write_text(honesto, encoding="utf-8")
-    out = subprocess.run(["python3", os.path.join(ROOT, "ddw/scripts/validate_prd.py"),
+    out = subprocess.run(["python3", os.path.join(ROOT, "daw/scripts/validate_prd.py"),
                           str(prd), "--tier", "FEATURE"], capture_output=True, text=True)
     assert out.returncode == 0, "the honest index was refused: " + out.stdout[-400:]

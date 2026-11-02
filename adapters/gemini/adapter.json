@@ -6,7 +6,7 @@
   "docs": "https://github.com/google-gemini/gemini-cli/blob/main/docs/hooks/reference.md",
   "skills": {
     "dir": ".gemini/skills",
-    "note": "Gemini's own location. It also reads .agents/skills, but a tool gets its own directory: DDW never makes one tool depend on another's."
+    "note": "Gemini's own location. It also reads .agents/skills, but a tool gets its own directory: DAW never makes one tool depend on another's."
   },
   "agents": {
     "dir": ".gemini/agents",
@@ -23,7 +23,7 @@
   "wiring": [
     {
       "from": "hooks",
-      "to": ".gemini/hooks/ddw",
+      "to": ".gemini/hooks/daw",
       "chmod": "+x"
     }
   ],

@@ -1,9 +1,9 @@
 {
-  "name": "ddw",
+  "name": "daw",
   "version": "0.57.1",
   "description": "Dilux Agentic Workflow — a spec-driven agentic pipeline enforced by deterministic gates",
   "type": "module",
-  "main": "adapters/opencode/plugin/ddw.js",
-  "exports": "./adapters/opencode/plugin/ddw.js",
+  "main": "adapters/opencode/plugin/daw.js",
+  "exports": "./adapters/opencode/plugin/daw.js",
   "license": "Apache-2.0"
 }

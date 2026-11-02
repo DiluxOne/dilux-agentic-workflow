@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ${CLAUDE_PLUGIN_ROOT}/adapters/claude/hooks/session-start.sh"
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/adapters/claude/hooks/session-start.sh\""
           }
         ]
       }
@@ -17,7 +17,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ${CLAUDE_PLUGIN_ROOT}/adapters/claude/hooks/enforce.sh"
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/adapters/claude/hooks/enforce.sh\""
           }
         ]
       },
@@ -26,7 +26,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ${CLAUDE_PLUGIN_ROOT}/adapters/claude/hooks/validate-state-transition.sh"
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/adapters/claude/hooks/validate-state-transition.sh\""
           }
         ]
       },
@@ -35,7 +35,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ${CLAUDE_PLUGIN_ROOT}/adapters/claude/hooks/confirm-commit.sh"
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/adapters/claude/hooks/confirm-commit.sh\""
           }
         ]
       }
@@ -45,7 +45,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ${CLAUDE_PLUGIN_ROOT}/adapters/claude/hooks/user-turn.sh"
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/adapters/claude/hooks/user-turn.sh\""
           }
         ]
       }
@@ -56,7 +56,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ${CLAUDE_PLUGIN_ROOT}/adapters/claude/hooks/validate-state-postwrite.sh"
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/adapters/claude/hooks/validate-state-postwrite.sh\""
           }
         ]
       }
@@ -66,7 +66,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ${CLAUDE_PLUGIN_ROOT}/adapters/claude/hooks/pre-compact.sh"
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/adapters/claude/hooks/pre-compact.sh\""
           }
         ]
       }

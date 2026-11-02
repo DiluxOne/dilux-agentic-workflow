@@ -149,7 +149,7 @@ repo with no remote — where the check says so and moves on.
 
 ## 7. Artifacts live in the repository
 
-**The decision.** PRD, spec, threat model, SAST report, verification report — all under `docs/ddw/`,
+**The decision.** PRD, spec, threat model, SAST report, verification report — all under `docs/daw/`,
 committed by the phase that produced them. The ADR is the deliberate exception: `docs/adr/`, because
 an architecture decision belongs to the project, not to the tool that helped write it.
 
@@ -165,7 +165,7 @@ out: the pull request becomes the mechanism by which a decision gets reviewed.
 **If your team will not have them in the repo: publish, do not relocate.** Generate the mirror from
 the repo. Inverted, the repo copy ages, and the agent builds against a PRD that stopped being true.
 
-**The cost.** Your repository gains a `docs/ddw/` directory that grows with every ticket. Reviewers
+**The cost.** Your repository gains a `docs/daw/` directory that grows with every ticket. Reviewers
 who only want code have more to scroll past.
 
 **Sources.** [Documentation-as-code](https://dev.to/zenika/documentation-as-code-has-silently-won-for-tech-content-e5o) ·
@@ -175,7 +175,7 @@ who only want code have more to scroll past.
 
 ## 8. The context file stays minimal
 
-**The decision.** `ddw-context-check` reports only knowledge the agent **cannot discover on its own**
+**The decision.** `daw-context-check` reports only knowledge the agent **cannot discover on its own**
 — the commands DAW is about to run: pre-commit, the CI invocations, the real test and lint commands.
 It never proposes prose, conventions or architecture.
 
@@ -266,7 +266,7 @@ and **reports** where it cannot. It is not pretended to be the same everywhere.
 **Why.** GitHub documents Copilot CLI's `postToolUse` as able to modify a result
 or add context and nothing more: `permissionDecision` belongs to `preToolUse`,
 and a non-zero exit is logged and skipped. DAW was sending it a refusal it
-ignores — so a `.ddw-state.json` forged with `sed` was detected correctly, by a
+ignores — so a `.daw-state.json` forged with `sed` was detected correctly, by a
 hook whose verdict went nowhere, while the suite reported the check as passing.
 
 What Copilot's post hook *can* do is put the finding in front of the model. That
@@ -300,7 +300,7 @@ worth reading.
 
 ## 14. A corrupt state is reported to a human, never repaired by the agent
 
-**The decision.** When DAW finds a `.ddw-state.json` that cannot be true, the agent is told to stop
+**The decision.** When DAW finds a `.daw-state.json` that cannot be true, the agent is told to stop
 and report it. It is not told to fix it, and it is refused if it tries. Recovery is the user's:
 their own backup, or `transition.py` from the last state the history supports. Not `git checkout` —
 the install gitignores the state, so git never has a copy. The first live run on OpenCode proved
@@ -321,7 +321,7 @@ that only showed up under a real agent:
 
 An agent that obeys an impossible instruction does not stop — it escalates. In the run that
 produced this entry it wrote the state eight times, then found the one move that always worked:
-`rm -f .ddw-state.json`, which took the run's history with it. The net had caught the corruption
+`rm -f .daw-state.json`, which took the run's history with it. The net had caught the corruption
 correctly and then rewarded the only action that destroyed the evidence of it.
 
 **The cost.** A human is now in the loop for a class of problem an agent could sometimes have
@@ -338,7 +338,7 @@ repetitions of an eight-line refusal is how the one instruction that matters get
 ## 15. The journal outlives the state file
 
 **The decision.** Every transition that passes post-write validation is appended to
-`.ddw-journal.jsonl`, written by the hook and never by the model. If the state disappears, or comes
+`.daw-journal.jsonl`, written by the hook and never by the model. If the state disappears, or comes
 back with fewer entries than were recorded, the next write is refused.
 
 **Why.** The state file was the only record of itself, which made deleting it a complete escape:
@@ -481,7 +481,7 @@ followed them the day someone asked why nineteen catalogued rules had no script.
 `validate-transition.py`'s table plus a validator — the mechanism this section promised, used four
 times, exactly as promised.
 
-Both landed. `tests` got the artifact it had none of — `docs/ddw/reports/tests-{ticket}.md`, with
+Both landed. `tests` got the artifact it had none of — `docs/daw/reports/tests-{ticket}.md`, with
 `F-TEST-01`…`08` — and `pr` turned out to be the strongest of the eight, because a forge answering
 about a branch is the one piece of evidence in this pipeline a model cannot produce by writing a
 file.
@@ -577,7 +577,7 @@ IDLE and the repo has a remote → ask, every time; anything else → never. A n
 session start, in every repo DAW is installed in, is a cost this project should refuse to hide; and
 mid-ticket the answer is not one you need. IDLE is where you decide what is next, and it is also the
 only moment a fresh clone on another machine can be told anything — the pause lives in
-`.ddw-paused/`, which never leaves the machine that wrote it.
+`.daw-paused/`, which never leaves the machine that wrote it.
 
 **The cost.** Three things this does not do, said plainly. Two machines on one ticket are not
 coordinated: git is the arbiter, and DAW only reports that your branch fell behind. The `history`
@@ -591,8 +591,8 @@ state the hook exists to refuse.
 ## 18. The pipeline does not get to edit the pipeline
 
 **The decision.** DAW's own machinery is unwritable from inside a ticket, in every phase: the method
-(`.ddw/`), the receipts (`.ddw-sessions/`), the journal, the install manifest, and each tool's hook
-scripts and the settings key that wires them. `.ddw-state.json`, `.ddw-paused/` and `docs/` stay
+(`.daw/`), the receipts (`.daw-sessions/`), the journal, the install manifest, and each tool's hook
+scripts and the settings key that wires them. `.daw-state.json`, `.daw-paused/` and `docs/` stay
 writable — writing the state is how the pipeline advances, and every other rule here judges that
 write.
 
@@ -602,9 +602,9 @@ phases where the agent cannot write anything anyway and stood down in the one wh
 Measured end to end on a real install: in CODE, add an edge to the transition graph, then take it —
 a FEATURE closed having never claimed `tests`, `sast`, `verify`, `commit` or `pr`, with both hooks
 green and 462 checks passing. Or skip the graph entirely and write your own receipt into
-`.ddw-sessions/`, which opens six gates with one `Write`.
+`.daw-sessions/`, which opens six gates with one `Write`.
 
-**What it does not reach, said plainly.** A shell. `printf > .ddw/rules/transition-graph.json` is not
+**What it does not reach, said plainly.** A shell. `printf > .daw/rules/transition-graph.json` is not
 a tool call with a path in it, and decision 11 is the older, honest version of this limit. Two things
 follow from that rather than one apology: the six validators record in the journal that they wrote
 each receipt, so a receipt nobody's validator wrote is refused; and the session boot hashes every

@@ -99,7 +99,7 @@ expect:
 # commit being reachable from the checkout that runs the eval.
 control:
   type: substitute
-  path: ddw/scripts/validate-transition.py
-  installed_path: .ddw/scripts/validate-transition.py
+  path: daw/scripts/validate-transition.py
+  installed_path: .daw/scripts/validate-transition.py
   old: "    resuming = any(_is_resume(e) and e.get(\"from\") == IDLE"
   new: "    resuming = False and any(_is_resume(e) and e.get(\"from\") == IDLE"

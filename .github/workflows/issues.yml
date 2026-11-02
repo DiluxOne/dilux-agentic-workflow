@@ -13,7 +13,8 @@ on:
   issues:
     types: [opened, edited, labeled, closed]
   # Claims (#488): the commands in comments, and a person's pull request
-  # (metadata only; its code is never checked out).
+  # (metadata only; its code is never checked out). The answers that shape
+  # an `incomplete` issue (#588) are comments too.
   issue_comment:
     types: [created]
   pull_request_target:
@@ -67,7 +68,8 @@ jobs:
   # X.Y.Z", the Release form) opens its release pull request. When it
   # closes: Done.
   accepted:
-    if: github.event_name == 'issues'
+    # Comments too (#588): an `incomplete` issue's answers shape it.
+    if: github.event_name == 'issues' || github.event_name == 'issue_comment'
     permissions:
       actions: write
       issues: read
@@ -75,10 +77,14 @@ jobs:
     uses: DiluxOne/.github/.github/workflows/issue-accepted.yml@v7
     secrets:
       DILUX_BOT_PRIVATE_KEY: ${{ secrets.DILUX_BOT_PRIVATE_KEY }}
+      # The shaping's model, with no tools (#588).
+      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
 
   # A person claims an issue (#488): `/claim`, the form's checkbox, and the
   # daily reminders and releases; every release starts the autopilot. The
-  # only job that runs on issue_comment and pull_request_target. It inherits
+  # only job that runs on pull_request_target, and with `accepted` the only
+  # ones on issue_comment. It inherits
   # the secrets (dilux-bot's key, and the Claude token for the autopilot it
   # starts) and never checks out a pull request's code: on
   # pull_request_target it reads the pull request's metadata only.
