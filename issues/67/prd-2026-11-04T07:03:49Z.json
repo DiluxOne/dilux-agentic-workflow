@@ -1,0 +1,10 @@
+{
+  "kind": "prd-seal",
+  "issue": 67,
+  "prd_sha256": "88e5fc1a34a7f51c436199f393b6cfd22685058bc98212043c5e3cf793ebdbea",
+  "prd": "### Problem\n\nVERIFY does not check what a FIX plan promises (its numbered solution steps and its descriptive tests), so it either blocks a correct FIX or lets an incomplete one through.\n\n### Scope\n\n- `validate_verify.py` checks a FIX plan's numbered solution steps and its promised descriptive tests, each one done and present.\n- The independent review gate of VERIFY stays as it is.\n- The rules and skills that describe VERIFY say the same.\n- Credits: The fix is Mateo's (@mdiloreto) in #57, part B: credited as a co-author of the pull request that closes this.\n\n### Out of scope\n\n- OpenCode V2 and the hooks (their own issue).\n- The OpenSpec bridge and the autonomous mode of #57.\n\n### Acceptance criteria\n\n- C1: Given a FIX plan whose every numbered step is done and every promised test exists, when VERIFY runs, then it passes.\n- C2: Given a FIX plan with a step not done or a promised test missing, when VERIFY runs, then it fails and names that step or test.\n- C3: Given a FEATURE plan, when VERIFY runs, then it is checked as today.\n- C4: Given any FIX, when VERIFY passes its checks, then the independent review gate is still required.\n\n### Criticality\n\nNormal",
+  "accepted_by": "soydiloreto",
+  "at": "2026-11-04T07:03:49Z",
+  "policy": "DiluxOne/.github@f70904b12f6fabf5cd17d10045d6476471b04101",
+  "how": "own-bug"
+}
