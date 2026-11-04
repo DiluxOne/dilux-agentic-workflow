@@ -6,7 +6,8 @@ suite: it does not know whether this is pytest or jest or a monorepo with five
 runners, and a gate that cannot be satisfied honestly gets satisfied dishonestly
 (docs/RATIONALE.md decisions 2 and 16). So this script does NOT verify that the
 tests pass. It verifies that **the verdict was written and is complete** — that
-every AC in the PRD is accounted for, every block of the spec is accounted for,
+every AC in the PRD is accounted for, every block of the spec (on FIX, every
+step and test of the fix-plan) is accounted for,
 the three coverage numbers are stated and meet the minimum the rules set, and
 lint and the sad paths have an answer instead of a silence.
 
@@ -177,7 +178,7 @@ def _check_fix_plan(spec_text, spec_path, text, fail, ok):
         if key.startswith("Test "):
             why = verdict(re.compile(r"\b%s\b" % key.replace(" ", r"\s*"), re.IGNORECASE))
         else:
-            why = None if key in text else "no verdict in the report"
+            why = verdict(re.compile(re.escape(key)))
         if why:
             absent.append(f"{label} ({why})")
     if absent:
@@ -345,11 +346,14 @@ def main():
         except (OSError, UnicodeDecodeError):
             prd_text = ""
     acs = _ids(prd_text, "AC") if prd_text else []
-    if is_fix and not prd_path:
+    if args.tier == "FIX" and not prd_path:
         # FIX's DEFINE writes an RCA, often no PRD, and the skill takes a PRD
         # only for FEATURE. With none passed and none found, the fix-plan IS
         # the contract, and F-VER-02/06 below hold the report to all of it. A
         # PRD that exists is still checked: only its absence is answered here.
+        # The tier asked for, not the document found: the receipt records the
+        # tier and the gate compares it, so a FEATURE whose spec resolved to a
+        # fix-plan is not spared its criteria.
         ok("F-VER-01", "tier FIX: no PRD for this ticket — the fix-plan's steps and tests "
                        "are the contract")
     elif not prd_text:

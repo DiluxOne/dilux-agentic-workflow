@@ -1546,9 +1546,15 @@ def test_a_fix_with_a_prd_still_has_its_criteria_checked(tmp_path):
 
 def test_a_resolved_fix_plan_is_read_as_one_whatever_the_tier_flag(tmp_path):
     """The ticket resolved to `fix-{ticket}.md`: that document is a fix-plan,
-    and asking it for blocks would refuse it for a shape it never has."""
+    and asking it for blocks would refuse it for a shape it never has. Only
+    the plan's reading follows the document: sparing the PRD follows the tier
+    asked for, which is what the receipt records and the gate compares."""
     r = _verify_fix(tmp_path, FIX_REPORT, _fix_plan_example())
-    assert r.returncode == 0, r.stdout + r.stderr
+    assert any("✅" in ln for ln in _rows(r, "F-VER-02")), r.stdout
+    assert any("✅" in ln for ln in _rows(r, "F-VER-06")), r.stdout
+    assert r.returncode == 2 and any("❌" in ln and "PRD could not be read" in ln
+                                     for ln in _rows(r, "F-VER-01")), \
+        "a FEATURE run was spared its PRD because its spec was a fix-plan: " + r.stdout
 
 
 def test_a_fix_step_missing_from_the_report_is_named(tmp_path):
@@ -1599,6 +1605,11 @@ def test_a_fix_test_named_by_identifier_is_held_to_that_name(tmp_path):
     r = _verify_fix(tmp_path, FIX_REPORT + "- test_unreadable_file_falls_back ✅\n", plan,
                     "--tier", "FIX")
     assert r.returncode == 0, r.stdout
+    r = _verify_fix(tmp_path, FIX_REPORT + "- test_unreadable_file_falls_back ❌\n", plan,
+                    "--tier", "FIX")
+    assert r.returncode == 2 and any(
+        "❌" in ln and "test_unreadable_file_falls_back (reported failing)" in ln
+        for ln in _rows(r, "F-VER-06")), r.stdout
 
 
 def test_a_fix_plan_with_no_steps_is_not_all_zero_done(tmp_path):

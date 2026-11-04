@@ -79,7 +79,8 @@ plan never had.
 ### Then, for every tier: write the verdict and validate that it is complete
 
 Write the verdict to `docs/daw/reports/verify-{ticket}.md` — every AC by ID with its result, every
-block, the three coverage numbers, the sad-path answer and the lint answer. Then run:
+block (on FIX, every fix-plan step and test), the three coverage numbers, the sad-path answer and the
+lint answer. Then run:
 
 `python3 .daw/scripts/validate_verify.py docs/daw/reports/verify-{ticket}.md --tier <tier>`
 
