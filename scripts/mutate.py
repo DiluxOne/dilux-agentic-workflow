@@ -3201,6 +3201,15 @@ MUTATIONS = [
           "            if reason:\n                return reason\n", "")),
     ("a PRD with no acceptance criteria passes as all zero of them again",
      edit("daw/scripts/validate_verify.py", "    elif not acs:", "    elif False:")),
+    # #67: a fix-plan is read as a fix-plan, and only a FIX with no PRD is
+    # spared the AC check.
+    ("a fix-plan goes back to being read as a spec, and every correct FIX is refused",
+     edit("daw/scripts/validate_verify.py",
+          '    is_fix = args.tier == "FIX" or bool(',
+          '    is_fix = False and bool(')),
+    ("a FIX skips the AC check even when its PRD exists",
+     edit("daw/scripts/validate_verify.py",
+          "    if is_fix and not prd_path:", "    if is_fix:")),
     ("a verdict can be checked against another ticket's documents again",
      edit("daw/scripts/validate_verify.py",
           '    _ticket = re.match(r"verify-(.+)\\.md$", os.path.basename(args.report))',

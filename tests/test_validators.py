@@ -1477,3 +1477,75 @@ def test_el_indice_no_puede_agendar_un_repo_que_el_mapa_no_conoce(tmp_path):
     out = subprocess.run(["python3", os.path.join(ROOT, "daw/scripts/validate_prd.py"),
                           str(prd), "--tier", "FEATURE"], capture_output=True, text=True)
     assert out.returncode == 0, "the honest index was refused: " + out.stdout[-400:]
+
+
+# ── VERIFY reads a fix-plan as a fix-plan (#67) ──────────────────────────────
+#
+# A fix-plan has no `## Block N` and its tests are sentences, so read as a spec
+# it was refused by F-VER-02 ("names no blocks") and F-VER-06 ("not one test
+# name") however complete the verdict was: every correct FIX was blocked.
+
+def _fix_plan_example():
+    """The filled-in fix-plan the spec skill documents — the shape a FIX ships."""
+    skill = open(os.path.join(ROOT, "skills/daw-create-spec/SKILL.md"), encoding="utf-8").read()
+    after = skill.split("### The fix-plan, in the shape the validator reads", 1)[1]
+    return after.split("```markdown\n", 1)[1].split("\n```", 1)[0].replace("{ticket}", "FIX-001")
+
+
+FIX_REPORT = ("# Verification FIX-001\n\n"
+              "- Step 1 ✅ the BOM alone is stripped\n"
+              "- Step 2 ✅ the text read is written back unmodified\n"
+              "- Test 1 ✅ regression: a config with a BOM keeps its trailing newline\n"
+              "- Test 2 ✅ an unreadable file falls back to the defaults\n"
+              "- Test 3 ✅ an invalid UTF-8 byte reports its offset (sad path)\n"
+              "- Coverage: line 95%, branch 92%, function 96%\n"
+              "- Lint: ruff clean\n")
+
+
+def _verify_fix(tmp_path, report, plan, *extra):
+    specs = tmp_path / "docs" / "daw" / "specs"
+    specs.mkdir(parents=True, exist_ok=True)
+    (specs / "fix-FIX-001.md").write_text(plan, encoding="utf-8")
+    verify = tmp_path / "docs" / "daw" / "verify"
+    verify.mkdir(parents=True, exist_ok=True)
+    rp = verify / "verify-FIX-001.md"
+    rp.write_text(report, encoding="utf-8")
+    return subprocess.run([sys.executable, os.path.join(ROOT, "daw/scripts/validate_verify.py"),
+                           str(rp), *extra],
+                          capture_output=True, text=True, cwd=str(tmp_path))
+
+
+def _rows(r, rule):
+    return [ln for ln in r.stdout.splitlines() if rule + ":" in ln]
+
+
+def test_a_fix_whose_every_step_and_test_is_done_passes_verify(tmp_path):
+    """C1: the documented fix-plan, every `Step N` and `Test N` ✅ — and no
+    PRD, which FIX's DEFINE often does not write: the fix-plan is the contract."""
+    r = _verify_fix(tmp_path, FIX_REPORT, _fix_plan_example(), "--tier", "FIX")
+    assert r.returncode == 0 and "PASSED" in r.stdout, r.stdout + r.stderr
+    assert any("✅" in ln and "2 fix-plan step(s)" in ln for ln in _rows(r, "F-VER-02")), r.stdout
+    assert any("✅" in ln and "3 test(s)" in ln for ln in _rows(r, "F-VER-06")), r.stdout
+    assert any("✅" in ln and "tier FIX: no PRD" in ln for ln in _rows(r, "F-VER-01")), r.stdout
+    receipts = list((tmp_path / ".daw-sessions").glob("verify-validated-*"))
+    assert receipts, "a PASSED FIX wrote no receipt: " + r.stdout
+
+
+def test_a_fix_with_a_prd_still_has_its_criteria_checked(tmp_path):
+    """C1's other half: only the ABSENCE of a PRD is answered for a FIX. A PRD
+    passed or found is checked as it is for any tier, so the exemption cannot
+    become a way past acceptance criteria that exist."""
+    prd = tmp_path / "docs" / "daw" / "prd"
+    prd.mkdir(parents=True)
+    (prd / "prd-FIX-001.md").write_text("# PRD\n\n- AC-01: the newline is kept\n"
+                                        "- AC-02: the defaults are used\n", encoding="utf-8")
+    r = _verify_fix(tmp_path, FIX_REPORT + "- AC-01 ✅\n", _fix_plan_example(), "--tier", "FIX")
+    assert r.returncode == 2, r.stdout
+    assert any("❌" in ln and "AC-02" in ln for ln in _rows(r, "F-VER-01")), r.stdout
+
+
+def test_a_resolved_fix_plan_is_read_as_one_whatever_the_tier_flag(tmp_path):
+    """The ticket resolved to `fix-{ticket}.md`: that document is a fix-plan,
+    and asking it for blocks would refuse it for a shape it never has."""
+    r = _verify_fix(tmp_path, FIX_REPORT, _fix_plan_example())
+    assert r.returncode == 0, r.stdout + r.stderr
