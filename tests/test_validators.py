@@ -819,6 +819,21 @@ def test_un_sub_prd_que_no_lleva_su_fila_falla_f_prd_05(tmp_path, acs, named):
         "a split child off its row was not refused naming %s: %s" % (named, "\n".join(refused))
 
 
+@pytest.mark.parametrize("name, index", [
+    ("prd-FEAT-002.md", None),                                  # an ordinary PRD
+    ("prd-FEAT-001b.md", None),                                 # a letter, no index beside it
+    ("prd-FEAT-001b.md", INDICE.replace("| Split |", "| Active |")),  # the sibling is no index
+    ("prd-FEAT-001d.md", INDICE),                               # the index has no row for it
+])
+def test_un_prd_que_no_es_hijo_cuenta_sus_acs_desde_ac_01(tmp_path, name, index):
+    """C3: anything but a split child keeps the gap check from AC-01."""
+    if index is not None:
+        (tmp_path / "prd-FEAT-001.md").write_text(index, encoding="utf-8")
+    _, refused = _validate(tmp_path, "validate_prd.py", name, _hijo((4, 5)))
+    assert any("F-PRD-05" in ln and "missing AC-01, AC-02, AC-03" in ln for ln in refused), \
+        "%s, not a split child, was not held to AC-01: %s" % (name, "\n".join(refused))
+
+
 # ── The commit gate ─────────────────────────────────────────────────────────
 #
 # `git commit` was the one act of the pipeline no hook judged: the
