@@ -1549,3 +1549,80 @@ def test_a_resolved_fix_plan_is_read_as_one_whatever_the_tier_flag(tmp_path):
     and asking it for blocks would refuse it for a shape it never has."""
     r = _verify_fix(tmp_path, FIX_REPORT, _fix_plan_example())
     assert r.returncode == 0, r.stdout + r.stderr
+
+
+def test_a_fix_step_missing_from_the_report_is_named(tmp_path):
+    """C2: a step the report never names is a step nobody says was done."""
+    report = FIX_REPORT.replace("- Step 2 ✅ the text read is written back unmodified\n", "")
+    r = _verify_fix(tmp_path, report, _fix_plan_example(), "--tier", "FIX")
+    assert r.returncode == 2, r.stdout
+    assert any("❌" in ln and "Step 2" in ln and "Step 1" not in ln
+               for ln in _rows(r, "F-VER-02")), r.stdout
+
+
+def test_a_fix_step_reported_failing_is_not_done(tmp_path):
+    """C2: naming a step is not doing it — `Step 2 ❌` says the fix is incomplete."""
+    report = FIX_REPORT.replace("- Step 2 ✅", "- Step 2 ❌")
+    r = _verify_fix(tmp_path, report, _fix_plan_example(), "--tier", "FIX")
+    assert r.returncode == 2, r.stdout
+    assert any("❌" in ln and "Step 2 (reported failing)" in ln
+               for ln in _rows(r, "F-VER-02")), r.stdout
+
+
+def test_a_promised_fix_test_missing_from_the_report_is_named(tmp_path):
+    """C2: the second test of the plan is a sentence, and it is named by its
+    position and its opening words, so the reader knows which one is owed."""
+    report = FIX_REPORT.replace("- Test 2 ✅ an unreadable file falls back to the defaults\n", "")
+    r = _verify_fix(tmp_path, report, _fix_plan_example(), "--tier", "FIX")
+    assert r.returncode == 2, r.stdout
+    rows = _rows(r, "F-VER-06")
+    assert any("❌" in ln and 'Test 2 — "An unreadable file' in ln and "Test 1" not in ln
+               for ln in rows), r.stdout
+
+
+def test_a_promised_fix_test_reported_failing_is_refused(tmp_path):
+    report = FIX_REPORT.replace("- Test 2 ✅", "- Test 2 ❌")
+    r = _verify_fix(tmp_path, report, _fix_plan_example(), "--tier", "FIX")
+    assert r.returncode == 2, r.stdout
+    assert any("❌" in ln and "Test 2" in ln and "reported failing" in ln
+               for ln in _rows(r, "F-VER-06")), r.stdout
+
+
+def test_a_fix_test_named_by_identifier_is_held_to_that_name(tmp_path):
+    """A bullet that opens with `test_x` is a name, read as a spec's is."""
+    plan = _fix_plan_example().replace("- [ ] An unreadable file",
+                                       "- [ ] `test_unreadable_file_falls_back` — an unreadable file")
+    r = _verify_fix(tmp_path, FIX_REPORT, plan, "--tier", "FIX")
+    assert r.returncode == 2, r.stdout
+    assert any("❌" in ln and "test_unreadable_file_falls_back" in ln
+               for ln in _rows(r, "F-VER-06")), r.stdout
+    r = _verify_fix(tmp_path, FIX_REPORT + "- test_unreadable_file_falls_back ✅\n", plan,
+                    "--tier", "FIX")
+    assert r.returncode == 0, r.stdout
+
+
+def test_a_fix_plan_with_no_steps_is_not_all_zero_done(tmp_path):
+    """C2: the emptiness every rule here refuses — no step read is no step
+    checked, never "all 0 fix-plan step(s) are done"."""
+    plan = re.sub(r"(## Solution — steps\n)(?:.*\n)*?(?=\n## )", r"\1The loader is fixed.\n",
+                  _fix_plan_example())
+    assert "1. `src" not in plan
+    r = _verify_fix(tmp_path, FIX_REPORT, plan, "--tier", "FIX")
+    assert r.returncode == 2, r.stdout
+    rows = _rows(r, "F-VER-02")
+    assert rows and all("❌" in ln and "names no steps" in ln for ln in rows), r.stdout
+
+
+def test_a_fix_plan_with_no_tests_is_not_all_zero_reported(tmp_path):
+    plan = re.sub(r"(## Tests\n)(?:.*\n)*?(?=\n## )", r"\1Tested by hand.\n", _fix_plan_example())
+    r = _verify_fix(tmp_path, FIX_REPORT, plan, "--tier", "FIX")
+    assert r.returncode == 2, r.stdout
+    rows = _rows(r, "F-VER-06")
+    assert rows and all("❌" in ln for ln in rows), r.stdout
+
+
+def test_step_one_is_not_answered_by_step_ten(tmp_path):
+    """`Step 1` must not be read inside `Step 10`: a number is matched whole."""
+    report = FIX_REPORT.replace("- Step 1 ✅", "- Step 10 ✅")
+    r = _verify_fix(tmp_path, report, _fix_plan_example(), "--tier", "FIX")
+    assert any("❌" in ln and "Step 1 " in ln for ln in _rows(r, "F-VER-02")), r.stdout
