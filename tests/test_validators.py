@@ -1626,3 +1626,29 @@ def test_step_one_is_not_answered_by_step_ten(tmp_path):
     report = FIX_REPORT.replace("- Step 1 ✅", "- Step 10 ✅")
     r = _verify_fix(tmp_path, report, _fix_plan_example(), "--tier", "FIX")
     assert any("❌" in ln and "Step 1 " in ln for ln in _rows(r, "F-VER-02")), r.stdout
+
+
+def test_a_feature_spec_is_still_asked_for_its_blocks_and_test_names(tmp_path):
+    """C3: the FIX path is FIX's alone. A FEATURE spec — even a verdict that
+    writes `Step N` / `Test N` rows — is held to `Block N` and `test_x`."""
+    specs = tmp_path / "docs" / "daw" / "specs"
+    specs.mkdir(parents=True)
+    (specs / "spec-FEAT-067.md").write_text(
+        "# Spec\n\n## Block 1 — x\n**Required tests**\n- [ ] `test_uno` — valida AC-01\n\n"
+        "## Block 2 — y\n**Required tests**\n- [ ] `test_dos` — valida AC-02\n",
+        encoding="utf-8")
+    verify = tmp_path / "docs" / "daw" / "verify"
+    verify.mkdir(parents=True)
+    rp = verify / "verify-FEAT-067.md"
+    rp.write_text("# V\n- Block 1 ✅ test_uno\n- Step 1 ✅\n- Step 2 ✅\n- Test 1 ✅\n- Test 2 ✅\n",
+                  encoding="utf-8")
+    r = subprocess.run([sys.executable, os.path.join(ROOT, "daw/scripts/validate_verify.py"),
+                        str(rp), "--tier", "FEATURE"],
+                       capture_output=True, text=True, cwd=str(tmp_path))
+    assert r.returncode == 2, r.stdout
+    assert any("❌" in ln and "spec block with no verdict" in ln and "Block 2" in ln
+               for ln in _rows(r, "F-VER-02")), r.stdout
+    assert any("❌" in ln and "absent from the report: test_dos" in ln
+               for ln in _rows(r, "F-VER-06")), r.stdout
+    assert any("❌" in ln and "the PRD could not be read" in ln
+               for ln in _rows(r, "F-VER-01")), "a FEATURE was spared its PRD: " + r.stdout
