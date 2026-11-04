@@ -1,0 +1,9 @@
+{
+  "kind": "prd-seal",
+  "issue": 53,
+  "prd_sha256": "b020db6128d9b883314684d7c17cd29353cddd75f814891c9697ea254a717413",
+  "prd": "### Problem\n\nF-PRD-05 checks a sub-PRD's AC ids for gaps from AC-01, while the Split Protocol makes a split child keep the global AC ids its index assigns it (F-PRD-11), so every sub-PRD that follows the protocol fails and never gets past the `define` gate.\n\n### Scope\n\n- `daw/scripts/validate_prd.py`: a split child's AC ids are checked against exactly the set its index row assigns it (no missing ids, no extras, no duplicates); FR and NFR keep their gap check from 1, and a document that is not a split child keeps today's check, as @MussiDev proposes above.\n- How a child is detected (a sibling index with `| Status | Split |` and a row for it, or an explicit `| Parent | ... |` field) is the Spec's to decide, with the define rules saying the same.\n- Credits: @MussiDev reported it with its reproduction and proposed this fix, credited as a co-author of the pull request that closes this.\n\n### Out of scope\n\n- The weaker alternative of skipping the AC gap check for a split child.\n- Any other F-PRD rule.\n\n### Acceptance criteria\n\n- C1: Given a split child whose AC ids are exactly the ones its index row assigns (for example AC-09..AC-17), when `validate_prd.py` runs on it, then F-PRD-05 passes.\n- C2: Given a split child missing one of its assigned AC ids, or with one not assigned to it, when `validate_prd.py` runs on it, then F-PRD-05 fails and names it.\n- C3: Given a PRD that is not a split child, when `validate_prd.py` runs on it, then F-PRD-05 checks gaps from AC-01 as today.\n- C4: Given a split child, when its FR or NFR ids have a gap from 1, then F-PRD-05 still fails.\n\n### Criticality\n\nNormal",
+  "accepted_by": "soydiloreto",
+  "at": "2026-11-04T16:24:54Z",
+  "policy": "DiluxOne/.github@f70904b12f6f"
+}
