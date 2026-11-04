@@ -1652,3 +1652,30 @@ def test_a_feature_spec_is_still_asked_for_its_blocks_and_test_names(tmp_path):
                for ln in _rows(r, "F-VER-06")), r.stdout
     assert any("❌" in ln and "the PRD could not be read" in ln
                for ln in _rows(r, "F-VER-01")), "a FEATURE was spared its PRD: " + r.stdout
+
+
+def test_a_passed_fix_still_owes_the_independent_review(tmp_path):
+    """C4: the FIX path makes the receipt reachable, and nothing more. The
+    verdict the verify skill documents for a FIX passes the validator — and
+    the phase rule and the skill both still send VERIFY to
+    `daw-module-verifier` for every tier, FIX included, and say the receipt
+    does not stand in for it."""
+    skill_path = os.path.join(ROOT, "skills/daw-verify-module/SKILL.md")
+    skill = open(skill_path, encoding="utf-8").read()
+    example = skill.split("For a FIX, the fix-plan's steps and tests take the place", 1)[1]
+    verdict = example.split("```markdown\n", 1)[1].split("\n```", 1)[0]
+    r = _verify_fix(tmp_path, verdict.replace("{ticket}", "FIX-001"), _fix_plan_example(),
+                    "--tier", "FIX")
+    assert r.returncode == 0 and "PASSED" in r.stdout, \
+        "the FIX verdict the skill documents is refused by its own validator: " + r.stdout
+
+    rule = open(os.path.join(ROOT, "daw/rules/verify.instructions.md"), encoding="utf-8").read()
+    for name, text in (("verify.instructions.md", rule), ("daw-verify-module/SKILL.md", skill)):
+        flat = " ".join(text.split())
+        assert re.search(r"[Ss]pawn[^.]*`?(?:subagent_type=\"daw-module-verifier\"|"
+                         r"daw-module-verifier)`?", flat), \
+            name + " no longer sends VERIFY to the independent reviewer"
+        assert "owed for every tier, FIX included" in flat, \
+            name + " no longer says the review is owed on a FIX"
+        assert "a PASSED receipt does not replace it" in flat, \
+            name + " lets the receipt stand in for the independent review"
