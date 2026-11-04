@@ -781,6 +781,32 @@ def test_un_sub_prd_mas_grande_que_el_umbral_avisa(tmp_path):
         "a 12-AC PRD said nothing about the threshold:\n" + r.stdout[-400:]
 
 
+# F-PRD-05 on a split child: the part keeps the global AC ids its index hands
+# it (F-PRD-11), so counting its ACs from AC-01 failed every child that
+# followed the protocol. Its ACs are held to its index row instead.
+
+def _hijo(acs, frs=(1,), nfrs=(1,)):
+    lines = ["# PRD FEAT-001b"]
+    lines += ["- FR-%02d: el sistema clasifica" % n for n in frs]
+    lines += ["- NFR-%02d: en menos de 200 ms" % n for n in nfrs]
+    lines += ["- AC-%02d (FR-01): WHEN llega, THE sistema SHALL clasificar." % n for n in acs]
+    return "\n".join(lines) + "\n"
+
+
+def _f_prd_05(r):
+    return [ln for ln in r.stdout.splitlines() if "F-PRD-05" in ln]
+
+
+def test_un_sub_prd_con_los_acs_de_su_fila_pasa_f_prd_05(tmp_path):
+    """C1: b is handed AC-04, AC-05 and carries exactly those."""
+    (tmp_path / "prd-FEAT-001.md").write_text(INDICE, encoding="utf-8")
+    r, refused = _validate(tmp_path, "validate_prd.py", "prd-FEAT-001b.md", _hijo((4, 5)))
+    assert not _refuses(refused, "F-PRD-05"), \
+        "a split child carrying its assigned ACs failed F-PRD-05: " + "\n".join(refused)
+    assert any("✅" in ln and "prd-FEAT-001.md" in ln for ln in _f_prd_05(r)), \
+        "the pass does not say the ACs match the index: %r" % _f_prd_05(r)
+
+
 # ── The commit gate ─────────────────────────────────────────────────────────
 #
 # `git commit` was the one act of the pipeline no hook judged: the
