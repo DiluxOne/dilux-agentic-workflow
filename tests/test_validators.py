@@ -834,6 +834,19 @@ def test_un_prd_que_no_es_hijo_cuenta_sus_acs_desde_ac_01(tmp_path, name, index)
         "%s, not a split child, was not held to AC-01: %s" % (name, "\n".join(refused))
 
 
+@pytest.mark.parametrize("frs, nfrs, named", [
+    ((1, 3), (1,), "FR-02"),
+    ((1,), (2,), "NFR-01"),
+])
+def test_un_sub_prd_sigue_contando_fr_y_nfr_desde_1(tmp_path, frs, nfrs, named):
+    """C4: the child's FR and NFR are its own, and keep the gap check from 1."""
+    (tmp_path / "prd-FEAT-001.md").write_text(INDICE, encoding="utf-8")
+    _, refused = _validate(tmp_path, "validate_prd.py", "prd-FEAT-001b.md",
+                           _hijo((4, 5), frs=frs, nfrs=nfrs))
+    assert any("F-PRD-05" in ln and "missing " + named in ln for ln in refused), \
+        "a split child with a gap at %s passed F-PRD-05: %s" % (named, "\n".join(refused))
+
+
 # ── The commit gate ─────────────────────────────────────────────────────────
 #
 # `git commit` was the one act of the pipeline no hook judged: the
