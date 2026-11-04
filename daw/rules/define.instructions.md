@@ -1,6 +1,6 @@
 ---
 applyTo: '**'
-version: 2.12.0
+version: 2.13.0
 ---
 
 # Phase 1: DEFINE (Requirements Definition)
