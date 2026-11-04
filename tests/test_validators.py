@@ -807,6 +807,18 @@ def test_un_sub_prd_con_los_acs_de_su_fila_pasa_f_prd_05(tmp_path):
         "the pass does not say the ACs match the index: %r" % _f_prd_05(r)
 
 
+@pytest.mark.parametrize("acs, named", [
+    ((4,), "AC-05"),                # assigned and absent
+    ((4, 5, 6), "AC-06"),           # present and not assigned (c's)
+])
+def test_un_sub_prd_que_no_lleva_su_fila_falla_f_prd_05(tmp_path, acs, named):
+    """C2: one AC short of its row, or one more than it, fails and names it."""
+    (tmp_path / "prd-FEAT-001.md").write_text(INDICE, encoding="utf-8")
+    _, refused = _validate(tmp_path, "validate_prd.py", "prd-FEAT-001b.md", _hijo(acs))
+    assert any("F-PRD-05" in ln and named in ln for ln in refused), \
+        "a split child off its row was not refused naming %s: %s" % (named, "\n".join(refused))
+
+
 # ── The commit gate ─────────────────────────────────────────────────────────
 #
 # `git commit` was the one act of the pipeline no hook judged: the
