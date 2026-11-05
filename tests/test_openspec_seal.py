@@ -205,6 +205,54 @@ def test_an_invalid_config_stops_the_validation(repo):
     assert out.returncode == 3 and "config.yml is invalid" in out.stderr
 
 
+# ── C5: an edit to the change after the seal drops the approval ───────────────
+
+@pytest.mark.parametrize("edit", ["modify", "add", "remove"])
+def test_editing_the_change_after_the_seal_drops_the_approval(repo, edit):
+    out, path = validate(repo, linked())
+    assert out.returncode == 0 and gate(repo) is None, out.stdout[-800:]
+    target = repo / CHANGE
+    if edit == "modify":
+        with open(target / "tasks.md", "a", encoding="utf-8") as fh:
+            fh.write("- [ ] 1.2 And also email it\n")
+    elif edit == "add":
+        (target / "design.md").write_text("## Context\nx\n")
+    else:
+        os.remove(target / "tasks.md")
+    why = gate(repo)
+    assert why and "OpenSpec change" in why, f"the gate stayed open after the change was {edit}ed"
+    out, _ = validate(repo, path.read_text(encoding="utf-8"))
+    assert out.returncode == 0, out.stdout[-800:]
+    assert gate(repo) is None, "validating again did not reopen the gate"
+
+
+def test_switching_the_config_to_daw_does_not_reopen_it(repo):
+    out, _ = validate(repo, linked())
+    assert out.returncode == 0
+    with open(repo / CHANGE / "proposal.md", "a", encoding="utf-8") as fh:
+        fh.write("- And PDFs, while we are at it.\n")
+    assert gate(repo)
+    (repo / ".daw" / "config.yml").write_text("version: 1\nspec-format: daw\n")
+    assert gate(repo), "switching the config to daw unsealed an edited change"
+    shutil.rmtree(repo / ".daw")
+    assert gate(repo), "removing the config unsealed an edited change"
+    # Validated again with no config at all, the receipt still covers the change
+    # the spec names: the gate opens, and the next edit closes it again.
+    out, _ = validate(repo, (repo / "docs" / "daw" / "specs" / "spec-FEAT-001.md").read_text())
+    assert out.returncode == 0 and "F-SPEC-OS" not in out.stdout, out.stdout[-800:]
+    assert gate(repo) is None, "a spec validated with no config does not open its own gate"
+    (repo / CHANGE / "tasks.md").write_text("- [ ] 1.1 Something else entirely\n")
+    assert gate(repo), "with no config, the change the spec names was no longer sealed"
+
+
+def test_a_change_removed_after_the_seal_refuses(repo):
+    out, _ = validate(repo, linked())
+    assert out.returncode == 0
+    shutil.rmtree(repo / CHANGE)
+    why = gate(repo)
+    assert why and "cannot seal" in why
+
+
 def test_the_change_may_be_written_while_planning(repo):
     """Choice B: `openspec/` is a document folder, like `docs/`."""
     root = os.path.realpath(str(repo))

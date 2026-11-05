@@ -954,6 +954,17 @@ MUTATIONS = [
      edit("daw/scripts/validate_spec.py",
           "        sealed = daw_receipt.sealed_text(args.spec, text)\n",
           "        sealed = text\n")),
+    ("an OpenSpec change edited after its spec was approved keeps the approval",
+     edit("daw/scripts/validate-transition.py",
+          '"validate_spec.py", "spec", sealer=_spec_sealed)',
+          '"validate_spec.py", "spec", sealer=None)')),
+    ("switching the config back to daw unseals an approved OpenSpec change",
+     edit("daw/scripts/validate-transition.py",
+          "        return daw_receipt.sealed_text(path, text, root), None\n",
+          "        import daw_config\n"
+          "        if daw_config.spec_format(root) != \"openspec\":\n"
+          "            return text, None\n"
+          "        return daw_receipt.sealed_text(path, text, root), None\n")),
     ("the project's settings can be rewritten while a ticket runs",
      edit("daw/scripts/validate-transition.py",
           "    if rel == PROJECT_CONFIG:\n        if phase == IDLE:\n            return None\n",
