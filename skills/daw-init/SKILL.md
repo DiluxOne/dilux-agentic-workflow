@@ -47,6 +47,11 @@ wrote. Never write the file by hand from this skill: the script is what the sche
    to change it) and refuses while a ticket is running: the settings decide which rules that
    ticket is held to. Show the user its output, and tell them to commit `.daw/config.yml`.
 
+   With `openspec` and no `openspec/` folder, it also creates OpenSpec's layout —
+   `openspec/project.md`, `openspec/specs/`, `openspec/changes/` — ready for a first change, with
+   no network. An existing `openspec/` is never touched. When the `openspec` CLI is on the PATH,
+   suggest `openspec init` too, for OpenSpec's own agent files; it is the user's to run.
+
 ## If the user declines
 
 Skipping it keeps today's flow. Add `<!-- daw:declined init daw-init -->` to the project's
@@ -54,7 +59,8 @@ Skipping it keeps today's flow. Add `<!-- daw:declined init daw-init -->` to the
 
 ## What this skill does NOT do
 
-- It writes nothing but `.daw/config.yml`, and nothing outside the repository.
+- It writes nothing but `.daw/config.yml` (and `openspec/`, when it creates one), and nothing
+  outside the repository.
 - It does not change a ticket in flight: run it at IDLE.
 
 ## Language

@@ -214,3 +214,43 @@ def test_detect_proposes_daw_without_one(repo):
 def test_detect_and_a_format_are_one_question_or_the_other(repo):
     assert init(repo, "--detect", "--spec-format", "daw").returncode == 2
     assert init(repo).returncode == 2
+
+
+# ── C3: choosing OpenSpec without openspec/ leaves it ready ───────────────────
+
+def test_choosing_openspec_without_a_folder_creates_its_layout(repo):
+    out = init(repo, "--spec-format", "openspec")
+    assert out.returncode == 0, out.stderr
+    assert (repo / "openspec" / "project.md").is_file()
+    assert (repo / "openspec" / "specs").is_dir()
+    assert (repo / "openspec" / "changes").is_dir()
+    # Ready for a first change: nothing in changes/ that reads as one.
+    assert [p for p in os.listdir(repo / "openspec" / "changes") if not p.startswith(".")] == []
+    assert "ready for a first change" in out.stdout
+
+
+def _tree(path):
+    out = {}
+    for base, dirs, files in os.walk(path):
+        for f in files:
+            p = os.path.join(base, f)
+            out[os.path.relpath(p, path)] = open(p, "rb").read()
+        for d in dirs:
+            out[os.path.relpath(os.path.join(base, d), path) + "/"] = None
+    return out
+
+
+def test_an_existing_openspec_folder_is_left_byte_identical(repo):
+    (repo / "openspec" / "changes" / "add-x").mkdir(parents=True)
+    (repo / "openspec" / "changes" / "add-x" / "proposal.md").write_text("## Why\nx\n")
+    (repo / "openspec" / "AGENTS.md").write_bytes(b"theirs\r\n")
+    before = _tree(repo / "openspec")
+    out = init(repo, "--spec-format", "openspec")
+    assert out.returncode == 0, out.stderr
+    assert _tree(repo / "openspec") == before
+    assert not (repo / "openspec" / "project.md").exists()
+
+
+def test_choosing_daw_creates_no_openspec(repo):
+    assert init(repo, "--spec-format", "daw").returncode == 0
+    assert not (repo / "openspec").exists()

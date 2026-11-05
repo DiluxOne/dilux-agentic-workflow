@@ -11,7 +11,13 @@ deterministically, and is what the tests call — the same split as
 `--detect` proposes `openspec` when the repository already has an `openspec/`
 folder, and `daw` otherwise. It is a proposal: the person answers.
 
-It writes only inside the repository, and only `.daw/config.yml`. What it wrote
+Choosing `openspec` in a repository with no `openspec/` creates OpenSpec's
+layout — `openspec/project.md`, `openspec/specs/`, `openspec/changes/` — so the
+first change has somewhere to go. Offline and deterministic: no `npx`, no
+network. An `openspec/` that exists, in any shape, is never touched.
+
+It writes only inside the repository: `.daw/config.yml`, and `openspec/` when
+it creates one. What it wrote
 is read back through `daw_config`, the one reader, so a file this leaves behind
 is one the schema accepts. An existing config is never overwritten without
 `--force`, and never while a ticket is running: the settings decide which rules
@@ -59,6 +65,42 @@ def _phase(repo):
 def detect(repo):
     """The format to propose: `openspec` where an `openspec/` folder exists."""
     return "openspec" if os.path.isdir(os.path.join(repo, "openspec")) else "daw"
+
+
+PROJECT_MD = """# Project context
+
+What every OpenSpec change in this repository can assume. Fill it in once; the
+changes under `changes/` describe what each one adds, and `specs/` holds what
+the project already does.
+
+## Purpose
+
+## Tech stack
+
+## Conventions
+"""
+KEEP = "# Kept so git keeps the folder. OpenSpec writes here.\n"
+
+
+def scaffold_openspec(repo):
+    """OpenSpec's layout, when the repository has none. Returns what it made.
+
+    Anything already named `openspec` — a folder, a file, a symlink — is left
+    exactly as it is, and nothing is made.
+    """
+    base = os.path.join(repo, "openspec")
+    if os.path.lexists(base):
+        return []
+    made = []
+    for sub in ("specs", "changes"):
+        os.makedirs(os.path.join(base, sub))
+        with open(os.path.join(base, sub, ".gitkeep"), "w", encoding="utf-8") as fh:
+            fh.write(KEEP)
+        made.append("openspec/%s/" % sub)
+    with open(os.path.join(base, "project.md"), "w", encoding="utf-8") as fh:
+        fh.write(PROJECT_MD)
+    made.insert(0, "openspec/project.md")
+    return made
 
 
 def render(spec_format):
@@ -118,6 +160,16 @@ def main():
               file=sys.stderr)
         return 2
     print("Wrote %s: spec-format: %s" % (daw_config.CONFIG, data["spec-format"]))
+    if data["spec-format"] == "openspec":
+        try:
+            made = scaffold_openspec(repo)
+        except OSError as why:
+            print("daw_init: could not create openspec/: %s" % why, file=sys.stderr)
+            return 1
+        if made:
+            print("Created OpenSpec's layout, ready for a first change: %s" % ", ".join(made))
+        else:
+            print("openspec/ is already here: left as it is.")
     return 0
 
 
