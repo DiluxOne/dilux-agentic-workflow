@@ -1290,7 +1290,10 @@ NO_SOURCE_PHASES = frozenset({"IDLE", "CLASSIFY", "DEFINE", "PLAN", "VERIFY", "D
 # What those phases MAY still write. An allowlist, not a blocklist: a blocklist
 # of source extensions is a guess about someone else's stack, and every guess it
 # gets wrong fails open.
-ALLOWED_DIR_PREFIXES = ("docs/",)
+# `openspec/` is the project's OpenSpec changes and specs: documents, written in
+# DEFINE and PLAN like anything under `docs/`. An edit to a change after its spec
+# is sealed is allowed and drops the approval (`daw_receipt.sealed_text`).
+ALLOWED_DIR_PREFIXES = ("docs/", "openspec/")
 ALLOWED_WIRING_DIRS = frozenset({
     # Each tool's wiring, plus the pipeline's own runtime. Product source lives
     # in none of these.
@@ -1853,7 +1856,8 @@ def _receipt_spent(root, gate, marker_name, ticket=None):
             "again and claim the gate with the new receipt." % gate)
 
 
-def _receipt_missing(root, state, gate, receipt, subdir, stems, script, artifact):
+def _receipt_missing(root, state, gate, receipt, subdir, stems, script, artifact,
+                     sealer=None):
     """One gate, one artifact, one receipt naming that artifact's CURRENT bytes.
 
     Content-hashed on purpose. A receipt keyed on the filename would go on
@@ -1903,7 +1907,6 @@ def _receipt_missing(root, state, gate, receipt, subdir, stems, script, artifact
         # again, which makes it the worst shape a refusal can have.
         with open(path, encoding="utf-8") as fh:
             text = fh.read()
-        digest = hashlib.sha256(text.encode("utf-8")).hexdigest()[:12]
     except (OSError, UnicodeDecodeError) as exc:
         # Also a refusal. A document nothing can read is a document no receipt
         # can name, and returning None here meant one stray non-UTF-8 byte
@@ -1912,6 +1915,16 @@ def _receipt_missing(root, state, gate, receipt, subdir, stems, script, artifact
                 "document; a document that cannot be decoded as UTF-8 has none this can check. "
                 "Fix the file's encoding and validate it again."
                 % (gate, os.path.relpath(path, root), type(exc).__name__))
+    # What the receipt covers beyond the document's own bytes, if anything — the
+    # spec's OpenSpec change. Computed by the same function the validator used.
+    if sealer is not None:
+        text, why = sealer(path, text, root)
+        if why:
+            return ("the %s gate cannot seal what %s names: %s. Fix it and validate again: "
+                    "`python3 .daw/scripts/%s %s --tier <tier>`."
+                    % (gate, os.path.relpath(path, root), why, script,
+                       os.path.relpath(path, root)))
+    digest = hashlib.sha256(text.encode("utf-8")).hexdigest()[:12]
     marker = os.path.join(root, ".daw-sessions", "%s-validated-%s" % (receipt, digest))
     if os.path.exists(marker):
         # And it has to be a receipt for THIS artifact. The digest is of the
@@ -1977,10 +1990,12 @@ def _receipt_missing(root, state, gate, receipt, subdir, stems, script, artifact
     # `DAW blocked this write:`, `daw-transition:`, `DAW:` — and a prefix baked
     # into the reason arrives doubled at whichever caller did not know to strip
     # it. One did, one did not, and the user read `DAW blocked this write: DAW:`.
+    sealed_too = (" — or the OpenSpec change it names, which its receipt seals with it, "
+                  "so the approval was dropped" if sealer is not None and "\0" in text else "")
     return ("the %s gate needs a validation receipt for %s and there is none for its "
             "current content. Run `python3 .daw/scripts/%s %s --tier <tier>` — a "
-            "PASSED run writes the receipt. If the %s changed after validating, validate again."
-            % (gate, rel, script, rel, artifact))
+            "PASSED run writes the receipt. If the %s changed after validating%s, validate "
+            "again." % (gate, rel, script, rel, artifact, sealed_too))
 
 
 def _prd_receipt_missing(root, state):
@@ -2008,7 +2023,28 @@ def _spec_receipt_missing(root, state):
     PLAN phase emits. The tier is not consulted, so a mislabelled state cannot
     aim the check at the file that happens to be absent."""
     return _receipt_missing(root, state, "spec", "spec", "specs", ("spec", "fix"),
-                            "validate_spec.py", "spec")
+                            "validate_spec.py", "spec", sealer=_spec_sealed)
+
+
+def _spec_sealed(path, text, root):
+    """The spec's text and the OpenSpec change it names, as `(text, why_not)`.
+
+    `daw_receipt.sealed_text`, the one definition the validator also hashes. It
+    goes by what the SPEC names, never by `.daw/config.yml`: switching the config
+    back to `daw` must not reopen a gate over a change edited after approval.
+    Fails closed when the module cannot be loaded and the spec names a change.
+    """
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    try:
+        import daw_receipt
+    except ImportError:
+        if "**OpenSpec change:**" in text:
+            return text, "daw_receipt.py, which seals the change, could not be loaded"
+        return text, None
+    try:
+        return daw_receipt.sealed_text(path, text, root), None
+    except daw_receipt.SealError as why:
+        return text, str(why)
 
 
 def _threat_receipt_missing(root, state):

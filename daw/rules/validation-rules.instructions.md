@@ -1,6 +1,6 @@
 ---
 applyTo: '**'
-version: 1.16.0
+version: 1.17.0
 ---
 
 # Validation Rules — Central Catalog
@@ -176,7 +176,18 @@ completeness principle (every design decision must be documented).
 | F-SPEC-14 | Fix with no regression test | Every fix-plan must include at least one test reproducing the original bug. If there is no regression test → FAIL. | A fix with no regression test will break again. The test must fail BEFORE the fix and pass AFTER. Standard practice in every engineering team. |
 | F-SPEC-15 | Fix-plan with no rollback plan | For tier FIX: the fix-plan must include rollback steps and the indicators for when to apply them. If reverting really is trivial, the section still has to exist and say so explicitly. Absent → FAIL. | A fix that reaches production with no thought about reverting it can end up worse than the defect. Standard in incident management (ITIL, Google SRE). If a change is too small to deserve a rollback plan, it is a QUICK-FIX, not a FIX. |
 
-### 2.6 Spec warnings
+### 2.6 The OpenSpec bridge (only under `spec-format: openspec`)
+
+Run only when the project's `.daw/config.yml` says `spec-format: openspec` (`/daw-init`). A project
+without the file, or with `spec-format: daw`, never sees them. Like `F-SPEC-LOOP`, they sit outside
+the numbered rules and the summary below.
+
+| ID | Check | Precise description | Basis |
+|---|---|---|---|
+| F-SPEC-OS-01 | One OpenSpec change, named and present | The spec carries exactly one line `**OpenSpec change:** openspec/changes/<name>`, `<name>` matches `^[a-z0-9][a-z0-9-]*$`, and the folder exists in this repository with its `proposal.md`. None, two, a bad name, a missing folder, a symlink out of the repository, a non-UTF-8 file or a folder past the seal's caps → FAIL. | The receipt seals the spec AND the change it names (`daw_receipt.sealed_text`), so an approval covers both. A spec that names no change, or two, has nothing definite to seal; a name that is a path (`../../x`) never reaches the filesystem. |
+| F-SPEC-OS-02 | The spec does not copy the what | The spec has no `### Requirement:` or `#### Scenario:` heading, and no line of 40 or more characters (whitespace-normalised) that is a line of the change's `openspec/changes/<name>/proposal.md` or `openspec/changes/<name>/specs/**`. Otherwise → FAIL. | The what lives in the change and the how in the spec. Two copies of a requirement drift, and the one the code follows is whichever the reader opened. |
+
+### 2.7 Spec warnings
 
 | ID | Check | Precise description | Basis |
 |---|---|---|---|

@@ -43,6 +43,17 @@ what the implementation is judged against.
    verification.
 5. Every block carries: files to create/modify, logic, required tests, completion criterion.
 
+### Creation mode — FEATURE under `spec-format: openspec`
+When `.daw/config.yml` says `spec-format: openspec`, use the **OpenSpec variant** below instead of
+the canonical template: the what is in the OpenSpec change, and the spec links it and writes only
+the how.
+1. Find or write the change: `openspec/changes/<name>/proposal.md`, with its
+   `openspec/changes/<name>/specs/` and `openspec/changes/<name>/tasks.md`.
+2. Put the one link in the header: `**OpenSpec change:** openspec/changes/<name>`.
+3. Write the blocks, their tests, the dependencies between them and the gates, exactly as the
+   canonical template asks — never a `### Requirement:`, a `#### Scenario:` or a line copied from
+   the proposal (`F-SPEC-OS-02`). Every FR and AC of the PRD is still covered.
+
 ### Creation mode — FIX (lightweight fix-plan)
 1. Read the diagnosis of the problem.
 2. Identify the root cause and the affected files.
@@ -252,6 +263,41 @@ Name every sad-path test with the failure word its error bullet uses — `faltan
 those words, and a test called `test_post_sin_email` names none of them. Block 3 above is not
 decoration: the block that reuses an earlier schema is where two different models failed
 F-SPEC-08 three times, and its Data model sentence is the accepted shape, verbatim.
+
+## Spec Template (FEATURE, OpenSpec variant)
+
+```markdown
+# Spec {ticket}: [Title]
+
+**OpenSpec change:** openspec/changes/[name]
+
+| Field | Value |
+|-------|-------|
+| Ticket | [ticket] |
+| PRD | docs/daw/prd/prd-{ticket}.md |
+| Tier | FEATURE |
+| Date | [timestamp] |
+| Spec loops | 0 |
+| Loops since last human decision | 0 |
+
+## Summary
+[How the change is built, in 3–5 lines. What it is lives in the change, not here.]
+
+## Coverage: PRD → blocks
+[As in the canonical template.]
+
+## Dependencies between blocks
+[As in the canonical template.]
+
+## Block 1 — [name]
+[As in the canonical template: Files, Logic, Error handling, Required tests, Completion criterion.]
+
+## Final verification
+[As in the canonical template.]
+```
+
+The receipt `daw-validate-spec` writes seals this spec and every file of the change it names:
+editing the change after approval drops the approval.
 
 ## Fix-Plan Template (FIX) — canonical
 

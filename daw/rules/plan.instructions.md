@@ -1,6 +1,6 @@
 ---
 applyTo: '**'
-version: 1.13.0
+version: 1.14.0
 ---
 
 # Phase 2: PLAN (Technical Planning)
@@ -241,6 +241,23 @@ completed blocks) and output format.
   update mode (do NOT modify inline, do NOT read SKILL.md as a file). The skill reads the existing
   spec, appends new blocks at the end with sequential numbering, preserves completed blocks (`[x]`),
   and increments `Spec loops`.
+
+### Under `spec-format: openspec`
+When the project's `.daw/config.yml` says `spec-format: openspec`, the what lives in one OpenSpec
+change, `openspec/changes/<name>` (its proposal, specs and tasks), and the spec writes
+only the how: the blocks, their tests, the order between them and the gates. The spec carries one
+line, `**OpenSpec change:** openspec/changes/<name>`, and never copies a requirement, a scenario or
+a line of the proposal (`F-SPEC-OS-01`, `F-SPEC-OS-02`). Write or update the change first (it is a
+document, writable in DEFINE and PLAN like `docs/`), then create the spec with `daw-create-spec`,
+which has the OpenSpec variant of the template. DEFINE and the PRD are unchanged: the spec still
+covers every FR and AC of the PRD.
+
+The spec's receipt seals the change with it. **Editing the change after the spec is approved drops
+the approval**: the spec gate refuses until `daw-validate-spec` passes again and the user approves
+again. Archive the change (`openspec archive`) only after the merge: archiving moves the folder the
+sealed spec names, and the gate refuses before CLOSEOUT.
+
+With no `.daw/config.yml`, or `spec-format: daw`, none of this applies: the spec is written as below.
 
 ### Canonical template
 The spec's template is defined by the `daw-create-spec` skill. **It is not duplicated here**, to

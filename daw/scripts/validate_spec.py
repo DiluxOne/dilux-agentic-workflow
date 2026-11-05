@@ -30,6 +30,7 @@ import re
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import daw_config  # noqa: E402
 import daw_receipt  # noqa: E402 — same directory, resolved above
 
 # A block opens with `## Block N — name`; a fix-plan's unit is a numbered step
@@ -232,6 +233,66 @@ def _loops_since_human(text):
                   text, re.IGNORECASE | re.MULTILINE)
     return int(m.group(1)) if m else None
 
+# What only the OpenSpec change may say: its requirements and their scenarios.
+OPENSPEC_WHAT = re.compile(r"^[ \t]*#{2,6}[ \t]+(Requirement|Scenario):", re.MULTILINE)
+COPY_MIN = 40
+
+
+def _norm(line):
+    return " ".join(line.split())
+
+
+def _copied_lines(text, files):
+    """The spec's lines of 40+ characters that are lines of the change's what.
+
+    The what is `proposal.md` and `specs/**`; `tasks.md` and `design.md` are
+    the change's own how, and the spec may well agree with them. Whitespace is
+    normalised, nothing else: a line rewritten in the spec's own words is not a
+    copy, and saying it is would be a judgement a parser cannot defend.
+    """
+    what = set()
+    for relp, body in files:
+        tail = relp.split("/", 3)[3] if relp.count("/") >= 3 else relp
+        if tail == "proposal.md" or tail.startswith("specs/"):
+            what |= {_norm(ln) for ln in body.splitlines() if len(_norm(ln)) >= COPY_MIN}
+    return [_norm(ln) for ln in text.splitlines() if _norm(ln) in what]
+
+
+def _openspec_rules(text, repo, fail, ok):
+    """F-SPEC-OS-01/02, run only under `spec-format: openspec`."""
+    named = daw_receipt.openspec_named(text)
+    change, files = None, []
+    if not named:
+        fail("F-SPEC-OS-01", "the spec names no OpenSpec change. Under spec-format: openspec it "
+                             "carries one line, `**OpenSpec change:** openspec/changes/<name>`")
+    else:
+        try:
+            change = daw_receipt.openspec_change(text)
+            if not os.path.isfile(os.path.join(repo, *change.split("/"), "proposal.md")):
+                raise daw_receipt.SealError("%s has no proposal.md (does the folder exist?)"
+                                            % change)
+            files = daw_receipt.change_files(repo, change)
+        except daw_receipt.SealError as why:
+            fail("F-SPEC-OS-01", str(why))
+            change = None
+        else:
+            ok("F-SPEC-OS-01", f"the spec names one OpenSpec change, {change}, and it has its "
+                               "proposal.md")
+    heads = [m.group(0).strip() for m in OPENSPEC_WHAT.finditer(text)]
+    copied = _copied_lines(text, files) if change else []
+    if heads:
+        fail("F-SPEC-OS-02", "the spec writes the what that belongs to the OpenSpec change: "
+                             + ", ".join(heads[:3]) + " — keep requirements and scenarios there")
+    elif copied:
+        fail("F-SPEC-OS-02", "the spec copies %d line(s) of the change's proposal or specs, "
+                             "first: \"%s\" — link the change, write only the how"
+             % (len(copied), copied[0][:80]))
+    elif change:
+        ok("F-SPEC-OS-02", "the spec writes only the how: no requirement or scenario, and no line "
+                           "of the change's proposal or specs")
+    return change
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("spec")
@@ -243,6 +304,16 @@ def main():
         text = open(args.spec, encoding="utf-8").read()
     except (OSError, UnicodeDecodeError) as exc:
         print(f"validate_spec: cannot read {args.spec}: {exc}", file=sys.stderr)
+        sys.exit(3)
+
+    # The project's spec format, through the one reader. No `.daw/config.yml` is
+    # today's flow; an invalid one is not read as the default, it stops here.
+    repo = daw_receipt.repo_root(args.spec)
+    try:
+        spec_format = daw_config.spec_format(repo)
+    except daw_config.Invalid as why:
+        print(f"validate_spec: .daw/config.yml is invalid ({why}). It is not read as the "
+              "default: fix it, then validate again.", file=sys.stderr)
         sys.exit(3)
 
     rows, fails, warns = [], 0, 0
@@ -498,6 +569,20 @@ def main():
     if not is_fix and SCHEMA.search(text) and not ROLLBACK.search(text):
         warn("W-SPEC-03", "schema changes with no rollback or reverse-migration consideration")
 
+    # ── The OpenSpec bridge (F-SPEC-OS-01/02), only under spec-format: openspec ─
+    if spec_format == "openspec":
+        _openspec_rules(text, repo, fail, ok)
+
+    # What the receipt will hash: the spec and the change it names, whatever the
+    # config says — the seal goes by the spec. A change that cannot be sealed is
+    # a FAIL, never a receipt over the spec alone.
+    sealed = None
+    try:
+        sealed = daw_receipt.sealed_text(args.spec, text)
+    except daw_receipt.SealError as why:
+        if not any("F-SPEC-OS-01" in r for r in rows):
+            fail("F-SPEC-OS-01", f"the OpenSpec change this spec names cannot be sealed: {why}")
+
     rows.append("  👁  F-SPEC-12 (contradicts the PRD) and F-SPEC-13 (terminology diverging from")
     rows.append("      the PRD) are MANUAL: judge them and say so explicitly in your report.")
 
@@ -549,7 +634,11 @@ def main():
     if fails == 0:
         # One writer for all six receipts, so the rule cannot drift six ways —
         # and so that writing one is RECORDED in the journal the gate reads.
-        print("Receipt: .daw-sessions/" + daw_receipt.write(args.spec, "spec", text, args.tier))
+        change = daw_receipt.openspec_change(text)
+        print("Receipt: .daw-sessions/" + daw_receipt.write(args.spec, "spec", sealed, args.tier,
+                                                           openspec=change))
+        if change:
+            print(f"Seals: {change} — editing it after approval drops the approval")
 
     # The table above is for the USER, and it does not reach them by itself.
     #
