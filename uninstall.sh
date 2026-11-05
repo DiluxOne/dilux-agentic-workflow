@@ -48,8 +48,10 @@ if python3 -c 'import sys; sys.path.insert(0, sys.argv[1]); import migrate_legac
   python3 "$SELF/daw/scripts/migrate_legacy.py" --repo "$TARGET" || exit 1
 fi
 
-if [ ! -d "$TARGET/.daw" ] && [ ! -f "$TARGET/.daw-installed.json" ]; then
-  echo "DAW does not appear to be installed in $TARGET (no .daw/ and no manifest)."
+# The orchestrator, not the folder: a project using the plugin keeps its own
+# `.daw/config.yml` there, and nothing of DAW's was installed beside it.
+if [ ! -f "$TARGET/.daw/orchestrator.md" ] && [ ! -f "$TARGET/.daw-installed.json" ]; then
+  echo "DAW does not appear to be installed in $TARGET (no .daw/orchestrator.md and no manifest)."
   exit 0
 fi
 

@@ -30,8 +30,8 @@ set -uo pipefail
 # a knob anyone could turn from outside the file. `docs/AI-POLICY.md` and
 # `CONTRIBUTING.md` both name this variable as the thing not to soften; it was
 # softenable without editing the file they were talking about.
-EXPECT_CHECKS=671
-EXPECT_SKILLS=20
+EXPECT_CHECKS=673
+EXPECT_SKILLS=21
 EXPECT_AGENTS=5
 EXPECT_RULES=14
 EXPECT_ADAPTERS=6
@@ -40,7 +40,7 @@ EXPECT_ADAPTERS=6
 # `--check-anchors`, `--cover` and every check in this file green, and the
 # published percentage went on being a percentage of a smaller list. The same
 # reason `EXPECT_CHECKS` exists, one file over.
-EXPECT_MUTATIONS=784
+EXPECT_MUTATIONS=787
 
 SELF="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # EXPORTED, because the Python blocks below anchor their own temporary
@@ -1894,7 +1894,7 @@ PYCHANGED
 # The state a session materialises has to carry the field, or the mode has
 # nowhere to live: `session-boot.py` writes the first state every repo ever gets.
 SBA="$WORK/autonomy-boot"; mkdir -p "$SBA"; git -C "$SBA" init -q .
-mkdir -p "$SBA/.daw"
+mkdir -p "$SBA/.daw"; : > "$SBA/.daw/orchestrator.md"
 python3 "$SELF/daw/scripts/session-boot.py" --repo "$SBA" --session-id a1 >/dev/null 2>&1
 python3 - "$SBA" <<'PYSB' && ok "a freshly materialised state carries `autonomy`, so the mode has somewhere to live" || bad "the state template dropped the field the whole mode is carried in"
 import json, os, sys
@@ -11629,6 +11629,7 @@ CLAIMS = {
     "daw-family-status":     ["family_next.py", "origin/main", "update-row", "Never improvise"],
     "daw-eject":             [".daw/", "The repo wins", "CLAUDE_PLUGIN_ROOT"],
     "daw-help":              ["/daw-status", "/daw-self-check"],
+    "daw-init":              ["daw_init.py", "--spec-format", "daw:declined init"],
     "daw-security-sast":     ["validate_sast.py", "docs/daw/security/sast-"],
     "daw-self-check":        ["INCONSISTENCY", "```bash"],
     "daw-status":            [".daw-state.json"],

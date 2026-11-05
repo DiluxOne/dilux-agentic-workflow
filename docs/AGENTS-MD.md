@@ -132,6 +132,11 @@ that speaks MCP fits — and with no section the step still runs over the commit
 red. That is the whole hazard of this file, and it is why the installer and `/daw-context-check` both
 report the ones that are absent.
 
+**DAW's settings are not headings here.** How the project runs DAW (its spec format, for one) is
+data, in `.daw/config.yml`, validated against a schema and written by `/daw-init` — never a line of
+prose in this file, which nothing validates and every agent reads its own way. See
+[`INSTALL.md`](INSTALL.md#set-the-project-up-daw-init).
+
 ---
 
 ## The two situations that leave you without them

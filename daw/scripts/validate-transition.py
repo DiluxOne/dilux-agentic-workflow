@@ -1399,6 +1399,10 @@ def _outside_repo(target, root):
 # state is how the pipeline advances, and that write is what every other rule in
 # this file judges.
 PROTECTED_PREFIXES = (".daw/", ".daw-sessions/")
+# The one file under `.daw/` that is the PROJECT's: its settings, committed with
+# it (`daw/scripts/daw_config.py`). Writable at IDLE only, so a running ticket's
+# rules cannot change under it; in every other phase it is as sealed as the rest.
+PROJECT_CONFIG = ".daw/config.yml"
 # The files that WIRE the gates to each tool. DAW merges one key into these
 # rather than owning them — your own settings live in the same file — so they
 # carry no manifest hash, and without naming them here the whole protection was
@@ -1463,7 +1467,7 @@ def _manifest_paths(root):
     return out
 
 
-def enforcement_write_denied(target, root):
+def enforcement_write_denied(target, root, phase=None):
     """A write to the machinery that does the enforcing. Refused in EVERY phase.
 
     This existed only inside `source_write_denied`, which returns early for CODE
@@ -1486,6 +1490,14 @@ def enforcement_write_denied(target, root):
         return None
     rel = os.path.relpath(target, root).replace(os.sep, "/")
     what = None
+    if rel == PROJECT_CONFIG:
+        if phase == IDLE:
+            return None
+        return (
+            f"`{rel}` is this project's DAW settings, and they decide which rules the running "
+            f"ticket is held to, so they are written at IDLE only (the pipeline is in "
+            f"{phase or 'an unknown phase'}). Finish or pause the ticket, then change them."
+        )
     if rel == INSTALL_MANIFEST:
         what = "the record of what DAW installed"
     elif any(rel.startswith(p) for p in PROTECTED_PREFIXES):
@@ -1523,6 +1535,8 @@ def source_write_denied(target, root, phase):
     if head in ALLOWED_WIRING_DIRS:
         return None
     if rel in ALLOWED_ROOT_FILES:
+        return None
+    if rel == PROJECT_CONFIG and phase == IDLE:
         return None
     if any(rel.startswith(pre) for pre in ALLOWED_DIR_PREFIXES):
         return None
@@ -2843,13 +2857,13 @@ def decide_pre(state_path, graph_path, tool_name, tool_input, paths, repo=None, 
         # Asked FIRST, and separately from the phase rule, because it does not
         # depend on the phase: DAW's own machinery is not writable from inside
         # the pipeline, in CODE and CLOSEOUT as much as anywhere else.
-        reason = enforcement_write_denied(target, root)
+        reason = enforcement_write_denied(target, root, phase)
         if reason:
             return reason
         # …and under the name it was written as, which is a different question
         # whenever a symlink stands between the two.
         if lexical != target:
-            reason = enforcement_write_denied(lexical, root)
+            reason = enforcement_write_denied(lexical, root, phase)
             if reason:
                 return reason
         reason = source_write_denied(target, root, phase)

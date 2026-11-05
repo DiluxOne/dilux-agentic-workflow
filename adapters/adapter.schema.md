@@ -1,6 +1,6 @@
 # Adapter recipe — adding support for a new tool
 
-DAW keeps **one copy of everything**. The orchestrator, the rules, the 20 skills and the 5 agents
+DAW keeps **one copy of everything**. The orchestrator, the rules, the 21 skills and the 5 agents
 live once, under `daw/`, written in no tool's dialect. An adapter is not a copy of the framework —
 it is a **recipe** that says where this particular tool looks for things and what frontmatter it
 speaks. The installer transpiles at install time.

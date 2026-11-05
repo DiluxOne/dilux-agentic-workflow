@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/DiluxOne/dilux-agentic-workflow/blob/main/daw/config.schema.json",
+  "title": "DAW's settings for one project: .daw/config.yml",
+  "description": "Committed in the project and read by daw/scripts/daw_config.py, the one reader. A project without the file keeps today's flow, exactly as if it said `spec-format: daw`. Written by /daw-init (daw/scripts/daw_init.py).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version"],
+  "properties": {
+    "version": {
+      "description": "The format of this file. Only 1 exists.",
+      "const": 1
+    },
+    "spec-format": {
+      "description": "How a ticket's spec is written. `daw`: the spec carries the what and the how, as it always has. `openspec`: the spec names one `openspec/changes/<name>`, writes only the how (blocks, tests, order, gates), and its receipt seals that change too.",
+      "enum": ["daw", "openspec"],
+      "default": "daw"
+    }
+  }
+}

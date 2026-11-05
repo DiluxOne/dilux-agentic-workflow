@@ -59,7 +59,10 @@ Copying the method in is also what you want on **any** of the six once you need 
 the method works, rather than only use it. Both ways, and what each one costs, are in
 [`docs/INSTALL.md`](docs/INSTALL.md).
 
-Then open your agent in the project and ask it for something. The pipeline starts on its own.
+Then open your agent in the project and ask it for something. The pipeline starts on its own. The
+first time, it offers **`/daw-init`**, which writes the project's DAW settings to `.daw/config.yml`
+(the spec format: DAW's own, or OpenSpec); skipping it keeps the default flow
+([`docs/INSTALL.md`](docs/INSTALL.md#set-the-project-up-daw-init)).
 
 > 🌍 **On language.** This repo is in English; DAW is not. Its files are **prompts**, and they carry
 > an explicit directive: answer in the language the user writes in, and write every artifact — PRDs,

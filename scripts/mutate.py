@@ -931,7 +931,18 @@ MUTATIONS = [
           "may also propose prose, conventions, architecture")),
     ("a declined recommendation stops being mentioned at boot",
      edit("daw/scripts/session-boot.py",
-          "    declined = declined_recommendations(repo)", "    declined = []")),
+          '    declined = [d for d in all_declined if d[1] != "init"]', "    declined = []")),
+    ("a declined /daw-init is offered again at every boot",
+     edit("daw/scripts/session-boot.py",
+          'if phase != "IDLE" or any(key == "init" for _, key, _ in declined):',
+          'if phase != "IDLE":')),
+    ("an invalid .daw/config.yml is read as if it were valid",
+     edit("daw/scripts/daw_config.py",
+          '    if errors:\n        raise Invalid("; ".join(errors))\n', "")),
+    ("the project's settings can be rewritten while a ticket runs",
+     edit("daw/scripts/validate-transition.py",
+          "    if rel == PROJECT_CONFIG:\n        if phase == IDLE:\n            return None\n",
+          "    if rel == PROJECT_CONFIG:\n        if True:\n            return None\n")),
 
     # ── Upgrading an existing install ────────────────────────────────────────
     ("a stale activation block is called current and left to rot",
@@ -2042,7 +2053,7 @@ MUTATIONS = [
     # ── DAW's own machinery, which no phase writes ───────────────────────────
     ("the pipeline can edit the rules that stop it again",
      edit("daw/scripts/validate-transition.py",
-          "        reason = enforcement_write_denied(target, root)\n        if reason:\n            return reason\n",
+          "        reason = enforcement_write_denied(target, root, phase)\n        if reason:\n            return reason\n",
           "")),
     ("the method itself stops being sealed",
      edit("daw/scripts/validate-transition.py",
@@ -3197,7 +3208,7 @@ MUTATIONS = [
              "the line that pins the total of checks")),
     ("the sealed names are judged only after symlinks are followed again",
      edit("daw/scripts/validate-transition.py",
-          "        if lexical != target:\n            reason = enforcement_write_denied(lexical, root)\n"
+          "        if lexical != target:\n            reason = enforcement_write_denied(lexical, root, phase)\n"
           "            if reason:\n                return reason\n", "")),
     ("a PRD with no acceptance criteria passes as all zero of them again",
      edit("daw/scripts/validate_verify.py", "    elif not acs:", "    elif False:")),
