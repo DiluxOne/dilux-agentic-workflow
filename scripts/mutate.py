@@ -965,6 +965,10 @@ MUTATIONS = [
           "        if daw_config.spec_format(root) != \"openspec\":\n"
           "            return text, None\n"
           "        return daw_receipt.sealed_text(path, text, root), None\n")),
+    ("a spec that names no OpenSpec change stops hashing to today's receipt",
+     edit("daw/scripts/daw_receipt.py",
+          "    if change is None:\n        return text\n",
+          "    if change is None:\n        return text + \"\\0\"\n")),
     ("the project's settings can be rewritten while a ticket runs",
      edit("daw/scripts/validate-transition.py",
           "    if rel == PROJECT_CONFIG:\n        if phase == IDLE:\n            return None\n",
