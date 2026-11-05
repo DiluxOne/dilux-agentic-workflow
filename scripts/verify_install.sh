@@ -5543,6 +5543,25 @@ PYPS
   esac
 done
 
+# `/daw-init` gives a plugin-installed project a `.daw/` that holds only
+# `config.yml`. A hook that reads "a .daw/ folder exists" as "DAW is copied in"
+# then looks for its boot script in the repo, finds none, and exits quietly:
+# no boot context, no post-compaction reminder, on every session after init.
+for T in codex cursor gemini copilot; do
+  PR="$WORK/plugin-config-$T"; mkdir -p "$PR/.daw"; git -C "$PR" init -q . >/dev/null 2>&1 || true
+  printf 'version: 1\nspec-format: daw\n' > "$PR/.daw/config.yml"
+  HD="$SELF/adapters/$T/hooks"; [ "$T" = copilot ] && HD="$SELF/adapters/$T/scripts"
+  for H in session-start.sh pre-compact.sh; do
+    HOUT="$( cd "$PR" && printf '{}' | DAW_PLUGIN_ROOT="$PLR" CURSOR_PLUGIN_ROOT="$PLR" \
+               bash "$HD/$H" 2>/dev/null )"
+    case "$HOUT" in
+      *"$PLR/daw/orchestrator.md"*)
+        ok "$T $H still finds the plugin's method in a repo whose .daw/ holds only config.yml" ;;
+      *) bad "$T $H goes silent once /daw-init writes .daw/config.yml under a plugin install" ;;
+    esac
+  done
+done
+
 # ── What the repository shows the outside world ───────────────────────────────
 #
 # A malformed issue form is not an error on GitHub: the form simply does not

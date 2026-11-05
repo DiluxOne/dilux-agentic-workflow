@@ -9,7 +9,7 @@ REPO="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 # installed to judge while the skills load and the pipeline looks installed.
 PLUGIN_ROOT="${DAW_PLUGIN_ROOT:-${CODEX_PLUGIN_ROOT:-}}"
 DAW="$REPO/.daw"
-if [ ! -d "$DAW" ] && [ -n "$PLUGIN_ROOT" ] && [ -d "$PLUGIN_ROOT/daw" ]; then
+if [ ! -f "$DAW/scripts/session-boot.py" ] && [ -n "$PLUGIN_ROOT" ] && [ -d "$PLUGIN_ROOT/daw" ]; then
   DAW="$PLUGIN_ROOT/daw"
 fi
 BOOT="$DAW/scripts/session-boot.py"
