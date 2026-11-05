@@ -1,0 +1,9 @@
+{
+  "kind": "prd-seal",
+  "issue": 72,
+  "prd_sha256": "5afd7411414cd2e7c18c04eaa39021cccfc5c85fa3e6447316e32e67a6a0412d",
+  "prd": "### Problem\n\nThe organisation's workflow templates (workflow-templates/issues.yml in DiluxOne/.github) have jobs or settings that .github/workflows/issues.yml here lack. Each caller is brought in step job by job, keeping the values that are this repository's (its support URL, slug, version constant, profile) and its own jobs and inputs.\n\nIt brings the repository in line with DiluxOne/.github at 9263f9ce9775bf99a122be75ea1dfe873d427dd4 (https://github.com/DiluxOne/.github/commit/9263f9ce9775bf99a122be75ea1dfe873d427dd4). The autonomy policy accepts this issue (policy/autonomy.yml, lane org-sync), and its pull request merges on its own only while it changes nothing but what that commit holds, and no job's permissions or secrets.\n\n### Scope\n\n- `.github/workflows/issues.yml`, as DiluxOne/.github keeps it for this repository.\n\n### Out of scope\n\n- Any other file.\n\n### Acceptance criteria\n\n- C1: Given the pull request merged, when `scripts/sync-repos.py` in DiluxOne/.github runs again for this repository, then it finds these files in step.\n\n### Criticality\n\nNormal",
+  "accepted_by": "soydiloreto",
+  "at": "2026-11-05T01:13:24Z",
+  "policy": "DiluxOne/.github@9263f9ce9775"
+}
