@@ -177,10 +177,11 @@ def _inside(path, root):
 def change_files(root, change):
     """The change's regular files as (repo-relative path, text), sorted.
 
-    Fails closed: a missing folder, a symlink out of the repository, a file that
-    is not UTF-8, or a folder past the caps is a SealError, never a pass.
-    Symlinks that stay inside are not followed and not hashed — only regular
-    files are what the change says.
+    Fails closed: a missing folder, a symlink, a file that is not UTF-8, or a
+    folder past the caps is a SealError, never a pass. A symlink is refused
+    even when it stays inside the repository: hashing the link would leave its
+    target free to change after the approval, and following it would seal a
+    file that is not the change's.
     """
     folder = os.path.join(root, *change.split("/"))
     if os.path.islink(folder) or not os.path.isdir(folder):
@@ -193,17 +194,13 @@ def change_files(root, change):
         for name in list(dirs):
             p = os.path.join(base, name)
             if os.path.islink(p):
-                if not _inside(p, root):
-                    raise SealError("%s is a symlink out of the repository"
-                                    % os.path.relpath(p, root))
-                dirs.remove(name)
+                raise SealError("%s is a symlink, which no receipt seals"
+                                % os.path.relpath(p, root).replace(os.sep, "/"))
         for name in sorted(files):
             p = os.path.join(base, name)
             relp = os.path.relpath(p, root).replace(os.sep, "/")
             if os.path.islink(p):
-                if not _inside(p, root):
-                    raise SealError("%s is a symlink out of the repository" % relp)
-                continue
+                raise SealError("%s is a symlink, which no receipt seals" % relp)
             if not os.path.isfile(p):
                 continue
             total += os.path.getsize(p)

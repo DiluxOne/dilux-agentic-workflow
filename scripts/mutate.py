@@ -969,6 +969,11 @@ MUTATIONS = [
      edit("daw/scripts/daw_receipt.py",
           "    if change is None:\n        return text\n",
           "    if change is None:\n        return text + \"\\0\"\n")),
+    ("a symlink inside an OpenSpec change is skipped by the seal again",
+     edit("daw/scripts/daw_receipt.py",
+          '            if os.path.islink(p):\n'
+          '                raise SealError("%s is a symlink, which no receipt seals" % relp)\n',
+          '            if os.path.islink(p):\n                continue\n')),
     ("a plugin install's boot goes silent once .daw/ holds only config.yml",
      edit("adapters/gemini/hooks/session-start.sh",
           'if [ ! -f "$DAW/scripts/session-boot.py" ] && [ -n "$PLUGIN_ROOT" ]',

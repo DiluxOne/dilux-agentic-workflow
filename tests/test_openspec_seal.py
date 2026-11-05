@@ -187,6 +187,20 @@ def test_a_change_with_a_symlink_out_of_the_repo_is_refused(repo, tmp_path):
     assert out.returncode == 2 and failed(out, "F-SPEC-OS-01") and "symlink" in out.stdout
 
 
+@pytest.mark.parametrize("link", ["proposal.md", "specs"])
+def test_a_change_with_a_symlink_inside_the_repo_is_refused(repo, link):
+    # A link the seal skipped would leave its target free to change after the
+    # approval with the digest unchanged: docs/ is writable in DEFINE and PLAN.
+    target = repo / "docs" / ("what.md" if link == "proposal.md" else "what")
+    os.replace(repo / CHANGE / link, target)
+    os.symlink(target, repo / CHANGE / link)
+    out, _ = validate(repo, linked())
+    assert out.returncode == 2 and failed(out, "F-SPEC-OS-01") and "symlink" in out.stdout
+    assert not list(repo.glob(".daw-sessions/spec-validated-*")), "a refused spec left a receipt"
+    with pytest.raises(daw_receipt.SealError):
+        daw_receipt.change_files(str(repo), CHANGE)
+
+
 def test_a_change_that_is_not_utf8_is_refused(repo):
     (repo / CHANGE / "blob.bin").write_bytes(b"\xff\xfe\x00")
     out, _ = validate(repo, linked())
