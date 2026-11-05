@@ -128,7 +128,12 @@ def write_config(repo, spec_format, force=False):
         raise Refused("%s already exists; pass --force to replace it" % daw_config.CONFIG)
     os.makedirs(folder, exist_ok=True)
     tmp = path + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as fh:
+    # A leftover `.tmp` is removed rather than opened: if it were a symlink,
+    # `open(tmp, "w")` would write through it to wherever it points.
+    if os.path.lexists(tmp):
+        os.remove(tmp)
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0), 0o644)
+    with os.fdopen(fd, "w", encoding="utf-8") as fh:
         fh.write(render(spec_format))
     os.replace(tmp, path)
     return path

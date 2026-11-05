@@ -129,6 +129,17 @@ def test_init_does_not_write_through_a_symlink(repo, tmp_path):
     assert not (elsewhere / "config.yml").exists()
 
 
+def test_init_does_not_write_through_a_leftover_temp_symlink(repo, tmp_path):
+    victim = tmp_path / "victim.txt"
+    victim.write_text("untouched\n")
+    (repo / ".daw").mkdir()
+    os.symlink(victim, repo / ".daw" / "config.yml.tmp")
+    assert init(repo, "--spec-format", "daw").returncode == 0
+    assert victim.read_text() == "untouched\n"
+    assert not os.path.islink(repo / ".daw" / "config.yml")
+    assert "spec-format: daw" in (repo / ".daw" / "config.yml").read_text()
+
+
 def test_no_config_is_todays_flow(repo):
     assert daw_config.load(str(repo)) is None
     assert daw_config.spec_format(str(repo)) == "daw"
