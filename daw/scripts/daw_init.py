@@ -5,7 +5,11 @@ The skill (`skills/daw-init/SKILL.md`) talks to the person; this does the work,
 deterministically, and is what the tests call — the same split as
 `daw-family-impact` and `family_impact.py`.
 
+    daw_init.py --repo . --detect                          # prints the proposal
     daw_init.py --repo . --spec-format daw|openspec [--force]
+
+`--detect` proposes `openspec` when the repository already has an `openspec/`
+folder, and `daw` otherwise. It is a proposal: the person answers.
 
 It writes only inside the repository, and only `.daw/config.yml`. What it wrote
 is read back through `daw_config`, the one reader, so a file this leaves behind
@@ -52,6 +56,11 @@ def _phase(repo):
         return None
 
 
+def detect(repo):
+    """The format to propose: `openspec` where an `openspec/` folder exists."""
+    return "openspec" if os.path.isdir(os.path.join(repo, "openspec")) else "daw"
+
+
 def render(spec_format):
     return HEADER + "version: 1\nspec-format: %s\n" % spec_format
 
@@ -86,11 +95,17 @@ def write_config(repo, spec_format, force=False):
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--repo", default=".")
-    ap.add_argument("--spec-format", choices=FORMATS, required=True)
+    what = ap.add_mutually_exclusive_group(required=True)
+    what.add_argument("--detect", action="store_true",
+                      help="print the spec format to propose, and write nothing")
+    what.add_argument("--spec-format", choices=FORMATS)
     ap.add_argument("--force", action="store_true",
                     help="replace an existing .daw/config.yml")
     args = ap.parse_args()
     repo = os.path.abspath(args.repo)
+    if args.detect:
+        print(detect(repo))
+        return 0
     try:
         write_config(repo, args.spec_format, args.force)
     except (Refused, OSError) as why:

@@ -193,3 +193,24 @@ def test_uninstall_keeps_the_projects_settings(repo):
     assert (repo / ".daw" / "config.yml").read_text() == "version: 1\n"
     assert sorted(os.listdir(repo / ".daw")) == ["config.yml"]
     assert "Kept .daw/config.yml" in out.stdout
+
+
+# ── C2: an existing openspec/ is what init proposes ───────────────────────────
+
+def test_detect_proposes_openspec_where_an_openspec_folder_exists(repo):
+    (repo / "openspec" / "changes").mkdir(parents=True)
+    out = init(repo, "--detect")
+    assert out.returncode == 0 and out.stdout.strip() == "openspec", out.stdout + out.stderr
+    assert not (repo / ".daw").exists(), "--detect wrote something"
+
+
+def test_detect_proposes_daw_without_one(repo):
+    out = init(repo, "--detect")
+    assert out.returncode == 0 and out.stdout.strip() == "daw", out.stdout + out.stderr
+    (repo / "openspec").write_text("not a folder\n")
+    assert init(repo, "--detect").stdout.strip() == "daw"
+
+
+def test_detect_and_a_format_are_one_question_or_the_other(repo):
+    assert init(repo, "--detect", "--spec-format", "daw").returncode == 2
+    assert init(repo).returncode == 2

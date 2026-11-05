@@ -20,16 +20,24 @@ wrote. Never write the file by hand from this skill: the script is what the sche
 
 ## Protocol
 
-1. **Ask which spec format the project uses**:
+1. **Find what to propose** (script, not a guess):
+
+   ```bash
+   python3 .daw/scripts/daw_init.py --repo . --detect
+   ```
+
+   It prints `openspec` when the repository already has an `openspec/` folder, `daw` otherwise.
+
+2. **Ask which spec format the project uses**, proposing the detected one:
    - `daw` — the spec carries both the what and the how, as it always has.
    - `openspec` — the what lives in an OpenSpec change (`openspec/changes/<name>`); the ticket's
      spec names that change and writes only the how (blocks, tests, order, gates), and its receipt
      seals the change too.
 
-2. **Confirm** with the user what will be written: `.daw/config.yml` with `version: 1` and the
+3. **Confirm** with the user what will be written: `.daw/config.yml` with `version: 1` and the
    format they chose.
 
-3. **Write it**:
+4. **Write it**:
 
    ```bash
    python3 .daw/scripts/daw_init.py --repo . --spec-format <daw|openspec>
