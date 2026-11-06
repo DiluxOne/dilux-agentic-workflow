@@ -241,7 +241,13 @@ def main():
         key = sm["merge_key"]
         if not isinstance(dst.get(key), dict):
             continue
+        # The same blocks as every install before the path quoting wired them
+        # (`bash ${CLAUDE_PROJECT_DIR}/…`, no quotes): what this version ships
+        # is not the only spelling of DAW's own block in a repo out there.
+        legacy = json.loads(json.dumps(ours).replace('\\"', ""))
         mine = {event: {json.dumps(b, sort_keys=True) for b in blocks}
+                       | {json.dumps(b, sort_keys=True)
+                          for b in legacy.get(key, {}).get(event, [])}
                 for event, blocks in ours.get(key, {}).items()}
         changed = False
         for event in list(dst.get(key, {})):

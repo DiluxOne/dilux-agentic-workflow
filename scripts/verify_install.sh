@@ -30,7 +30,7 @@ set -uo pipefail
 # a knob anyone could turn from outside the file. `docs/AI-POLICY.md` and
 # `CONTRIBUTING.md` both name this variable as the thing not to soften; it was
 # softenable without editing the file they were talking about.
-EXPECT_CHECKS=684
+EXPECT_CHECKS=687
 EXPECT_SKILLS=20
 EXPECT_AGENTS=5
 EXPECT_RULES=14
@@ -40,7 +40,7 @@ EXPECT_ADAPTERS=6
 # `--check-anchors`, `--cover` and every check in this file green, and the
 # published percentage went on being a percentage of a smaller list. The same
 # reason `EXPECT_CHECKS` exists, one file over.
-EXPECT_MUTATIONS=809
+EXPECT_MUTATIONS=812
 
 SELF="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # EXPORTED, because the Python blocks below anchor their own temporary
@@ -854,10 +854,8 @@ import json, sys
 root = sys.argv[1]
 drop = open(f"{root}/adapters/claude/settings.json", encoding="utf-8").read()
 plug = open(f"{root}/adapters/claude/plugin-hooks.json", encoding="utf-8").read()
-# The plugin's copy quotes its root (`claude plugin validate --strict` refuses an
-# unquoted ${CLAUDE_PLUGIN_ROOT}, which a path with a space splits); the drop-in's
-# keeps the commands earlier installs merged into a project's settings.
-plug = plug.replace('\\"', "")
+# Both copies quote their root, the same way: only the variable differs. Quoting
+# is compared rather than stripped, so one copy losing its quotes is drift too.
 normalize = lambda t: (t.replace("${CLAUDE_PROJECT_DIR}/.claude/hooks/", "@@")
                         .replace("${CLAUDE_PLUGIN_ROOT}/adapters/claude/hooks/", "@@"))
 a, b = json.loads(normalize(drop)), json.loads(normalize(plug))
@@ -867,6 +865,54 @@ a, b = json.loads(normalize(drop)), json.loads(normalize(plug))
 a.pop("_comment", None); b.pop("_comment", None)
 assert a == b, "the hook sets differ once the root variable is normalized"
 PY
+
+# ── A path with a space in it ──────────────────────────────────────────────────
+# Claude Code runs a hook's command through a shell after expanding the
+# variable in it, so `bash ${CLAUDE_PROJECT_DIR}/.claude/hooks/enforce.sh` in a
+# repo at `/home/me/My Projects/app` runs `bash /home/me/My` — not found, and
+# every gate silently gone. Each command quotes its path, in both manifests.
+python3 - "$SELF" <<'PY' \
+  && ok "every Claude hook command quotes its path, in settings.json and plugin-hooks.json" \
+  || bad "a Claude hook command leaves its path unquoted — a repo path with a space runs nothing"
+import json, re, sys
+root = sys.argv[1]
+for name, var in (("settings.json", "CLAUDE_PROJECT_DIR"), ("plugin-hooks.json", "CLAUDE_PLUGIN_ROOT")):
+    hooks = json.load(open(f"{root}/adapters/claude/{name}", encoding="utf-8"))["hooks"]
+    cmds = [h["command"] for groups in hooks.values() for g in groups for h in g["hooks"]]
+    assert len(cmds) == 7, f"{name}: {len(cmds)} commands"
+    for c in cmds:
+        assert re.fullmatch(r'bash "\$\{%s\}/[^"\s]+\.sh"' % var, c), f"{name}: unquoted {c!r}"
+PY
+SPACED="$WORK/with space/repo"; mkdir -p "$SPACED"; git -C "$SPACED" init -q .
+DAW_GIT_FLOW=none bash "$SELF/install.sh" "$SPACED" --target claude </dev/null >/dev/null 2>&1
+SP_OUT=$(python3 - "$SPACED" <<'PY'
+import json, os, subprocess, sys
+repo = sys.argv[1]
+# IDLE straight to CLOSEOUT: a transition the graph does not have.
+illegal = json.dumps({"phase": "CLOSEOUT", "tier": "FEATURE", "gates": {}, "history": [
+    {"timestamp": "2026-07-27T10:00:00Z", "from": "IDLE", "to": "CLOSEOUT"}]})
+hooks = json.load(open(os.path.join(repo, ".claude", "settings.json"), encoding="utf-8"))["hooks"]
+env = dict(os.environ, CLAUDE_PROJECT_DIR=repo)
+ran, refused = 0, None
+for groups in hooks.values():
+    for g in groups:
+        for h in g["hooks"]:
+            # The way Claude Code runs it: the command line, through a shell.
+            event = {"tool_name": "Write", "cwd": repo,
+                     "tool_input": {"file_path": os.path.join(repo, ".daw-state.json"), "content": illegal}}
+            r = subprocess.run(["bash", "-c", h["command"]], input=json.dumps(event), env=env,
+                               capture_output=True, text=True, cwd=repo)
+            if r.returncode in (126, 127) or "No such file" in r.stderr:
+                print("not run: " + h["command"]); sys.exit(0)
+            ran += 1
+            if "validate-state-transition.sh" in h["command"]:
+                refused = r.returncode == 2
+print(f"ran={ran} refused={refused}")
+PY
+)
+[ "$SP_OUT" = "ran=7 refused=True" ] \
+  && ok "from a repo whose path has a space, all seven Claude hooks run and the gate still refuses" \
+  || bad "from a repo whose path has a space, the Claude hooks do not run ($SP_OUT)"
 
 # ── Upgrading must upgrade, and must not touch what you made yours ────────────
 # The installer used to read any difference as "the user's file", so a DAW
@@ -6337,6 +6383,47 @@ assert "Kept" not in _plan or "--force" not in _plan.split("Kept")[1][:200], \
     ("the plan of a `--force` says it keeps files and suggests re-running with "
      "`--force`, which is what was just asked for — and then deletes them: " + _plan[-400:])
 PYUNINST
+
+# The hook commands were unquoted until the path-with-a-space fix, and every
+# Claude drop-in before it carries them that way. A block is DAW's when it is
+# byte-for-byte one the installer adds — in this version's spelling or that
+# older one — even where the manifest does not name the scripts it runs:
+# otherwise an uninstall leaves the repo wired to scripts it just deleted.
+python3 - "$SELF" "$WORK" <<'PYLEGACY' \
+  && ok "an uninstall removes the unquoted hook blocks older Claude drop-ins wired, and only those" \
+  || bad "an uninstall leaves a legacy unquoted Claude hook block wired to scripts it deleted"
+import json, os, subprocess, sys
+src, work = sys.argv[1], sys.argv[2]
+repo = os.path.join(work, "legacy-unquoted")
+os.makedirs(repo)
+subprocess.run(["git", "-C", repo, "init", "-q"], check=True)
+subprocess.run(["bash", os.path.join(src, "install.sh"), repo, "--target", "claude"],
+               capture_output=True, text=True, env=dict(os.environ, DAW_GIT_FLOW="none"))
+spath = os.path.join(repo, ".claude", "settings.json")
+settings = json.load(open(spath, encoding="utf-8"))
+unquoted = 0
+for groups in settings["hooks"].values():
+    for g in groups:
+        for h in g["hooks"]:
+            if '"' in h["command"]:
+                h["command"] = h["command"].replace('"', "")
+                unquoted += 1
+assert unquoted == 7, f"the install wired {unquoted} quoted commands, not 7"
+mine = {"hooks": [{"type": "command", "command": "bash my-own-hook.sh"}]}
+settings["hooks"]["PreToolUse"].append(mine)
+json.dump(settings, open(spath, "w", encoding="utf-8"), indent=2)
+# A manifest that does not name the hook scripts: only the block's own spelling
+# can say it is DAW's.
+mpath = os.path.join(repo, ".daw-installed.json")
+manifest = json.load(open(mpath, encoding="utf-8"))
+manifest = {k: v for k, v in manifest.items() if "/hooks/" not in k}
+json.dump(manifest, open(mpath, "w", encoding="utf-8"), indent=2, sort_keys=True)
+subprocess.run(["bash", os.path.join(src, "uninstall.sh"), repo, "--yes"],
+               capture_output=True, text=True)
+left = json.load(open(spath, encoding="utf-8")) if os.path.exists(spath) else {}
+cmds = [h["command"] for groups in left.get("hooks", {}).values() for g in groups for h in g["hooks"]]
+assert cmds == ["bash my-own-hook.sh"], f"after the uninstall the hooks are {cmds}"
+PYLEGACY
 
 # The manifest is COMMITTED, so it arrives with the clone, from whoever wrote it —
 # and the uninstaller removes what its keys name. Four keys, each a different way
