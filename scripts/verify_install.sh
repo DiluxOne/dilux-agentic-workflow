@@ -30,7 +30,7 @@ set -uo pipefail
 # a knob anyone could turn from outside the file. `docs/AI-POLICY.md` and
 # `CONTRIBUTING.md` both name this variable as the thing not to soften; it was
 # softenable without editing the file they were talking about.
-EXPECT_CHECKS=680
+EXPECT_CHECKS=681
 EXPECT_SKILLS=20
 EXPECT_AGENTS=5
 EXPECT_RULES=14
@@ -40,7 +40,7 @@ EXPECT_ADAPTERS=6
 # `--check-anchors`, `--cover` and every check in this file green, and the
 # published percentage went on being a percentage of a smaller list. The same
 # reason `EXPECT_CHECKS` exists, one file over.
-EXPECT_MUTATIONS=796
+EXPECT_MUTATIONS=797
 
 SELF="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # EXPORTED, because the Python blocks below anchor their own temporary
@@ -12812,6 +12812,39 @@ PROBE
   node "$WORK/opencode-steer-probe.mjs" >/dev/null 2>&1 \
     && ok "OpenCode plugin steers: skills registered, bootstrap rides the first message, once" \
     || bad "OpenCode plugin install enforces but does not steer — the PRD-to-monorepo failure is back"
+
+  # V1 does not import `DawPlugin` by name: it walks EVERY export of the module
+  # and needs each to be a function or a `{ server: fn }` module
+  # (`PluginModule`, @opencode-ai/plugin 1.19.5 dist/index.d.ts), throwing
+  # "Plugin export is not a function" otherwise, and it calls one function
+  # once however many exports reach it. The V2 default export rides in the same
+  # file, so a default V1 cannot read takes every V1 user down at load, before
+  # any of the probes above, which import by name, could notice.
+  cat > "$WORK/opencode-v1-load.mjs" <<PROBE
+const mod = await import("$ALL/.opencode/plugins/daw.js")
+const seen = new Set()
+const loaded = []
+for (const [name, value] of Object.entries(mod)) {
+  const fn = typeof value === "function" ? value : value?.server
+  if (typeof fn !== "function") throw new TypeError(\`Plugin export is not a function: \${name}\`)
+  if (seen.has(fn)) continue
+  seen.add(fn)
+  loaded.push(await fn({ directory: "$ALL", worktree: "$ALL" }))
+}
+const keys = ["config", "event", "experimental.chat.messages.transform",
+              "tool.execute.before", "tool.execute.after"]
+const wired = loaded.length === 1 && keys.every((k) => typeof loaded[0][k] === "function")
+let blocked = false
+try {
+  await loaded[0]["tool.execute.before"]({ tool: "write" },
+    { args: { filePath: "$ALL/.daw-state.json", content: process.argv[2] } })
+} catch { blocked = true }
+console.log(JSON.stringify({ exports: Object.keys(mod).length, wired, blocked }))
+PROBE
+  V1_LOAD=$(node "$WORK/opencode-v1-load.mjs" "$ILLEGAL" 2>&1)
+  [ "$V1_LOAD" = '{"exports":2,"wired":true,"blocked":true}' ] \
+    && ok "OpenCode V1 loads the module through every export, once, with its gates (no 'not a function')" \
+    || bad "OpenCode V1 cannot load the plugin the way it walks a module's exports ($V1_LOAD)"
 
   # OpenCode V2 runs only the default export, `{ id, setup(ctx) }`, and none of
   # the V1 hooks above. A mock context records what `setup` registers, and the

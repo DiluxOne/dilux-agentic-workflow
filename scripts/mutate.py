@@ -708,6 +708,12 @@ MUTATIONS = [
      edit("adapters/opencode/plugin/daw.js",
           'const WRITE_TOOLS = new Set(["write", "edit", "apply_patch"])',
           'const WRITE_TOOLS = new Set(["write", "edit"])')),
+    # V1 walks every export, the V2 default among them: one it cannot call
+    # stops the module loading, and every V1 gate with it.
+    ("OpenCode's V2 default export is one V1 cannot load",
+     edit("adapters/opencode/plugin/daw.js",
+          'export default { id: "daw", server: DawPlugin, setup }',
+          'export default { id: "daw", setup }')),
     # OpenCode V2 runs none of the V1 hooks above: its gates are registered
     # from `setup`, and each of these leaves V1 green while V2 enforces nothing.
     ("OpenCode V2's plugin stops judging writes before they happen",
