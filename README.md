@@ -180,6 +180,10 @@ that ran at three in the morning is a record that lies by omission.
   ❌ rather than a rewritten row.
 - **OpenCode** — the first four, against the live tool (1.18.9, 2026-07-29). That session is also
   where two defects were found, which is the argument for doing this by hand.
+  The plugin also speaks OpenCode V2's interface. Driven on 2026-11-06 with a stand-in model, a
+  drop-in boots and refuses a forged state on 1.19.5. On V2's published build (0.0.0-dev-202610280534)
+  its read-only agents get V2's rules, but that build gives a plugin no tool or session hook yet, so
+  **V2's own session runtime is not gated**. The record says what is owed.
 - **Copilot CLI** — three of the first four (1.0.75, 2026-07-29). The fourth is **detected and not
   prevented**, and the ceiling is the tool's: its post hook cannot refuse anything.
 - **Codex CLI, Cursor, Gemini CLI** — each adapter is driven through its own hook, with its own

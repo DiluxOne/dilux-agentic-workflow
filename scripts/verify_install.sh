@@ -30,7 +30,7 @@ set -uo pipefail
 # a knob anyone could turn from outside the file. `docs/AI-POLICY.md` and
 # `CONTRIBUTING.md` both name this variable as the thing not to soften; it was
 # softenable without editing the file they were talking about.
-EXPECT_CHECKS=681
+EXPECT_CHECKS=698
 EXPECT_SKILLS=21
 EXPECT_AGENTS=5
 EXPECT_RULES=14
@@ -40,7 +40,7 @@ EXPECT_ADAPTERS=6
 # `--check-anchors`, `--cover` and every check in this file green, and the
 # published percentage went on being a percentage of a smaller list. The same
 # reason `EXPECT_CHECKS` exists, one file over.
-EXPECT_MUTATIONS=811
+EXPECT_MUTATIONS=841
 
 SELF="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # EXPORTED, because the Python blocks below anchor their own temporary
@@ -854,10 +854,8 @@ import json, sys
 root = sys.argv[1]
 drop = open(f"{root}/adapters/claude/settings.json", encoding="utf-8").read()
 plug = open(f"{root}/adapters/claude/plugin-hooks.json", encoding="utf-8").read()
-# The plugin's copy quotes its root (`claude plugin validate --strict` refuses an
-# unquoted ${CLAUDE_PLUGIN_ROOT}, which a path with a space splits); the drop-in's
-# keeps the commands earlier installs merged into a project's settings.
-plug = plug.replace('\\"', "")
+# Both copies quote their root, the same way: only the variable differs. Quoting
+# is compared rather than stripped, so one copy losing its quotes is drift too.
 normalize = lambda t: (t.replace("${CLAUDE_PROJECT_DIR}/.claude/hooks/", "@@")
                         .replace("${CLAUDE_PLUGIN_ROOT}/adapters/claude/hooks/", "@@"))
 a, b = json.loads(normalize(drop)), json.loads(normalize(plug))
@@ -867,6 +865,54 @@ a, b = json.loads(normalize(drop)), json.loads(normalize(plug))
 a.pop("_comment", None); b.pop("_comment", None)
 assert a == b, "the hook sets differ once the root variable is normalized"
 PY
+
+# ── A path with a space in it ──────────────────────────────────────────────────
+# Claude Code runs a hook's command through a shell after expanding the
+# variable in it, so `bash ${CLAUDE_PROJECT_DIR}/.claude/hooks/enforce.sh` in a
+# repo at `/home/me/My Projects/app` runs `bash /home/me/My` — not found, and
+# every gate silently gone. Each command quotes its path, in both manifests.
+python3 - "$SELF" <<'PY' \
+  && ok "every Claude hook command quotes its path, in settings.json and plugin-hooks.json" \
+  || bad "a Claude hook command leaves its path unquoted — a repo path with a space runs nothing"
+import json, re, sys
+root = sys.argv[1]
+for name, var in (("settings.json", "CLAUDE_PROJECT_DIR"), ("plugin-hooks.json", "CLAUDE_PLUGIN_ROOT")):
+    hooks = json.load(open(f"{root}/adapters/claude/{name}", encoding="utf-8"))["hooks"]
+    cmds = [h["command"] for groups in hooks.values() for g in groups for h in g["hooks"]]
+    assert len(cmds) == 7, f"{name}: {len(cmds)} commands"
+    for c in cmds:
+        assert re.fullmatch(r'bash "\$\{%s\}/[^"\s]+\.sh"' % var, c), f"{name}: unquoted {c!r}"
+PY
+SPACED="$WORK/with space/repo"; mkdir -p "$SPACED"; git -C "$SPACED" init -q .
+DAW_GIT_FLOW=none bash "$SELF/install.sh" "$SPACED" --target claude </dev/null >/dev/null 2>&1
+SP_OUT=$(python3 - "$SPACED" <<'PY'
+import json, os, subprocess, sys
+repo = sys.argv[1]
+# IDLE straight to CLOSEOUT: a transition the graph does not have.
+illegal = json.dumps({"phase": "CLOSEOUT", "tier": "FEATURE", "gates": {}, "history": [
+    {"timestamp": "2026-07-27T10:00:00Z", "from": "IDLE", "to": "CLOSEOUT"}]})
+hooks = json.load(open(os.path.join(repo, ".claude", "settings.json"), encoding="utf-8"))["hooks"]
+env = dict(os.environ, CLAUDE_PROJECT_DIR=repo)
+ran, refused = 0, None
+for groups in hooks.values():
+    for g in groups:
+        for h in g["hooks"]:
+            # The way Claude Code runs it: the command line, through a shell.
+            event = {"tool_name": "Write", "cwd": repo,
+                     "tool_input": {"file_path": os.path.join(repo, ".daw-state.json"), "content": illegal}}
+            r = subprocess.run(["bash", "-c", h["command"]], input=json.dumps(event), env=env,
+                               capture_output=True, text=True, cwd=repo)
+            if r.returncode in (126, 127) or "No such file" in r.stderr:
+                print("not run: " + h["command"]); sys.exit(0)
+            ran += 1
+            if "validate-state-transition.sh" in h["command"]:
+                refused = r.returncode == 2
+print(f"ran={ran} refused={refused}")
+PY
+)
+[ "$SP_OUT" = "ran=7 refused=True" ] \
+  && ok "from a repo whose path has a space, all seven Claude hooks run and the gate still refuses" \
+  || bad "from a repo whose path has a space, the Claude hooks do not run ($SP_OUT)"
 
 # ── Upgrading must upgrade, and must not touch what you made yours ────────────
 # The installer used to read any difference as "the user's file", so a DAW
@@ -6357,6 +6403,47 @@ assert "Kept" not in _plan or "--force" not in _plan.split("Kept")[1][:200], \
      "`--force`, which is what was just asked for — and then deletes them: " + _plan[-400:])
 PYUNINST
 
+# The hook commands were unquoted until the path-with-a-space fix, and every
+# Claude drop-in before it carries them that way. A block is DAW's when it is
+# byte-for-byte one the installer adds — in this version's spelling or that
+# older one — even where the manifest does not name the scripts it runs:
+# otherwise an uninstall leaves the repo wired to scripts it just deleted.
+python3 - "$SELF" "$WORK" <<'PYLEGACY' \
+  && ok "an uninstall removes the unquoted hook blocks older Claude drop-ins wired, and only those" \
+  || bad "an uninstall leaves a legacy unquoted Claude hook block wired to scripts it deleted"
+import json, os, subprocess, sys
+src, work = sys.argv[1], sys.argv[2]
+repo = os.path.join(work, "legacy-unquoted")
+os.makedirs(repo)
+subprocess.run(["git", "-C", repo, "init", "-q"], check=True)
+subprocess.run(["bash", os.path.join(src, "install.sh"), repo, "--target", "claude"],
+               capture_output=True, text=True, env=dict(os.environ, DAW_GIT_FLOW="none"))
+spath = os.path.join(repo, ".claude", "settings.json")
+settings = json.load(open(spath, encoding="utf-8"))
+unquoted = 0
+for groups in settings["hooks"].values():
+    for g in groups:
+        for h in g["hooks"]:
+            if '"' in h["command"]:
+                h["command"] = h["command"].replace('"', "")
+                unquoted += 1
+assert unquoted == 7, f"the install wired {unquoted} quoted commands, not 7"
+mine = {"hooks": [{"type": "command", "command": "bash my-own-hook.sh"}]}
+settings["hooks"]["PreToolUse"].append(mine)
+json.dump(settings, open(spath, "w", encoding="utf-8"), indent=2)
+# A manifest that does not name the hook scripts: only the block's own spelling
+# can say it is DAW's.
+mpath = os.path.join(repo, ".daw-installed.json")
+manifest = json.load(open(mpath, encoding="utf-8"))
+manifest = {k: v for k, v in manifest.items() if "/hooks/" not in k}
+json.dump(manifest, open(mpath, "w", encoding="utf-8"), indent=2, sort_keys=True)
+subprocess.run(["bash", os.path.join(src, "uninstall.sh"), repo, "--yes"],
+               capture_output=True, text=True)
+left = json.load(open(spath, encoding="utf-8")) if os.path.exists(spath) else {}
+cmds = [h["command"] for groups in left.get("hooks", {}).values() for g in groups for h in g["hooks"]]
+assert cmds == ["bash my-own-hook.sh"], f"after the uninstall the hooks are {cmds}"
+PYLEGACY
+
 # The manifest is COMMITTED, so it arrives with the clone, from whoever wrote it —
 # and the uninstaller removes what its keys name. Four keys, each a different way
 # to name something that is not DAW's: out of the repo, an absolute path, the
@@ -8453,10 +8540,14 @@ js = open(os.path.join(repo, ".opencode", "plugins", "daw.js"), encoding="utf-8"
 # under the wrong key it is never called, so nothing ever boots.
 assert '"session.created":' not in js, "opencode: session.created is an event type, not a hook key"
 assert "event:" in js, "opencode: the generic event hook is missing, so the pipeline never boots"
-# opencode.ai/docs/tools: the real ids. `patch` and `multiedit` do not exist.
+# opencode.ai/docs/tools: the real V1 ids. `multiedit` does not exist. V2
+# renamed two of them (`patch`, `shell`; sst/opencode, the V2 tool registry),
+# so those are real ids too, and gating only one version's names leaves the
+# other version's writes unjudged.
 assert '"apply_patch"' in js, "opencode: apply_patch is a real write tool and is not gated"
-assert '"multiedit"' not in js and '"patch"' not in js, "opencode: gating tool ids that do not exist"
+assert '"multiedit"' not in js, "opencode: gating tool ids that do not exist"
 assert '"bash"' in js, "opencode: the post net cannot see the shell, which is what forges a state"
+assert '"patch"' in js and '"shell"' in js, "opencode: V2's patch and shell are not gated"
 
 oc = json.load(open(os.path.join(src, "adapters", "opencode", "adapter.json"), encoding="utf-8"))
 perm = oc["agents"]["when_readonly"]["permission"]
@@ -12828,6 +12919,352 @@ PROBE
   node "$WORK/opencode-steer-probe.mjs" >/dev/null 2>&1 \
     && ok "OpenCode plugin steers: skills registered, bootstrap rides the first message, once" \
     || bad "OpenCode plugin install enforces but does not steer — the PRD-to-monorepo failure is back"
+
+  # V1 does not import `DawPlugin` by name: it walks EVERY export of the module
+  # and needs each to be a function or a `{ server: fn }` module
+  # (`PluginModule`, @opencode-ai/plugin 1.19.5 dist/index.d.ts), throwing
+  # "Plugin export is not a function" otherwise, and it calls one function
+  # once however many exports reach it. The V2 default export rides in the same
+  # file, so a default V1 cannot read takes every V1 user down at load, before
+  # any of the probes above, which import by name, could notice.
+  cat > "$WORK/opencode-v1-load.mjs" <<PROBE
+const mod = await import("$ALL/.opencode/plugins/daw.js")
+const seen = new Set()
+const loaded = []
+for (const [name, value] of Object.entries(mod)) {
+  const fn = typeof value === "function" ? value : value?.server
+  if (typeof fn !== "function") throw new TypeError(\`Plugin export is not a function: \${name}\`)
+  if (seen.has(fn)) continue
+  seen.add(fn)
+  loaded.push(await fn({ directory: "$ALL", worktree: "$ALL" }))
+}
+const keys = ["config", "event", "experimental.chat.messages.transform",
+              "tool.execute.before", "tool.execute.after"]
+const wired = loaded.length === 1 && keys.every((k) => typeof loaded[0][k] === "function")
+let blocked = false
+try {
+  await loaded[0]["tool.execute.before"]({ tool: "write" },
+    { args: { filePath: "$ALL/.daw-state.json", content: process.argv[2] } })
+} catch { blocked = true }
+console.log(JSON.stringify({ exports: Object.keys(mod).length, wired, blocked }))
+PROBE
+  V1_LOAD=$(node "$WORK/opencode-v1-load.mjs" "$ILLEGAL" 2>&1)
+  [ "$V1_LOAD" = '{"exports":2,"wired":true,"blocked":true}' ] \
+    && ok "OpenCode V1 loads the module through every export, once, with its gates (no 'not a function')" \
+    || bad "OpenCode V1 cannot load the plugin the way it walks a module's exports ($V1_LOAD)"
+
+  # OpenCode V2 runs only the default export, `{ id, setup(ctx) }`, and none of
+  # the V1 hooks above. A mock context records what `setup` registers, and the
+  # probe drives those registrations the way V2 does: `execute.before` with the
+  # V2 tool ids and their V2 argument names. A refusal is a throw.
+  cat > "$WORK/opencode-v2ctx.mjs" <<'PROBE'
+export const load = async (file, directory) => {
+  const hooks = {}
+  const reg = (domain) => async (name, cb) => {
+    hooks[`${domain}.${name}`] = cb
+    return { dispose: async () => {} }
+  }
+  const transforms = {}
+  // A reload only counts once the domain's transform is registered: V2 builds
+  // a domain before `setup` returns, and a transform it never rebuilds with
+  // never runs (driven live, 0.0.0-dev-202610280534).
+  const reloads = {}
+  const rl = (domain) => async () => { reloads[domain] = domain in transforms }
+  const tf = (domain) => async (cb) => {
+    transforms[domain] = cb
+    return { dispose: async () => {} }
+  }
+  const ctx = {
+    location: { directory, project: { directory } },
+    options: {},
+    tool: { hook: reg("tool") },
+    session: { hook: reg("session") },
+    agent: { transform: tf("agent"), reload: rl("agent") },
+    skill: { transform: tf("skill"), reload: rl("skill") },
+    // The events a probe queues in `globalThis.dawEvents`, then a stream that
+    // stays open, as V2's does for the plugin's lifetime.
+    event: {
+      subscribe: () => (async function* () {
+        for (const e of globalThis.dawEvents ?? []) yield e
+        await new Promise(() => {})
+      })(),
+    },
+  }
+  const mod = await import(file)
+  await mod.default.setup(ctx)
+  return { hooks, transforms, reloads, mod }
+}
+PROBE
+  cat > "$WORK/opencode-v2-pre.mjs" <<PROBE
+import { load } from "$WORK/opencode-v2ctx.mjs"
+const { hooks } = await load("$ALL/.opencode/plugins/daw.js", "$ALL")
+const before = hooks["tool.execute.before"]
+if (typeof before !== "function") process.exit(3)
+const out = []
+for (const [tool, input] of JSON.parse(process.argv[2])) {
+  let refused = false
+  try {
+    await before({ tool, sessionID: "s", agent: "build", messageID: "m", id: "c", input })
+  } catch (e) {
+    refused = String(e?.message ?? "").startsWith("DAW blocked the write.")
+  }
+  out.push(refused)
+}
+console.log(JSON.stringify(out))
+PROBE
+  v2pre() { node "$WORK/opencode-v2-pre.mjs" "$1" 2>/dev/null; }
+  V2_STATE_CASES=$(python3 -c 'import json,sys; print(json.dumps([["write", {"path": sys.argv[1], "content": sys.argv[2]}]]))' \
+                     "$ALL/.daw-state.json" "$ILLEGAL")
+  [ "$(v2pre "$V2_STATE_CASES")" = "[true]" ] \
+    && ok "OpenCode V2 refuses an illegal transition before it is written (execute.before throws)" \
+    || bad "OpenCode V2: an illegal transition was ALLOWED — the V2 gate is not registered or does not refuse"
+  V2_STATE_CASES=$(python3 -c 'import json,sys; print(json.dumps([["write", {"path": sys.argv[1], "content": sys.argv[2]}]]))' \
+                     "$ALL/.daw-state.json" "$LEGAL")
+  [ "$(v2pre "$V2_STATE_CASES")" = "[false]" ] \
+    && ok "OpenCode V2 lets a legal transition through" \
+    || bad "OpenCode V2 blocks a LEGAL transition"
+  # Product source in PLAN, through each V2 write tool and its own argument
+  # names. `patch` carries its path only inside `patchText`: without reading it
+  # from there the gate has no path and the write sails through unjudged.
+  V2_SRC_CASES=$(python3 -c '
+import json, sys
+src = sys.argv[1]
+print(json.dumps([
+    ["write", {"path": src, "content": "x = 1\n"}],
+    ["edit", {"path": src, "oldString": "x = 1", "newString": "x = 2"}],
+    ["patch", {"patchText": "*** Begin Patch\n*** Update File: src/app.py\n@@\n-x = 1\n+x = 2\n*** End Patch\n"}],
+    ["opencode.tool.write", {"path": src, "content": "x = 1\n"}],
+    ["patch", {"path": sys.argv[2], "patchText": "*** Begin Patch\n*** Update File: src/app.py\n@@\n-x = 1\n+x = 2\n*** End Patch\n"}],
+]))' "$ALL/src/app.py" "$ALL/docs/ok.md")
+  printf '%s' "$IN_PLAN" > "$ALL/.daw-state.json"
+  [ "$(v2pre "$V2_SRC_CASES")" = "[true,true,true,true,true]" ] \
+    && ok "OpenCode V2 refuses product source in PLAN through write, edit, patch (with or without a decoy path) and a namespaced id" \
+    || bad "OpenCode V2: product source was written in PLAN through at least one write tool ($(v2pre "$V2_SRC_CASES"))"
+  printf '%s' "$IN_CODE" > "$ALL/.daw-state.json"
+  [ "$(v2pre "$V2_SRC_CASES")" = "[false,false,false,false,false]" ] \
+    && ok "OpenCode V2 lets the same source through once CODE was reached" \
+    || bad "OpenCode V2 blocks source in CODE — the guard refuses everything ($(v2pre "$V2_SRC_CASES"))"
+  printf '%s' "$IDLE_STATE" > "$ALL/.daw-state.json"
+
+  # A V2 build without the tool or session domain (the only published one has
+  # neither) skips those registrations. Skipped in silence, a plugin that
+  # enforces nothing looks the same as one that does: it has to say so.
+  cat > "$WORK/opencode-v2-bare.mjs" <<PROBE
+import { load } from "$WORK/opencode-v2ctx.mjs"
+const said = []
+console.error = (...a) => said.push(a.join(" "))
+const mod = await import("$ALL/.opencode/plugins/daw.js")
+await mod.default.setup({ location: { directory: "$ALL" }, options: {} })
+const bare = said.splice(0)
+await load("$ALL/.opencode/plugins/daw.js", "$ALL")
+const has = (lines, what) => lines.some((l) => l.includes(what) && l.includes("NOT"))
+console.log(JSON.stringify([has(bare, "no tool hook"), has(bare, "no session hook"),
+                            has(said, "no tool hook") || has(said, "no session hook")]))
+PROBE
+  V2_BARE=$(node "$WORK/opencode-v2-bare.mjs" 2>&1)
+  [ "$V2_BARE" = "[true,true,false]" ] \
+    && ok "OpenCode V2 says so when the build offers no tool or session hook, and stays silent when it does" \
+    || bad "OpenCode V2 skips a missing tool or session domain in silence, or warns when it is there ($V2_BARE)"
+
+  # After the write. V2's `execute.after` cannot reject, so a state forged
+  # behind the pre-write gate (through `shell`, the way it gets forged) has to
+  # be reported where the model reads: appended to that tool's own result.
+  cat > "$WORK/opencode-v2-post.mjs" <<PROBE
+import { load } from "$WORK/opencode-v2ctx.mjs"
+const { hooks } = await load("$ALL/.opencode/plugins/daw.js", "$ALL")
+const after = hooks["tool.execute.after"]
+if (typeof after !== "function") process.exit(3)
+const run = async (tool, result) => {
+  const event = { tool, sessionID: "s", agent: "build", messageID: "m", id: "c", input: {},
+                  status: "completed", result }
+  await after(event)
+  return event.result
+}
+const said = (r) => JSON.stringify(r).includes("DAW: the state on disk is now inconsistent")
+const a = await run("shell", { content: "ok" })
+const b = await run("write", { content: [{ type: "text", text: "ok" }] })
+const c = await run("read", { content: "ok" })
+console.log(JSON.stringify([said(a) && a.content.startsWith("ok"), said(b) && b.content[0].text === "ok", said(c)]))
+PROBE
+  printf '%s' "$ILLEGAL" > "$ALL/.daw-state.json"
+  [ "$(node "$WORK/opencode-v2-post.mjs" 2>/dev/null)" = "[true,true,false]" ] \
+    && ok "OpenCode V2 reports a forged state in the result of the shell or write that follows it" \
+    || bad "OpenCode V2: a state forged behind the pre-write gate is not reported to the model"
+  printf '%s' "$IDLE_STATE" > "$ALL/.daw-state.json"
+  [ "$(node "$WORK/opencode-v2-post.mjs" 2>/dev/null)" = "[false,false,false]" ] \
+    && ok "OpenCode V2's post net stays silent on a legal state" \
+    || bad "OpenCode V2 reports a legal state as inconsistent"
+
+  # The user's turn. V2's `session.hook("prompt")` is where V1's chat.message
+  # went; it has to move the counter the commit gate waits on exactly as
+  # Claude's UserPromptSubmit hook does, and print nothing — whatever it says
+  # would land in front of the user's own message.
+  cat > "$WORK/opencode-v2-turn.mjs" <<PROBE
+import { load } from "$WORK/opencode-v2ctx.mjs"
+const { hooks } = await load("$ALL/.opencode/plugins/daw.js", "$ALL")
+const prompt = hooks["session.prompt"]
+if (typeof prompt !== "function") process.exit(3)
+for (let i = 0; i < 2; i++) await prompt({ sessionID: "s", messageID: "m", prompt: { text: "go" } })
+PROBE
+  rm -rf "$ALL/.daw-sessions/turn"
+  V2_TURN_OUT=$(node "$WORK/opencode-v2-turn.mjs" 2>&1)
+  V2_TURN=$(cat "$ALL/.daw-sessions/turn" 2>/dev/null)
+  rm -rf "$ALL/.daw-sessions/turn"
+  for _ in 1 2; do CLAUDE_PROJECT_DIR="$ALL" bash "$ALL/.claude/hooks/user-turn.sh" </dev/null >/dev/null 2>&1; done
+  CL_TURN=$(cat "$ALL/.daw-sessions/turn" 2>/dev/null)
+  rm -rf "$ALL/.daw-sessions/turn"
+  [ "$V2_TURN" = "2" ] && [ "$V2_TURN" = "$CL_TURN" ] && [ -z "$V2_TURN_OUT" ] \
+    && ok "OpenCode V2 counts the user's turns as Claude's user-turn hook does, and prints nothing" \
+    || bad "OpenCode V2's user-turn hook diverges from Claude's (V2 '$V2_TURN', Claude '$CL_TURN', output '$V2_TURN_OUT')"
+
+  # Steering, as under V1: a plugin that enforces and never steers is the
+  # PRD-to-monorepo failure. V2 rebuilds the request on every model call, so
+  # the bootstrap rides the first user message through `session.hook
+  # ("context")` once per request, never twice; the packaged skills go in
+  # through the skill domain.
+  cat > "$WORK/opencode-v2-steer.mjs" <<PROBE
+import { load } from "$WORK/opencode-v2ctx.mjs"
+const { hooks, transforms, reloads } = await load("$WORK/fakecfg/plugins/daw.js", "$WORK/blankrepo")
+const sources = []
+await transforms.skill?.({ source: (s) => sources.push(s), list: () => sources })
+const registered = sources.some((s) => s.type === "directory" && s.path.includes("fakecfg/skills"))
+  && reloads.skill === true
+const event = { sessionID: "s", messages: [{ role: "user", content: [{ type: "text", text: "implement the PRD" }] }] }
+await hooks["session.context"](event)
+await hooks["session.context"](event)
+const parts = event.messages[0].content
+const steered = parts[0].text.includes("DAW_BOOTSTRAP") && parts[0].text.includes("CLASSIFYING")
+const once = parts.filter((p) => p.text?.includes("DAW_BOOTSTRAP")).length === 1
+process.exit(registered && steered && once && parts[1].text === "implement the PRD" ? 0 : 2)
+PROBE
+  node "$WORK/opencode-v2-steer.mjs" >/dev/null 2>&1 \
+    && ok "OpenCode V2 steers: skills registered, bootstrap rides the first user message, once" \
+    || bad "OpenCode V2 enforces but does not steer — the PRD-to-monorepo failure is back under V2"
+  # Compaction arrives as an event on V2's stream, and the reminder rides the
+  # NEWEST user message of the next request, once.
+  cat > "$WORK/opencode-v2-compact.mjs" <<PROBE
+import { load } from "$WORK/opencode-v2ctx.mjs"
+globalThis.dawEvents = [{ type: "session.compaction.ended", data: { sessionID: "s" } }]
+const { hooks } = await load("$WORK/fakecfg/plugins/daw.js", "$WORK/blankrepo")
+await new Promise((r) => setTimeout(r, 50))
+const ask = () => ({ messages: [{ role: "user", content: [{ type: "text", text: "first" }] },
+                                { role: "user", content: [{ type: "text", text: "after the summary" }] }] })
+const one = ask()
+await hooks["session.context"](one)
+const two = ask()
+await hooks["session.context"](two)
+const nudged = (e) => e.messages[1].content[0].text.includes("POST-COMPACTION")
+process.exit(nudged(one) && !nudged(two) ? 0 : 2)
+PROBE
+  node "$WORK/opencode-v2-compact.mjs" >/dev/null 2>&1 \
+    && ok "OpenCode V2 hears the compaction and reminds the model on the next request, once" \
+    || bad "OpenCode V2 compacts and DAW says nothing — the pipeline ends at the first summary"
+
+  # The verifier under V2. V2 keeps an agent's rules as a `permissions` list of
+  # {action, resource, effect} and lets a plugin edit them through
+  # `agent.transform`; without DAW's rules a read-only agent's shell is
+  # unrestricted. The draft below starts as V2 builds it from a drop-in's files
+  # (their V1 `edit: deny` already translated), plus an agent of the user's.
+  # Under a plugin install there are no agent files, and the verifier VERIFY
+  # spawns has to be added from the packaged source.
+  cat > "$WORK/opencode-v2-agents.mjs" <<PROBE
+import { load } from "$WORK/opencode-v2ctx.mjs"
+const deny = { action: "edit", resource: "*", effect: "deny" }
+const draft = (seed) => {
+  const agents = new Map(seed.map((a) => [a.id, structuredClone(a)]))
+  return {
+    agents,
+    list: () => [...agents.values()],
+    get: (id) => agents.get(id),
+    default: () => {},
+    remove: (id) => agents.delete(id),
+    // V2's own config-agent creates an agent by updating an id it lacks.
+    update: (id, fn) => {
+      if (!agents.has(id)) agents.set(id, { id, request: { headers: {}, body: {} }, mode: "all", hidden: false, permissions: [] })
+      fn(agents.get(id))
+    },
+  }
+}
+const rules = (a) => JSON.stringify(a?.permissions ?? [])
+const want = JSON.stringify([deny, { action: "shell", resource: "*", effect: "ask" }])
+const out = {}
+
+const dropin = await load("$ALL/.opencode/plugins/daw.js", "$ALL")
+const d = draft([
+  { id: "build", mode: "primary", permissions: [{ action: "*", resource: "*", effect: "allow" }] },
+  ...["daw-arch-auditor", "daw-impact-scanner", "daw-module-verifier", "daw-sec-auditor"]
+    .map((id) => ({ id, mode: "subagent", permissions: [deny] })),
+  { id: "daw-implementer", mode: "subagent", permissions: [] },
+  { id: "reviewer", mode: "subagent", permissions: [] },
+])
+await dropin.transforms.agent(d)
+out.readonly = ["daw-arch-auditor", "daw-impact-scanner", "daw-module-verifier", "daw-sec-auditor"]
+  .every((id) => rules(d.get(id)) === want)
+out.reloaded = dropin.reloads.agent === true
+out.writer = rules(d.get("daw-implementer")) === "[]"
+out.user = rules(d.get("build")) === JSON.stringify([{ action: "*", resource: "*", effect: "allow" }])
+  && rules(d.get("reviewer")) === "[]"
+
+const plugin = await load("$SELF/adapters/opencode/plugin/daw.js", "$WORK/blankrepo")
+const p = draft([{ id: "build", mode: "primary", permissions: [] }])
+await plugin.transforms.agent(p)
+const v = p.get("daw-module-verifier")
+out.added = rules(v) === want && v.mode === "subagent" && (v.system ?? "").includes("daw-module-verifier")
+out.only = [...p.agents.keys()].join(",") === "build,daw-module-verifier"
+console.log(JSON.stringify(out))
+PROBE
+  # The user's own read-only agent, next to DAW's: it is not DAW's to change.
+  printf -- '---\ndescription: the team reviewer\ntools: Read, Grep\n---\nReview.\n' \
+    > "$ALL/.opencode/agents/reviewer.md"
+  V2_AGENTS=$(node "$WORK/opencode-v2-agents.mjs" 2>&1)
+  rm -f "$ALL/.opencode/agents/reviewer.md"
+  [ "$V2_AGENTS" = '{"readonly":true,"reloaded":true,"writer":true,"user":true,"added":true,"only":true}' ] \
+    && ok "OpenCode V2: every read-only DAW agent gets edit deny and shell ask, the writer and the user's agents do not" \
+    || bad "OpenCode V2: the verifier's permissions are not edit deny + shell ask in V2's format ($V2_AGENTS)"
+
+  # A drop-in, followed as `.opencode/INSTALL.md` says, starts with the model
+  # pointed at the repo's own .daw/orchestrator.md. The plugin install's
+  # prohibitions ("do NOT install DAW", "never put DAW content in AGENTS.md")
+  # contradict a drop-in, whose .daw/ and AGENTS.md block are DAW's by design:
+  # a model told both reads its own repo as the mistake and starts undoing it.
+  OCD="$WORK/opencode-dropin"; mkdir -p "$OCD"; git -C "$OCD" init -q .
+  DAW_GIT_FLOW=none bash "$SELF/install.sh" "$OCD" --target opencode </dev/null >/dev/null 2>&1
+  cat > "$WORK/opencode-dropin-boot.mjs" <<PROBE
+import { load } from "$WORK/opencode-v2ctx.mjs"
+const file = "$OCD/.opencode/plugins/daw.js"
+const mod = await import(file)
+const v1 = await mod.DawPlugin({ directory: "$OCD", worktree: "$OCD" })
+const output = { messages: [{ info: { role: "user" }, parts: [{ type: "text", text: "hi" }] }] }
+await v1["experimental.chat.messages.transform"]({}, output)
+const { hooks } = await load(file, "$OCD")
+const event = { sessionID: "s", messages: [{ role: "user", content: [{ type: "text", text: "hi" }] }] }
+await hooks["session.context"](event)
+const right = (t) => t.includes("DAW_BOOTSTRAP") && t.includes("read .daw/orchestrator.md")
+  && !t.includes("do NOT install") && !t.includes("Never put DAW content")
+console.log(JSON.stringify([right(output.messages[0].parts[0].text), right(event.messages[0].content[0].text)]))
+PROBE
+  OCD_BOOT=$(node "$WORK/opencode-dropin-boot.mjs" 2>&1)
+  [ "$OCD_BOOT" = "[true,true]" ] \
+    && ok "an OpenCode drop-in boots on .daw/orchestrator.md under V1 and V2, without the plugin's prohibitions" \
+    || bad "an OpenCode drop-in's bootstrap tells the model not to install the DAW it installed ($OCD_BOOT)"
+
+  # What `.opencode/INSTALL.md` promises a drop-in installs is what it installs.
+  python3 - "$SELF/.opencode/INSTALL.md" "$OCD" <<'PYOCD' \
+    && ok "the OpenCode drop-in instructions count what the install writes, and name the plugin both versions load" \
+    || bad "the OpenCode drop-in instructions no longer match the install"
+import os, re, sys
+doc, repo = open(sys.argv[1], encoding="utf-8").read(), sys.argv[2]
+oc = os.path.join(repo, ".opencode")
+have = {"skills": len([d for d in os.listdir(f"{oc}/skills") if os.path.isfile(f"{oc}/skills/{d}/SKILL.md")]),
+        "agents": len([f for f in os.listdir(f"{oc}/agents") if f.endswith(".md")]),
+        "commands": len([f for f in os.listdir(f"{oc}/commands") if f.endswith(".md")])}
+section = doc.split("## Drop-in", 1)[1].split("\n## ", 1)[0]
+for kind, n in have.items():
+    said = re.search(rf"(\d+) {kind}", section)
+    assert said and int(said.group(1)) == n, f"{kind}: the doc says {said and said.group(1)}, the install wrote {n}"
+assert os.path.isfile(f"{oc}/plugins/daw.js") and ".opencode/plugins/daw.js" in section
+assert "V1 and V2" in section and "still owed" not in section.split("\n", 1)[0]
+PYOCD
 else
   echo "  · node not available — OpenCode's plugin was not exercised"
 fi

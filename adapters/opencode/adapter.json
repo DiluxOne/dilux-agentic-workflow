@@ -30,8 +30,10 @@
       }
     },
     "_when_readonly_note": "OpenCode's permission keys are read/edit/bash/… — there is no `write`. `edit: deny` already covers write, edit and apply_patch.",
+    "_v2_permissions_note": "This block stays in V1's format, which OpenCode V2 still translates (driven live: 0.0.0-dev-202610280534 turns it into {edit,*,deny}), so one drop-in works under both. V2 reads a file in exactly one format and V1 ignores `permissions`, so emitting V2's here would lose `edit: deny` under V1. V2's rules are added at runtime instead: the plugin's `agent.transform` appends {action:edit,resource:*,effect:deny} and {action:shell,resource:*,effect:ask} to every read-only DAW agent (AgentV2Info.permissions in @opencode-ai/sdk v2 types), and adds daw-module-verifier from the packaged agents/ under a plugin install, which ships no agent files.",
     "_model_note": "Deliberately NOT emitted: OpenCode resolves a subagent's model through its own config (opencode.json), not the agent file, and no per-agent model key has been driven against the live tool. Same rule as codex: no invented keys."
   },
+  "_v2_tools_note": "OpenCode V2 runs only the plugin's default export, `{ id, setup(ctx) }`, and none of V1's hooks; daw.js carries both. V2's tool ids are write, edit, patch and shell (V1's apply_patch and bash), with arguments path, content, oldString/newString and patchText; a namespaced id such as opencode.tool.write is matched on its last segment.",
   "wiring": [
     {
       "from": "plugin",

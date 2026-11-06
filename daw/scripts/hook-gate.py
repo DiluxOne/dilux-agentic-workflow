@@ -71,7 +71,9 @@ def _load_validator():
 # reason back to the model as a tool error instead of console noise.
 DIALECTS = {
     # Claude Code, Codex CLI, Gemini CLI, Cursor: snake_case envelope.
-    "standard": {"name": "tool_name", "args": "tool_input"},
+    # OpenCode's patch tool (`apply_patch` in V1, `patch` in V2) speaks it too,
+    # with its paths inside a `patchText` program rather than in a field.
+    "standard": {"name": "tool_name", "args": "tool_input", "patch_text": True},
     # Codex hides the path inside an apply_patch program, not in a field.
     "codex": {"name": "tool_name", "args": "tool_input", "apply_patch": True},
     # Copilot CLI: camelCase envelope, and toolArgs arrives as a JSON string.
@@ -138,6 +140,13 @@ def normalize(event, dialect):
 
     if spec.get("apply_patch") and not paths:
         paths = _paths_from_patch(args.get("command"))
+    # OpenCode's patch names its files only inside the program: read from
+    # there, a write to product source in a phase that forbids it reached the
+    # gate with no path and was allowed unjudged. Always read, never only as a
+    # fallback: a decoy `path` beside the program would be judged alone while
+    # the program wrote the real file.
+    if spec.get("patch_text") and isinstance(args.get("patchText"), str):
+        paths = paths + [p for p in _paths_from_patch(args["patchText"]) if p not in paths]
 
     # Copilot's INTERACTIVE writes arrive as `apply_patch` with toolArgs being
     # the raw patch PROGRAM — not a JSON string. json.loads failed, no path
