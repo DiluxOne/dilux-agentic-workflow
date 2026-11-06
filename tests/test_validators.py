@@ -1543,3 +1543,216 @@ def test_el_indice_no_puede_agendar_un_repo_que_el_mapa_no_conoce(tmp_path):
     out = subprocess.run(["python3", os.path.join(ROOT, "daw/scripts/validate_prd.py"),
                           str(prd), "--tier", "FEATURE"], capture_output=True, text=True)
     assert out.returncode == 0, "the honest index was refused: " + out.stdout[-400:]
+
+
+# ── VERIFY reads a fix-plan as a fix-plan (#67) ──────────────────────────────
+#
+# A fix-plan has no `## Block N` and its tests are sentences, so read as a spec
+# it was refused by F-VER-02 ("names no blocks") and F-VER-06 ("not one test
+# name") however complete the verdict was: every correct FIX was blocked.
+
+def _fix_plan_example():
+    """The filled-in fix-plan the spec skill documents — the shape a FIX ships."""
+    skill = open(os.path.join(ROOT, "skills/daw-create-spec/SKILL.md"), encoding="utf-8").read()
+    after = skill.split("### The fix-plan, in the shape the validator reads", 1)[1]
+    return after.split("```markdown\n", 1)[1].split("\n```", 1)[0].replace("{ticket}", "FIX-001")
+
+
+FIX_REPORT = ("# Verification FIX-001\n\n"
+              "- Step 1 ✅ the BOM alone is stripped\n"
+              "- Step 2 ✅ the text read is written back unmodified\n"
+              "- Test 1 ✅ regression: a config with a BOM keeps its trailing newline\n"
+              "- Test 2 ✅ an unreadable file falls back to the defaults\n"
+              "- Test 3 ✅ an invalid UTF-8 byte reports its offset (sad path)\n"
+              "- Coverage: line 95%, branch 92%, function 96%\n"
+              "- Lint: ruff clean\n")
+
+
+def _verify_fix(tmp_path, report, plan, *extra):
+    specs = tmp_path / "docs" / "daw" / "specs"
+    specs.mkdir(parents=True, exist_ok=True)
+    (specs / "fix-FIX-001.md").write_text(plan, encoding="utf-8")
+    verify = tmp_path / "docs" / "daw" / "verify"
+    verify.mkdir(parents=True, exist_ok=True)
+    rp = verify / "verify-FIX-001.md"
+    rp.write_text(report, encoding="utf-8")
+    return subprocess.run([sys.executable, os.path.join(ROOT, "daw/scripts/validate_verify.py"),
+                           str(rp), *extra],
+                          capture_output=True, text=True, cwd=str(tmp_path))
+
+
+def _rows(r, rule):
+    return [ln for ln in r.stdout.splitlines() if rule + ":" in ln]
+
+
+def test_a_fix_whose_every_step_and_test_is_done_passes_verify(tmp_path):
+    """C1: the documented fix-plan, every `Step N` and `Test N` ✅ — and no
+    PRD, which FIX's DEFINE often does not write: the fix-plan is the contract."""
+    r = _verify_fix(tmp_path, FIX_REPORT, _fix_plan_example(), "--tier", "FIX")
+    assert r.returncode == 0 and "PASSED" in r.stdout, r.stdout + r.stderr
+    assert any("✅" in ln and "2 fix-plan step(s)" in ln for ln in _rows(r, "F-VER-02")), r.stdout
+    assert any("✅" in ln and "3 test(s)" in ln for ln in _rows(r, "F-VER-06")), r.stdout
+    assert any("✅" in ln and "tier FIX: no PRD" in ln for ln in _rows(r, "F-VER-01")), r.stdout
+    receipts = list((tmp_path / ".daw-sessions").glob("verify-validated-*"))
+    assert receipts, "a PASSED FIX wrote no receipt: " + r.stdout
+
+
+def test_a_fix_with_a_prd_still_has_its_criteria_checked(tmp_path):
+    """C1's other half: only the ABSENCE of a PRD is answered for a FIX. A PRD
+    passed or found is checked as it is for any tier, so the exemption cannot
+    become a way past acceptance criteria that exist."""
+    prd = tmp_path / "docs" / "daw" / "prd"
+    prd.mkdir(parents=True)
+    (prd / "prd-FIX-001.md").write_text("# PRD\n\n- AC-01: the newline is kept\n"
+                                        "- AC-02: the defaults are used\n", encoding="utf-8")
+    r = _verify_fix(tmp_path, FIX_REPORT + "- AC-01 ✅\n", _fix_plan_example(), "--tier", "FIX")
+    assert r.returncode == 2, r.stdout
+    assert any("❌" in ln and "AC-02" in ln for ln in _rows(r, "F-VER-01")), r.stdout
+
+
+def test_a_resolved_fix_plan_is_read_as_one_whatever_the_tier_flag(tmp_path):
+    """The ticket resolved to `fix-{ticket}.md`: that document is a fix-plan,
+    and asking it for blocks would refuse it for a shape it never has. Only
+    the plan's reading follows the document: sparing the PRD follows the tier
+    asked for, which is what the receipt records and the gate compares."""
+    r = _verify_fix(tmp_path, FIX_REPORT, _fix_plan_example())
+    assert any("✅" in ln for ln in _rows(r, "F-VER-02")), r.stdout
+    assert any("✅" in ln for ln in _rows(r, "F-VER-06")), r.stdout
+    assert r.returncode == 2 and any("❌" in ln and "PRD could not be read" in ln
+                                     for ln in _rows(r, "F-VER-01")), \
+        "a FEATURE run was spared its PRD because its spec was a fix-plan: " + r.stdout
+
+
+def test_a_fix_step_missing_from_the_report_is_named(tmp_path):
+    """C2: a step the report never names is a step nobody says was done."""
+    report = FIX_REPORT.replace("- Step 2 ✅ the text read is written back unmodified\n", "")
+    r = _verify_fix(tmp_path, report, _fix_plan_example(), "--tier", "FIX")
+    assert r.returncode == 2, r.stdout
+    assert any("❌" in ln and "Step 2" in ln and "Step 1" not in ln
+               for ln in _rows(r, "F-VER-02")), r.stdout
+
+
+def test_a_fix_step_reported_failing_is_not_done(tmp_path):
+    """C2: naming a step is not doing it — `Step 2 ❌` says the fix is incomplete."""
+    report = FIX_REPORT.replace("- Step 2 ✅", "- Step 2 ❌")
+    r = _verify_fix(tmp_path, report, _fix_plan_example(), "--tier", "FIX")
+    assert r.returncode == 2, r.stdout
+    assert any("❌" in ln and "Step 2 (reported failing)" in ln
+               for ln in _rows(r, "F-VER-02")), r.stdout
+
+
+def test_a_promised_fix_test_missing_from_the_report_is_named(tmp_path):
+    """C2: the second test of the plan is a sentence, and it is named by its
+    position and its opening words, so the reader knows which one is owed."""
+    report = FIX_REPORT.replace("- Test 2 ✅ an unreadable file falls back to the defaults\n", "")
+    r = _verify_fix(tmp_path, report, _fix_plan_example(), "--tier", "FIX")
+    assert r.returncode == 2, r.stdout
+    rows = _rows(r, "F-VER-06")
+    assert any("❌" in ln and 'Test 2 — "An unreadable file' in ln and "Test 1" not in ln
+               for ln in rows), r.stdout
+
+
+def test_a_promised_fix_test_reported_failing_is_refused(tmp_path):
+    report = FIX_REPORT.replace("- Test 2 ✅", "- Test 2 ❌")
+    r = _verify_fix(tmp_path, report, _fix_plan_example(), "--tier", "FIX")
+    assert r.returncode == 2, r.stdout
+    assert any("❌" in ln and "Test 2" in ln and "reported failing" in ln
+               for ln in _rows(r, "F-VER-06")), r.stdout
+
+
+def test_a_fix_test_named_by_identifier_is_held_to_that_name(tmp_path):
+    """A bullet that opens with `test_x` is a name, read as a spec's is."""
+    plan = _fix_plan_example().replace("- [ ] An unreadable file",
+                                       "- [ ] `test_unreadable_file_falls_back` — an unreadable file")
+    r = _verify_fix(tmp_path, FIX_REPORT, plan, "--tier", "FIX")
+    assert r.returncode == 2, r.stdout
+    assert any("❌" in ln and "test_unreadable_file_falls_back" in ln
+               for ln in _rows(r, "F-VER-06")), r.stdout
+    r = _verify_fix(tmp_path, FIX_REPORT + "- test_unreadable_file_falls_back ✅\n", plan,
+                    "--tier", "FIX")
+    assert r.returncode == 0, r.stdout
+    r = _verify_fix(tmp_path, FIX_REPORT + "- test_unreadable_file_falls_back ❌\n", plan,
+                    "--tier", "FIX")
+    assert r.returncode == 2 and any(
+        "❌" in ln and "test_unreadable_file_falls_back (reported failing)" in ln
+        for ln in _rows(r, "F-VER-06")), r.stdout
+
+
+def test_a_fix_plan_with_no_steps_is_not_all_zero_done(tmp_path):
+    """C2: the emptiness every rule here refuses — no step read is no step
+    checked, never "all 0 fix-plan step(s) are done"."""
+    plan = re.sub(r"(## Solution — steps\n)(?:.*\n)*?(?=\n## )", r"\1The loader is fixed.\n",
+                  _fix_plan_example())
+    assert "1. `src" not in plan
+    r = _verify_fix(tmp_path, FIX_REPORT, plan, "--tier", "FIX")
+    assert r.returncode == 2, r.stdout
+    rows = _rows(r, "F-VER-02")
+    assert rows and all("❌" in ln and "names no steps" in ln for ln in rows), r.stdout
+
+
+def test_a_fix_plan_with_no_tests_is_not_all_zero_reported(tmp_path):
+    plan = re.sub(r"(## Tests\n)(?:.*\n)*?(?=\n## )", r"\1Tested by hand.\n", _fix_plan_example())
+    r = _verify_fix(tmp_path, FIX_REPORT, plan, "--tier", "FIX")
+    assert r.returncode == 2, r.stdout
+    rows = _rows(r, "F-VER-06")
+    assert rows and all("❌" in ln for ln in rows), r.stdout
+
+
+def test_step_one_is_not_answered_by_step_ten(tmp_path):
+    """`Step 1` must not be read inside `Step 10`: a number is matched whole."""
+    report = FIX_REPORT.replace("- Step 1 ✅", "- Step 10 ✅")
+    r = _verify_fix(tmp_path, report, _fix_plan_example(), "--tier", "FIX")
+    assert any("❌" in ln and "Step 1 " in ln for ln in _rows(r, "F-VER-02")), r.stdout
+
+
+def test_a_feature_spec_is_still_asked_for_its_blocks_and_test_names(tmp_path):
+    """C3: the FIX path is FIX's alone. A FEATURE spec — even a verdict that
+    writes `Step N` / `Test N` rows — is held to `Block N` and `test_x`."""
+    specs = tmp_path / "docs" / "daw" / "specs"
+    specs.mkdir(parents=True)
+    (specs / "spec-FEAT-067.md").write_text(
+        "# Spec\n\n## Block 1 — x\n**Required tests**\n- [ ] `test_uno` — valida AC-01\n\n"
+        "## Block 2 — y\n**Required tests**\n- [ ] `test_dos` — valida AC-02\n",
+        encoding="utf-8")
+    verify = tmp_path / "docs" / "daw" / "verify"
+    verify.mkdir(parents=True)
+    rp = verify / "verify-FEAT-067.md"
+    rp.write_text("# V\n- Block 1 ✅ test_uno\n- Step 1 ✅\n- Step 2 ✅\n- Test 1 ✅\n- Test 2 ✅\n",
+                  encoding="utf-8")
+    r = subprocess.run([sys.executable, os.path.join(ROOT, "daw/scripts/validate_verify.py"),
+                        str(rp), "--tier", "FEATURE"],
+                       capture_output=True, text=True, cwd=str(tmp_path))
+    assert r.returncode == 2, r.stdout
+    assert any("❌" in ln and "spec block with no verdict" in ln and "Block 2" in ln
+               for ln in _rows(r, "F-VER-02")), r.stdout
+    assert any("❌" in ln and "absent from the report: test_dos" in ln
+               for ln in _rows(r, "F-VER-06")), r.stdout
+    assert any("❌" in ln and "the PRD could not be read" in ln
+               for ln in _rows(r, "F-VER-01")), "a FEATURE was spared its PRD: " + r.stdout
+
+
+def test_a_passed_fix_still_owes_the_independent_review(tmp_path):
+    """C4: the FIX path makes the receipt reachable, and nothing more. The
+    verdict the verify skill documents for a FIX passes the validator — and
+    the phase rule and the skill both still send VERIFY to
+    `daw-module-verifier` for every tier, FIX included, and say the receipt
+    does not stand in for it."""
+    skill_path = os.path.join(ROOT, "skills/daw-verify-module/SKILL.md")
+    skill = open(skill_path, encoding="utf-8").read()
+    example = skill.split("For a FIX, the fix-plan's steps and tests take the place", 1)[1]
+    verdict = example.split("```markdown\n", 1)[1].split("\n```", 1)[0]
+    r = _verify_fix(tmp_path, verdict.replace("{ticket}", "FIX-001"), _fix_plan_example(),
+                    "--tier", "FIX")
+    assert r.returncode == 0 and "PASSED" in r.stdout, \
+        "the FIX verdict the skill documents is refused by its own validator: " + r.stdout
+
+    rule = open(os.path.join(ROOT, "daw/rules/verify.instructions.md"), encoding="utf-8").read()
+    for name, text in (("verify.instructions.md", rule), ("daw-verify-module/SKILL.md", skill)):
+        flat = " ".join(text.split())
+        assert re.search(r"[Ss]pawn[^.]*`?(?:subagent_type=\"daw-module-verifier\"|"
+                         r"daw-module-verifier)`?", flat), \
+            name + " no longer sends VERIFY to the independent reviewer"
+        assert "owed for every tier, FIX included" in flat, \
+            name + " no longer says the review is owed on a FIX"
+        assert "a PASSED receipt does not replace it" in flat, \
+            name + " lets the receipt stand in for the independent review"

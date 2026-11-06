@@ -6,7 +6,8 @@ suite: it does not know whether this is pytest or jest or a monorepo with five
 runners, and a gate that cannot be satisfied honestly gets satisfied dishonestly
 (docs/RATIONALE.md decisions 2 and 16). So this script does NOT verify that the
 tests pass. It verifies that **the verdict was written and is complete** — that
-every AC in the PRD is accounted for, every block of the spec is accounted for,
+every AC in the PRD is accounted for, every block of the spec (on FIX, every
+step and test of the fix-plan) is accounted for,
 the three coverage numbers are stated and meet the minimum the rules set, and
 lint and the sad paths have an answer instead of a silence.
 
@@ -84,6 +85,107 @@ def _required_tests_parts(spec_text):
         nxt = re.search(r"^[ \t]*#{2,4}\s", rest, re.MULTILINE)
         parts.append(rest[:nxt.start()] if nxt else rest)
     return parts
+
+
+def _fix_steps(spec_text):
+    """The numbered steps under a fix-plan's `## Solution — steps`, in order.
+
+    A fix-plan has no `## Block N`: what it promises to change is this list, so
+    this is what F-VER-02 holds the report to on FIX. Only the numbers are
+    kept, because the report names a step by its number (`Step 2`) and the
+    text after it is a path and a sentence, both free to be reworded.
+    """
+    steps = []
+    for m in re.finditer(r"^[ \t]*#{2,4}\s+(?:solution|soluci[oó]n)\b.*$",
+                         spec_text, re.MULTILINE | re.IGNORECASE):
+        rest = spec_text[m.end():]
+        nxt = re.search(r"^[ \t]*#{1,4}\s", rest, re.MULTILINE)
+        body = rest[:nxt.start()] if nxt else rest
+        steps += re.findall(r"^[ \t]*(\d+)[.)]\s+\S", body, re.MULTILINE)
+    return list(dict.fromkeys(steps))
+
+
+def _fix_tests(spec_text):
+    """Every test a fix-plan promises, as (how the report names it, label).
+
+    A fix-plan's tests are mostly sentences — the template's first one is the
+    regression test, described, not named — and reading them for `test_x` the
+    way a spec is read finds none, which refused every FIX. So a bullet that
+    opens with a test identifier is held to that name, as on a spec, and a
+    bullet that is only a description is held to its position, `Test N`: a
+    sentence has no stable name, and matching its words would break on the
+    first rewording.
+    """
+    out = []
+    for body in _required_tests_parts(spec_text):
+        for raw in re.findall(r"^[ \t]*[-*]\s+(?:\[[ x]\]\s*)?(\S.*)$", body, re.MULTILINE):
+            name = raw.split()[0].rstrip(",").strip("`").rsplit("::", 1)[-1].strip("`")
+            if re.fullmatch(r"test[\w-]+", name, re.IGNORECASE):
+                out.append((name, name))
+                continue
+            n = len(out) + 1
+            desc = re.sub(r"\*\*|`", "", raw).strip()
+            desc = desc if len(desc) <= 40 else desc[:40].rstrip() + "…"
+            out.append(("Test %d" % n, 'Test %d — "%s"' % (n, desc)))
+    return out
+
+
+def _check_fix_plan(spec_text, spec_path, text, fail, ok):
+    """F-VER-02 and F-VER-06 for a fix-plan: every step done, every test there.
+
+    A step or a test counts only when the report names it on a line that does
+    not mark it failing — the same reading F-VER-01 gives an AC. Naming a
+    failed step is not doing it, and a verdict listing `Step 2 ❌` is a verdict
+    that says the fix is incomplete.
+    """
+    lines = text.splitlines()
+
+    def verdict(rx):
+        hits = [ln for ln in lines if rx.search(ln)]
+        if not hits:
+            return "no verdict in the report"
+        if any(FAILING.search(ln) for ln in hits):
+            return "reported failing"
+        return None
+
+    steps = _fix_steps(spec_text)
+    if not steps:
+        # The emptiness every rule here refuses: a fix-plan with no numbered
+        # step is not one this can hold a report to, and "all 0 steps done"
+        # would say the fix was complete having looked at nothing.
+        fail("F-VER-02", "the fix-plan names no steps under '## Solution — steps' (%s), so "
+                         "there was nothing to check the report against. Point --spec at this "
+                         "ticket's fix-plan" % _repo_relative(spec_path))
+    else:
+        undone = []
+        for s in steps:
+            why = verdict(re.compile(r"\b(?:step|paso)\s*%s\b" % s, re.IGNORECASE))
+            if why:
+                undone.append(f"Step {s} ({why})")
+        if undone:
+            fail("F-VER-02", f"fix-plan step not done: {', '.join(undone)}")
+        else:
+            ok("F-VER-02", f"all {len(steps)} fix-plan step(s) are done")
+
+    tests = _fix_tests(spec_text)
+    if not tests:
+        fail("F-VER-06", "not one test could be read from the fix-plan's '## Tests'. A fix "
+                         "promises at least its regression test, so this is a NO, not a pass "
+                         "over nothing")
+        return
+    absent = []
+    for key, label in tests:
+        if key.startswith("Test "):
+            why = verdict(re.compile(r"\b%s\b" % key.replace(" ", r"\s*"), re.IGNORECASE))
+        else:
+            why = verdict(re.compile(re.escape(key)))
+        if why:
+            absent.append(f"{label} ({why})")
+    if absent:
+        fail("F-VER-06", f"test promised by the fix-plan and absent or failing in the report: "
+                         f"{', '.join(absent[:5])}{' (and others)' if len(absent) > 5 else ''}")
+    else:
+        ok("F-VER-06", f"all {len(tests)} test(s) the fix-plan promised are reported")
 
 
 def _project_floor(report_path):
@@ -210,6 +312,11 @@ def main():
 
     prd_path = args.prd or _find(args.report, r"verify-(.+)\.md$", "prd", ("prd",))
     spec_path = args.spec or _find(args.report, r"verify-(.+)\.md$", "specs", ("spec", "fix"))
+    # A fix-plan is read as a fix-plan: by the tier, or by the document the
+    # ticket resolved to. Reading one as a spec asked it for `## Block N` and
+    # `test_x` names it never has, and refused every correct FIX.
+    is_fix = args.tier == "FIX" or bool(
+        spec_path and os.path.basename(spec_path).startswith("fix-"))
 
     # `--prd` and `--spec` are chosen by whoever runs this, and nothing tied
     # them to the ticket the report is about — so the verdict for T-1 could be
@@ -239,7 +346,17 @@ def main():
         except (OSError, UnicodeDecodeError):
             prd_text = ""
     acs = _ids(prd_text, "AC") if prd_text else []
-    if not prd_text:
+    if args.tier == "FIX" and not prd_path:
+        # FIX's DEFINE writes an RCA, often no PRD, and the skill takes a PRD
+        # only for FEATURE. With none passed and none found, the fix-plan IS
+        # the contract, and F-VER-02/06 below hold the report to all of it. A
+        # PRD that exists is still checked: only its absence is answered here.
+        # The tier asked for, not the document found: the receipt records the
+        # tier and the gate compares it, so a FEATURE whose spec resolved to a
+        # fix-plan is not spared its criteria.
+        ok("F-VER-01", "tier FIX: no PRD for this ticket — the fix-plan's steps and tests "
+                       "are the contract")
+    elif not prd_text:
         fail("F-VER-01", "the PRD could not be read, so AC coverage was NOT checked. "
                          "Pass --prd <path> and run again")
     elif not acs:
@@ -276,6 +393,8 @@ def main():
     if not spec_text:
         fail("F-VER-02/06", "the spec could not be read, so block and test coverage were NOT "
                             "checked. Pass --spec <path> and run again")
+    elif is_fix:
+        _check_fix_plan(spec_text, spec_path, text, fail, ok)
     else:
         blocks = re.findall(r"^##\s+Block\s+(\d+)", spec_text, re.MULTILINE)
         missing = [f"Block {b}" for b in blocks
