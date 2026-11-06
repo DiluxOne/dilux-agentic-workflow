@@ -232,7 +232,9 @@ def enforcement_drift(repo):
     # permanently and left a tampered repository indistinguishable from a clean
     # one, which is worse than the write it also unsealed: that write leaves
     # evidence, and this removes the thing that would have reported it.
-    installed_here = os.path.isdir(os.path.join(repo, ".daw"))
+    # The orchestrator, not the folder: a plugin-installed project has a `.daw/`
+    # that holds only its `config.yml`, and nothing was installed there.
+    installed_here = os.path.isfile(os.path.join(repo, ".daw", "orchestrator.md"))
     try:
         with open(manifest, encoding="utf-8") as fh:
             recorded = json.load(fh)
@@ -470,6 +472,35 @@ def declined_recommendations(repo):
     return found
 
 
+def config_lines(repo, phase, declined):
+    """What the boot says about the project's `.daw/config.yml`.
+
+    Missing: offer `/daw-init` once per session, and say that skipping it keeps
+    today's flow — at IDLE only, because a running ticket's settings do not
+    change under it. A decline (`<!-- daw:declined init daw-init -->` in the
+    context file) quiets it for good. Invalid: reported in every phase with the
+    schema's own words, because the gates that read it refuse until it is fixed.
+    """
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    try:
+        import daw_config
+    except ImportError:
+        return []
+    try:
+        if daw_config.load(repo) is not None:
+            return []
+    except daw_config.Invalid as why:
+        return ["⚠️ DAW: .daw/config.yml is invalid (%s). It is not read as the default: "
+                "validating a spec refuses until it is fixed. Fix the file between tickets, "
+                "or run /daw-init again with --force." % why]
+    if phase != "IDLE" or any(key == "init" for _, key, _ in declined):
+        return []
+    return ["DAW: this project has no .daw/config.yml. Offer the user /daw-init, which asks "
+            "two questions and writes it (the spec format: daw or openspec). Skipping it "
+            "keeps today's flow. If they decline, add `<!-- daw:declined init daw-init -->` "
+            "to AGENTS.md and this offer stays quiet."]
+
+
 def migrate_from_former_name(repo):
     """A project set up under the product's former name, moved to DAW's names
     the first time the upgraded plugin starts in it (`migrate_legacy.py`): its
@@ -578,8 +609,10 @@ def main():
     # plugin root, and the caller has to say where because nothing in the repo
     # points at it. The default keeps every existing caller working.
     method = args.method or os.path.join(repo, ".daw")
-    dropped_in = os.path.isdir(os.path.join(repo, ".daw"))
-    if not os.path.isdir(method):
+    # The orchestrator, not the folder: `.daw/` alone may hold nothing but the
+    # project's own `config.yml` under a plugin install.
+    dropped_in = os.path.isfile(os.path.join(repo, ".daw", "orchestrator.md"))
+    if not os.path.isdir(method) or (args.method is None and not dropped_in):
         return                        # DAW is not reachable from here; say nothing
 
     # Compaction drops the middle of the conversation, and what it drops is the
@@ -672,7 +705,12 @@ def main():
                 "rewritten.",
             ]
 
-    declined = declined_recommendations(repo)
+    all_declined = declined_recommendations(repo)
+    lines += config_lines(repo, phase, all_declined)
+    # The init offer's decline is not a context recommendation, and pointing at
+    # /daw-context-check for it would send the reader to a panel that never
+    # mentions it.
+    declined = [d for d in all_declined if d[1] != "init"]
     if declined:
         total = sum(len(items) for _, _, items in declined)
         lines.append(

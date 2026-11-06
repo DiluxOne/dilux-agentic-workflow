@@ -253,8 +253,27 @@ hooks left pointing at deleted scripts fail on every session afterwards.
 of what was decided and why. Uninstalling the tool is not a reason to lose them.
 
 A DAW file you have edited since installing is kept and reported; `--force` removes those too.
+The project's own settings, `.daw/config.yml`, are kept as well: they are the project's, not DAW's.
 
 ---
+
+## Set the project up: `/daw-init`
+
+A project's DAW settings live in **`.daw/config.yml`**, committed with the project and validated
+against [`daw/config.schema.json`](../daw/config.schema.json). The plugin stays the same on every
+machine and for every project; this file is what makes one project different. When DAW starts in a
+repository without it, it offers **`/daw-init`**, which asks which spec format the project uses and
+writes the file:
+
+```yaml
+version: 1
+spec-format: daw   # or openspec
+```
+
+Skipping it keeps today's flow: a project that sets nothing runs exactly as `spec-format: daw`. A
+setting written as a line in `AGENTS.md` (`Spec format: OpenSpec`) was never read by any code; move
+it here with `/daw-init`. The file is written at IDLE only — the settings decide which rules a ticket
+is held to, so they do not change under one that is running.
 
 ## The file you have to write
 

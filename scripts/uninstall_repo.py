@@ -33,8 +33,10 @@ MANIFEST = ".daw-installed.json"
 RUNTIME = (".daw-state.json", ".daw-paused", ".daw-sessions", ".daw-work",
            ".daw-journal.jsonl")
 
-# The method itself. Byte-identical in every repo, entirely DAW's.
+# The method itself. Byte-identical in every repo, entirely DAW's — except the
+# project's own settings, which live beside it and stay when DAW goes.
 METHOD = (".daw",)
+KEEP = (os.path.join(".daw", "config.yml"),)
 
 CONTEXT_FILES = ("AGENTS.md", "CLAUDE.md", "GEMINI.md")
 BEGIN, END = "<!-- BEGIN DAW", "<!-- END DAW -->"
@@ -133,7 +135,7 @@ def main():
     repo = os.path.abspath(args.repo)
     act = not args.plan
 
-    removed, kept, blocks, outside = [], [], [], []
+    removed, kept, blocks, outside, settings = [], [], [], [], []
 
     manifest = {}
     mpath = os.path.join(repo, MANIFEST)
@@ -195,6 +197,23 @@ def main():
     for rel in METHOD + RUNTIME:
         path = os.path.join(repo, rel)
         if not os.path.exists(path):
+            continue
+        keep = [k for k in KEEP if os.path.dirname(k) == rel
+                and os.path.isfile(os.path.join(repo, k))
+                and not os.path.islink(path)]
+        if keep and os.path.isdir(path):
+            # Everything in it but the project's settings.
+            for name in sorted(os.listdir(path)):
+                if os.path.join(rel, name) in keep:
+                    continue
+                inner = os.path.join(path, name)
+                if act:
+                    if os.path.isdir(inner) and not os.path.islink(inner):
+                        shutil.rmtree(inner)
+                    else:
+                        os.remove(inner)
+                removed.append(os.path.join(rel, name))
+            settings.extend(keep)
             continue
         if act:
             shutil.rmtree(path) if os.path.isdir(path) else os.remove(path)
@@ -394,6 +413,8 @@ def main():
             print(f"      {k}")
         print(f"    ({MANIFEST} was kept too — it is what identifies those files. "
               "The --force run removes both.)")
+    for k in settings:
+        print(f"\n  Kept {k}: the project's DAW settings, committed with it, not DAW's to remove.")
     print("\n  docs/ was not touched. The PRDs, specs and reports are the record of what")
     print("  was decided; uninstalling the tool is not a reason to lose them.")
 

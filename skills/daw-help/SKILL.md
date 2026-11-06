@@ -44,6 +44,10 @@ The installer:
 
 **Installing is activating**: once it is in, the pipeline is live in that repo.
 
+Then set the project up with `/daw-init`: it asks which spec format the project uses (DAW's own, or
+OpenSpec) and writes `.daw/config.yml`, the project's DAW settings, validated against its schema.
+Commit it. Skipping it keeps the default flow.
+
 Then fill in the "Stack" section of `AGENTS.md`. Without it, DAW has nothing to plan or implement
 against, and it will stop and ask.
 

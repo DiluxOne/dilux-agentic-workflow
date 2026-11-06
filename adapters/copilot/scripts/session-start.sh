@@ -16,7 +16,7 @@ REPO="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 # trusted, and `-p` cannot ask for trust, so the gates live at user level ONLY.
 # A copy that steps aside for a repo hook steps aside for nothing at all.
 DAW="$REPO/.daw"
-if [ ! -d "$DAW" ] && [ -n "${DAW_PLUGIN_ROOT:-}" ] && [ -d "$DAW_PLUGIN_ROOT/daw" ]; then
+if [ ! -f "$DAW/scripts/session-boot.py" ] && [ -n "${DAW_PLUGIN_ROOT:-}" ] && [ -d "$DAW_PLUGIN_ROOT/daw" ]; then
   DAW="$DAW_PLUGIN_ROOT/daw"
 fi
 BOOT="$DAW/scripts/session-boot.py"

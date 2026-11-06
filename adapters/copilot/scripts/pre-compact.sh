@@ -11,7 +11,7 @@ set -uo pipefail
 REPO="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 PLUGIN_ROOT="${DAW_PLUGIN_ROOT:-}"
 DAW="$REPO/.daw"
-if [ ! -d "$DAW" ] && [ -n "$PLUGIN_ROOT" ] && [ -d "$PLUGIN_ROOT/daw" ]; then
+if [ ! -f "$DAW/scripts/session-boot.py" ] && [ -n "$PLUGIN_ROOT" ] && [ -d "$PLUGIN_ROOT/daw" ]; then
   DAW="$PLUGIN_ROOT/daw"
 fi
 BOOT="$DAW/scripts/session-boot.py"

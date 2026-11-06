@@ -1774,3 +1774,54 @@ def test_sin_familia_el_gate_de_impacto_no_existe(tmp_path):
     old, new = _classify_to_define()
     assert vt.impact_receipt_missing(repo, old, new) is None, \
         "a single-repo flow was charged the family toll"
+
+
+# ── C6: a project with no .daw/config.yml keeps today's flow ──────────────────
+
+def _suite_fixture(marker, tag):
+    suite = open(os.path.join(ROOT, "scripts/verify_install.sh"), encoding="utf-8").read()
+    at = suite.index(marker)
+    return suite[suite.index("\n", at) + 1:suite.index("\n" + tag, at)]
+
+
+def test_with_no_config_a_features_spec_receipt_is_todays(tmp_path):
+    """No `.daw/config.yml`: the spec receipt, its journal record and the digest
+    the gate looks for are byte-for-byte what they were before the setting
+    existed, and validate_spec.py runs no OpenSpec rule."""
+    import hashlib
+    root = tmp_path / "proj"
+    (root / "docs" / "daw" / "specs").mkdir(parents=True)
+    (root / "docs" / "daw" / "prd").mkdir(parents=True)
+    (root / "docs" / "daw" / "prd" / "prd-FEAT-001.md").write_text(
+        _suite_fixture('cat > "$VP/docs/daw/prd/prd-FEAT-001.md" <<\'PRDEOF\'', "PRDEOF"),
+        encoding="utf-8")
+    spec = root / "docs" / "daw" / "specs" / "spec-FEAT-001.md"
+    spec.write_text(_suite_fixture('cat > "$VS/spec-FEAT-001.md" <<\'SPECEOF\'', "SPECEOF"),
+                    encoding="utf-8")
+    out = subprocess.run([sys.executable, os.path.join(ROOT, "daw/scripts/validate_spec.py"),
+                          str(spec), "--tier", "FEATURE"],
+                         capture_output=True, text=True, cwd=str(root))
+    assert out.returncode == 0, out.stdout[-1200:] + out.stderr
+    assert "F-SPEC-OS" not in out.stdout and "Seals:" not in out.stdout, out.stdout[-800:]
+    assert not (root / ".daw").exists(), "validating a spec created DAW settings"
+
+    # Today's digest: sha256 of the spec's text, first twelve hex characters.
+    text = spec.read_text(encoding="utf-8")
+    today = hashlib.sha256(text.encode("utf-8")).hexdigest()[:12]
+    receipts = os.listdir(root / ".daw-sessions")
+    assert receipts == ["spec-validated-" + today], receipts
+    assert (root / ".daw-sessions" / receipts[0]).read_text(encoding="utf-8") == \
+        "spec-FEAT-001.md\ntier: FEATURE\n"
+    journal = [json.loads(ln) for ln in open(root / ".daw-journal.jsonl", encoding="utf-8")]
+    assert journal == [{"record": "receipt", "name": "spec-validated-" + today,
+                        "file": "spec-FEAT-001.md", "tier": "FEATURE"}], journal
+
+    # The gate hashes the same bytes, so it opens on that receipt — and one
+    # byte later it refuses exactly as it always did.
+    real = os.path.realpath(str(root))
+    st = state(phase="PLAN", tier="FEATURE", ticket="FEAT-001")
+    assert vt._spec_receipt_missing(real, st) is None
+    with open(spec, "a", encoding="utf-8") as fh:
+        fh.write("\n")
+    why = vt._spec_receipt_missing(real, st)
+    assert why and "OpenSpec" not in why, why

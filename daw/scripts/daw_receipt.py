@@ -22,6 +22,7 @@ than implied, because a guarantee whose scope is unstated gets read as total.
 import hashlib
 import json
 import os
+import re
 
 JOURNAL = ".daw-journal.jsonl"
 SESSIONS = ".daw-sessions"
@@ -124,7 +125,112 @@ def digest_of(text):
     return hashlib.sha256(text.encode("utf-8")).hexdigest()[:12]
 
 
-def write(artifact_path, prefix, text, tier=None, asof=None):
+# ── The OpenSpec change a spec names, sealed with it ─────────────────────────
+#
+# Under `spec-format: openspec` the what lives in an OpenSpec change and the
+# spec writes only the how. Approving the spec approves both, so the receipt
+# has to name both: hashing the spec alone let the change be rewritten after
+# the approval with every gate still green. `sealed_text` is the one place that
+# says what a spec's receipt covers, and the validator and the gate both call
+# it — two copies of "what is sealed" is how they come to disagree.
+#
+# It goes by what the SPEC names, never by the config: switching the project
+# back to `spec-format: daw` mid-ticket must not unseal a change already sealed.
+OPENSPEC_LABEL = re.compile(r"^[ \t]*\*\*OpenSpec change:\*\*[ \t]*(.*?)[ \t]*$", re.M)
+CHANGE_PATH = re.compile(r"^openspec/changes/([a-z0-9][a-z0-9-]*)/?$")
+SEAL_MAX_FILES = 400
+SEAL_MAX_BYTES = 2 * 1024 * 1024
+
+
+class SealError(ValueError):
+    """The change a spec names cannot be sealed, and this says why."""
+
+
+def openspec_named(text):
+    """Every value written after `**OpenSpec change:**`, backticks dropped."""
+    return [m.group(1).strip().strip("`").strip() for m in OPENSPEC_LABEL.finditer(text)]
+
+
+def openspec_change(text):
+    """`openspec/changes/<name>` for the one change the spec names, or None.
+
+    Raises SealError for two or more, or for a value that is not a change's
+    path: a name like `../../x` never reaches the filesystem.
+    """
+    named = openspec_named(text)
+    if not named:
+        return None
+    if len(named) > 1:
+        raise SealError("the spec names %d OpenSpec changes; it names exactly one" % len(named))
+    m = CHANGE_PATH.match(named[0])
+    if not m:
+        raise SealError("`%s` is not `openspec/changes/<name>` with a name of lowercase "
+                        "letters, digits and hyphens" % named[0])
+    return "openspec/changes/" + m.group(1)
+
+
+def _inside(path, root):
+    real, top = os.path.realpath(path), os.path.realpath(root)
+    return real == top or real.startswith(top + os.sep)
+
+
+def change_files(root, change):
+    """The change's regular files as (repo-relative path, text), sorted.
+
+    Fails closed: a missing folder, a symlink, a file that is not UTF-8, or a
+    folder past the caps is a SealError, never a pass. A symlink is refused
+    even when it stays inside the repository: hashing the link would leave its
+    target free to change after the approval, and following it would seal a
+    file that is not the change's.
+    """
+    folder = os.path.join(root, *change.split("/"))
+    if os.path.islink(folder) or not os.path.isdir(folder):
+        raise SealError("%s is not a folder in this repository" % change)
+    if not _inside(folder, root):
+        raise SealError("%s resolves outside the repository" % change)
+    out, total = [], 0
+    for base, dirs, files in os.walk(folder):
+        dirs.sort()
+        for name in list(dirs):
+            p = os.path.join(base, name)
+            if os.path.islink(p):
+                raise SealError("%s is a symlink, which no receipt seals"
+                                % os.path.relpath(p, root).replace(os.sep, "/"))
+        for name in sorted(files):
+            p = os.path.join(base, name)
+            relp = os.path.relpath(p, root).replace(os.sep, "/")
+            if os.path.islink(p):
+                raise SealError("%s is a symlink, which no receipt seals" % relp)
+            if not os.path.isfile(p):
+                continue
+            total += os.path.getsize(p)
+            if len(out) >= SEAL_MAX_FILES or total > SEAL_MAX_BYTES:
+                raise SealError("%s holds more than %d files or %d bytes, past what a "
+                                "receipt seals" % (change, SEAL_MAX_FILES, SEAL_MAX_BYTES))
+            try:
+                with open(p, encoding="utf-8") as fh:
+                    out.append((relp, fh.read()))
+            except UnicodeDecodeError:
+                raise SealError("%s is not UTF-8 text, so no receipt can name it" % relp)
+    return out
+
+
+def sealed_text(spec_path, text, root=None):
+    """What a spec's receipt hashes: its text, and the change it names.
+
+    A spec that names no change returns its text unchanged, so its digest is the
+    one it always had and receipts already on disk stay valid. One that names a
+    change gets every regular file under that folder appended in sorted order,
+    `relpath\\0content\\0` each: edit, add or remove one and the digest moves.
+    """
+    change = openspec_change(text)
+    if change is None:
+        return text
+    root = root or repo_root(spec_path)
+    return text + "".join("%s\0%s\0" % (relp, body) for relp, body in change_files(root, change))
+
+
+def write(artifact_path, prefix, text, tier=None, asof=None, openspec=None):
     """Write the receipt for `artifact_path` and record having written it.
 
     Returns the receipt's name, so the caller can print it.
@@ -158,6 +264,8 @@ def write(artifact_path, prefix, text, tier=None, asof=None):
             fh.write("tier: %s\n" % tier)
         if asof:
             fh.write("asof: %s\n" % asof)
+        if openspec:
+            fh.write("openspec: %s\n" % openspec)
     # Best effort, like every other write to the journal: a record that cannot be
     # kept must not stop a validation that passed. It costs the extra guarantee,
     # not the run.
@@ -167,6 +275,8 @@ def write(artifact_path, prefix, text, tier=None, asof=None):
             record["tier"] = tier
         if asof:
             record["asof"] = asof
+        if openspec:
+            record["openspec"] = openspec
         line = json.dumps(record, sort_keys=True)
         with open(os.path.join(root, JOURNAL), "a+", encoding="utf-8") as fh:
             # Re-validating unchanged bytes is legitimate and common — the same

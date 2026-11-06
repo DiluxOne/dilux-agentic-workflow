@@ -30,8 +30,8 @@ set -uo pipefail
 # a knob anyone could turn from outside the file. `docs/AI-POLICY.md` and
 # `CONTRIBUTING.md` both name this variable as the thing not to soften; it was
 # softenable without editing the file they were talking about.
-EXPECT_CHECKS=688
-EXPECT_SKILLS=20
+EXPECT_CHECKS=698
+EXPECT_SKILLS=21
 EXPECT_AGENTS=5
 EXPECT_RULES=14
 EXPECT_ADAPTERS=6
@@ -40,7 +40,7 @@ EXPECT_ADAPTERS=6
 # `--check-anchors`, `--cover` and every check in this file green, and the
 # published percentage went on being a percentage of a smaller list. The same
 # reason `EXPECT_CHECKS` exists, one file over.
-EXPECT_MUTATIONS=827
+EXPECT_MUTATIONS=841
 
 SELF="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # EXPORTED, because the Python blocks below anchor their own temporary
@@ -1940,7 +1940,7 @@ PYCHANGED
 # The state a session materialises has to carry the field, or the mode has
 # nowhere to live: `session-boot.py` writes the first state every repo ever gets.
 SBA="$WORK/autonomy-boot"; mkdir -p "$SBA"; git -C "$SBA" init -q .
-mkdir -p "$SBA/.daw"
+mkdir -p "$SBA/.daw"; : > "$SBA/.daw/orchestrator.md"
 python3 "$SELF/daw/scripts/session-boot.py" --repo "$SBA" --session-id a1 >/dev/null 2>&1
 python3 - "$SBA" <<'PYSB' && ok "a freshly materialised state carries `autonomy`, so the mode has somewhere to live" || bad "the state template dropped the field the whole mode is carried in"
 import json, os, sys
@@ -5587,6 +5587,25 @@ PYPS
       ok "and its boot names the orchestrator where the plugin actually put it" ;;
     *) bad "$T boots a plugin install pointing at .daw/orchestrator.md, which is not there" ;;
   esac
+done
+
+# `/daw-init` gives a plugin-installed project a `.daw/` that holds only
+# `config.yml`. A hook that reads "a .daw/ folder exists" as "DAW is copied in"
+# then looks for its boot script in the repo, finds none, and exits quietly:
+# no boot context, no post-compaction reminder, on every session after init.
+for T in codex cursor gemini copilot; do
+  PR="$WORK/plugin-config-$T"; mkdir -p "$PR/.daw"; git -C "$PR" init -q . >/dev/null 2>&1 || true
+  printf 'version: 1\nspec-format: daw\n' > "$PR/.daw/config.yml"
+  HD="$SELF/adapters/$T/hooks"; [ "$T" = copilot ] && HD="$SELF/adapters/$T/scripts"
+  for H in session-start.sh pre-compact.sh; do
+    HOUT="$( cd "$PR" && printf '{}' | DAW_PLUGIN_ROOT="$PLR" CURSOR_PLUGIN_ROOT="$PLR" \
+               bash "$HD/$H" 2>/dev/null )"
+    case "$HOUT" in
+      *"$PLR/daw/orchestrator.md"*)
+        ok "$T $H still finds the plugin's method in a repo whose .daw/ holds only config.yml" ;;
+      *) bad "$T $H goes silent once /daw-init writes .daw/config.yml under a plugin install" ;;
+    esac
+  done
 done
 
 # ── What the repository shows the outside world ───────────────────────────────
@@ -11720,6 +11739,7 @@ CLAIMS = {
     "daw-family-status":     ["family_next.py", "origin/main", "update-row", "Never improvise"],
     "daw-eject":             [".daw/", "The repo wins", "CLAUDE_PLUGIN_ROOT"],
     "daw-help":              ["/daw-status", "/daw-self-check"],
+    "daw-init":              ["daw_init.py", "--detect", "--spec-format", "daw:declined init"],
     "daw-security-sast":     ["validate_sast.py", "docs/daw/security/sast-"],
     "daw-self-check":        ["INCONSISTENCY", "```bash"],
     "daw-status":            [".daw-state.json"],
