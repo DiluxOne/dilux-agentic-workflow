@@ -13,7 +13,7 @@
 // arguments and piped to the validator on stdin: that is the only way it can
 // judge a write that has not happened yet. Run with stdin closed it sees an
 // empty envelope, exits 0, and the `throw` below becomes unreachable.
-import { existsSync, readFileSync, realpathSync } from "node:fs"
+import { existsSync, readFileSync, readdirSync, realpathSync } from "node:fs"
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { execFileSync } from "node:child_process"
@@ -143,8 +143,19 @@ const wire = (directory) => {
     }
   }
 
+  // The user took a turn: the counter the commit gate waits on moves. Like
+  // Claude's user-turn.sh it decides nothing, prints nothing and fails OPEN —
+  // refusing the user's own message over bookkeeping would be the bigger fault.
+  const userTurn = () => {
+    if (!installed()) return
+    try {
+      execFileSync("python3", [gate, "--mode", "turn", "--state", state, "--graph", graph,
+                               "--repo", directory], { stdio: ["ignore", "ignore", "ignore"] })
+    } catch {}
+  }
+
   return { daw, state, skills, flags, BOOT_MARK, bootstrap, compactionNudge, installed,
-           envelope, runGate, sessionBoot }
+           envelope, runGate, sessionBoot, userTurn }
 }
 
 export const DawPlugin = async ({ directory }) => {
@@ -246,7 +257,8 @@ export const DawPlugin = async ({ directory }) => {
 // dereferenced: one missing domain must not take the others down with it.
 const setup = async (ctx) => {
   const directory = ctx?.location?.directory ?? process.cwd()
-  const { installed, envelope, runGate } = wire(directory)
+  const { skills, flags, BOOT_MARK, bootstrap, compactionNudge, installed, envelope, runGate,
+          sessionBoot, userTurn } = wire(directory)
   const writes = (tool) => WRITE_TOOLS.has(tool) || V2_WRITE_TOOLS.has(tool)
 
   // Before every write. In V2 only `execute.before` may reject, and a
@@ -262,6 +274,93 @@ const setup = async (ctx) => {
       throw new Error(`DAW blocked the write.\n${reason}`)
     }
   })
+
+  // After a write or a shell: revalidate the state on disk. V2's `after`
+  // cannot reject — a throw there is only logged — so the verdict goes where
+  // the model reads it, appended to the tool's own result.
+  await ctx?.tool?.hook?.("execute.after", async (event) => {
+    if (!POST_TOOLS.has(toolId(event?.tool))) return
+    if (!installed()) return
+    try {
+      runGate("post", "")
+    } catch (e) {
+      const reason = (e.stderr?.toString() || "").trim()
+      const text = `DAW: the state on disk is now inconsistent.\n${reason}`
+      if (event.status === "error") {
+        console.error(text)
+        return
+      }
+      event.result = appendText(event.result, text)
+    }
+  })
+
+  // V2's destination for V1's `chat.message`: the user's own turn.
+  await ctx?.session?.hook?.("prompt", async () => {
+    userTurn()
+  })
+
+  // What the model reads. V2 rebuilds the request on every model call and
+  // hands it here, so the mark is what keeps the bootstrap from doubling.
+  await ctx?.session?.hook?.("context", async (event) => {
+    const users = (event?.messages ?? []).filter((m) => m?.role === "user")
+    if (!users.length) return
+    const said = (m, mark) => (m.content ?? []).some((p) => p?.type === "text" && p.text?.includes(mark))
+    const prefix = (m, text) => { m.content = [{ type: "text", text }, ...(m.content ?? [])] }
+    if (flags.compacted) {
+      const text = compactionNudge()
+      if (text) {
+        prefix(users[users.length - 1], text)
+        flags.compacted = false
+      }
+    }
+    const text = bootstrap()
+    if (!text || said(users[0], BOOT_MARK)) return
+    prefix(users[0], text)
+  })
+
+  // The session boot and the compaction arrive as events, on a stream that
+  // lives as long as the plugin. Not awaited: `setup` has to return.
+  const events = ctx?.event?.subscribe?.({ types: ["session.created", "session.compaction.ended"] })
+  if (events?.[Symbol.asyncIterator]) {
+    ;(async () => {
+      for await (const ev of events) {
+        if (ev?.type === "session.compaction.ended") flags.compacted = true
+        if (ev?.type !== "session.created") continue
+        const data = ev?.data ?? ev?.properties ?? ev
+        sessionBoot(String(data?.sessionID ?? data?.id ?? `opencode-${process.pid}`))
+      }
+    })().catch(() => {})
+  }
+
+  // The packaged skills, through V2's skill domain. A drop-in has none to add:
+  // its skills sit in .opencode/skills, which V2 discovers on its own.
+  await ctx?.skill?.transform?.((editor) => {
+    if (!existsSync(skills)) return
+    if (typeof editor?.source === "function") {
+      editor.source({ type: "directory", path: skills })
+      return
+    }
+    if (typeof editor?.add !== "function") return
+    for (const name of readdirSync(skills)) {
+      const file = join(skills, name, "SKILL.md")
+      if (!existsSync(file) || editor.get?.(name)) continue
+      const text = readFileSync(file, "utf8")
+      const description = /^description:\s*(.+)$/m.exec(text)?.[1]?.replace(/^["']|["']$/g, "")
+      editor.add({ id: name, name, description, path: file, content: text })
+    }
+  })
+}
+
+// A V2 tool result carries its text as a string or as a list of parts; the
+// verdict joins whichever it is, so the model reads the tool's output and
+// DAW's message together.
+const appendText = (result, text) => {
+  const content = result?.content
+  if (Array.isArray(content)) return { ...result, content: [...content, { type: "text", text }] }
+  if (typeof content === "string") return { ...result, content: `${content}\n\n${text}` }
+  const output = result?.output
+  const shown = output === undefined ? "" : typeof output === "string" ? output : JSON.stringify(output)
+  return { ...result, content: shown ? `${shown}\n\n${text}` : text }
 }
 
 export default { id: "daw", server: DawPlugin, setup }

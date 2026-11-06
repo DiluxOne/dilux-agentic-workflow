@@ -30,7 +30,7 @@ set -uo pipefail
 # a knob anyone could turn from outside the file. `docs/AI-POLICY.md` and
 # `CONTRIBUTING.md` both name this variable as the thing not to soften; it was
 # softenable without editing the file they were talking about.
-EXPECT_CHECKS=675
+EXPECT_CHECKS=680
 EXPECT_SKILLS=20
 EXPECT_AGENTS=5
 EXPECT_RULES=14
@@ -40,7 +40,7 @@ EXPECT_ADAPTERS=6
 # `--check-anchors`, `--cover` and every check in this file green, and the
 # published percentage went on being a percentage of a smaller list. The same
 # reason `EXPECT_CHECKS` exists, one file over.
-EXPECT_MUTATIONS=788
+EXPECT_MUTATIONS=796
 
 SELF="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # EXPORTED, because the Python blocks below anchor their own temporary
@@ -12836,7 +12836,14 @@ export const load = async (file, directory) => {
     session: { hook: reg("session") },
     agent: { transform: tf("agent") },
     skill: { transform: tf("skill") },
-    event: { subscribe: () => ({ [Symbol.asyncIterator]: () => ({ next: () => new Promise(() => {}) }) }) },
+    // The events a probe queues in `globalThis.dawEvents`, then a stream that
+    // stays open, as V2's does for the plugin's lifetime.
+    event: {
+      subscribe: () => (async function* () {
+        for (const e of globalThis.dawEvents ?? []) yield e
+        await new Promise(() => {})
+      })(),
+    },
   }
   const mod = await import(file)
   await mod.default.setup(ctx)
@@ -12892,6 +12899,99 @@ print(json.dumps([
     && ok "OpenCode V2 lets the same source through once CODE was reached" \
     || bad "OpenCode V2 blocks source in CODE — the guard refuses everything ($(v2pre "$V2_SRC_CASES"))"
   printf '%s' "$IDLE_STATE" > "$ALL/.daw-state.json"
+
+  # After the write. V2's `execute.after` cannot reject, so a state forged
+  # behind the pre-write gate (through `shell`, the way it gets forged) has to
+  # be reported where the model reads: appended to that tool's own result.
+  cat > "$WORK/opencode-v2-post.mjs" <<PROBE
+import { load } from "$WORK/opencode-v2ctx.mjs"
+const { hooks } = await load("$ALL/.opencode/plugins/daw.js", "$ALL")
+const after = hooks["tool.execute.after"]
+if (typeof after !== "function") process.exit(3)
+const run = async (tool, result) => {
+  const event = { tool, sessionID: "s", agent: "build", messageID: "m", id: "c", input: {},
+                  status: "completed", result }
+  await after(event)
+  return event.result
+}
+const said = (r) => JSON.stringify(r).includes("DAW: the state on disk is now inconsistent")
+const a = await run("shell", { content: "ok" })
+const b = await run("write", { content: [{ type: "text", text: "ok" }] })
+const c = await run("read", { content: "ok" })
+console.log(JSON.stringify([said(a) && a.content.startsWith("ok"), said(b) && b.content[0].text === "ok", said(c)]))
+PROBE
+  printf '%s' "$ILLEGAL" > "$ALL/.daw-state.json"
+  [ "$(node "$WORK/opencode-v2-post.mjs" 2>/dev/null)" = "[true,true,false]" ] \
+    && ok "OpenCode V2 reports a forged state in the result of the shell or write that follows it" \
+    || bad "OpenCode V2: a state forged behind the pre-write gate is not reported to the model"
+  printf '%s' "$IDLE_STATE" > "$ALL/.daw-state.json"
+  [ "$(node "$WORK/opencode-v2-post.mjs" 2>/dev/null)" = "[false,false,false]" ] \
+    && ok "OpenCode V2's post net stays silent on a legal state" \
+    || bad "OpenCode V2 reports a legal state as inconsistent"
+
+  # The user's turn. V2's `session.hook("prompt")` is where V1's chat.message
+  # went; it has to move the counter the commit gate waits on exactly as
+  # Claude's UserPromptSubmit hook does, and print nothing — whatever it says
+  # would land in front of the user's own message.
+  cat > "$WORK/opencode-v2-turn.mjs" <<PROBE
+import { load } from "$WORK/opencode-v2ctx.mjs"
+const { hooks } = await load("$ALL/.opencode/plugins/daw.js", "$ALL")
+const prompt = hooks["session.prompt"]
+if (typeof prompt !== "function") process.exit(3)
+for (let i = 0; i < 2; i++) await prompt({ sessionID: "s", messageID: "m", prompt: { text: "go" } })
+PROBE
+  rm -rf "$ALL/.daw-sessions/turn"
+  V2_TURN_OUT=$(node "$WORK/opencode-v2-turn.mjs" 2>&1)
+  V2_TURN=$(cat "$ALL/.daw-sessions/turn" 2>/dev/null)
+  rm -rf "$ALL/.daw-sessions/turn"
+  for _ in 1 2; do CLAUDE_PROJECT_DIR="$ALL" bash "$ALL/.claude/hooks/user-turn.sh" </dev/null >/dev/null 2>&1; done
+  CL_TURN=$(cat "$ALL/.daw-sessions/turn" 2>/dev/null)
+  rm -rf "$ALL/.daw-sessions/turn"
+  [ "$V2_TURN" = "2" ] && [ "$V2_TURN" = "$CL_TURN" ] && [ -z "$V2_TURN_OUT" ] \
+    && ok "OpenCode V2 counts the user's turns as Claude's user-turn hook does, and prints nothing" \
+    || bad "OpenCode V2's user-turn hook diverges from Claude's (V2 '$V2_TURN', Claude '$CL_TURN', output '$V2_TURN_OUT')"
+
+  # Steering, as under V1: a plugin that enforces and never steers is the
+  # PRD-to-monorepo failure. V2 rebuilds the request on every model call, so
+  # the bootstrap rides the first user message through `session.hook
+  # ("context")` once per request, never twice; the packaged skills go in
+  # through the skill domain.
+  cat > "$WORK/opencode-v2-steer.mjs" <<PROBE
+import { load } from "$WORK/opencode-v2ctx.mjs"
+const { hooks, transforms } = await load("$WORK/fakecfg/plugins/daw.js", "$WORK/blankrepo")
+const sources = []
+await transforms.skill?.({ source: (s) => sources.push(s), list: () => sources })
+const registered = sources.some((s) => s.type === "directory" && s.path.includes("fakecfg/skills"))
+const event = { sessionID: "s", messages: [{ role: "user", content: [{ type: "text", text: "implement the PRD" }] }] }
+await hooks["session.context"](event)
+await hooks["session.context"](event)
+const parts = event.messages[0].content
+const steered = parts[0].text.includes("DAW_BOOTSTRAP") && parts[0].text.includes("CLASSIFYING")
+const once = parts.filter((p) => p.text?.includes("DAW_BOOTSTRAP")).length === 1
+process.exit(registered && steered && once && parts[1].text === "implement the PRD" ? 0 : 2)
+PROBE
+  node "$WORK/opencode-v2-steer.mjs" >/dev/null 2>&1 \
+    && ok "OpenCode V2 steers: skills registered, bootstrap rides the first user message, once" \
+    || bad "OpenCode V2 enforces but does not steer — the PRD-to-monorepo failure is back under V2"
+  # Compaction arrives as an event on V2's stream, and the reminder rides the
+  # NEWEST user message of the next request, once.
+  cat > "$WORK/opencode-v2-compact.mjs" <<PROBE
+import { load } from "$WORK/opencode-v2ctx.mjs"
+globalThis.dawEvents = [{ type: "session.compaction.ended", data: { sessionID: "s" } }]
+const { hooks } = await load("$WORK/fakecfg/plugins/daw.js", "$WORK/blankrepo")
+await new Promise((r) => setTimeout(r, 50))
+const ask = () => ({ messages: [{ role: "user", content: [{ type: "text", text: "first" }] },
+                                { role: "user", content: [{ type: "text", text: "after the summary" }] }] })
+const one = ask()
+await hooks["session.context"](one)
+const two = ask()
+await hooks["session.context"](two)
+const nudged = (e) => e.messages[1].content[0].text.includes("POST-COMPACTION")
+process.exit(nudged(one) && !nudged(two) ? 0 : 2)
+PROBE
+  node "$WORK/opencode-v2-compact.mjs" >/dev/null 2>&1 \
+    && ok "OpenCode V2 hears the compaction and reminds the model on the next request, once" \
+    || bad "OpenCode V2 compacts and DAW says nothing — the pipeline ends at the first summary"
 else
   echo "  · node not available — OpenCode's plugin was not exercised"
 fi
