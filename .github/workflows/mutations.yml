@@ -25,13 +25,16 @@ on:
 permissions:
   contents: read
 
-# Queued, not cancelled. A cancelled run and a failed run look alike in the
-# checks list and in the badge, and this is the job whose whole purpose is to
-# report a number honestly — so a second push waits its turn instead of turning
-# the first one into a result nobody can read.
+# Queued, not cancelled, on main and on the schedule. A cancelled run and a
+# failed run look alike in the checks list and in the badge, and this is the
+# job whose whole purpose is to report a number honestly — so a second push to
+# main waits its turn instead of turning the first one into a result nobody can
+# read. On a pull request the opposite: a new push makes the old head's run a
+# result no check reads any more, and queuing behind it held each new push for
+# the old run's whole kill map, an hour (#78), so the old run is cancelled.
 concurrency:
   group: "${{ github.workflow }}-${{ github.ref }}"
-  cancel-in-progress: false
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   anchors:
