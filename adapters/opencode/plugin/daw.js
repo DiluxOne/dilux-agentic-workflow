@@ -316,6 +316,14 @@ const setup = async (ctx) => {
           runGate, sessionBoot, userTurn } = wire(directory)
   const writes = (tool) => WRITE_TOOLS.has(tool) || V2_WRITE_TOOLS.has(tool)
 
+  // A skipped domain is said once, on stderr: a plugin that loads and
+  // enforces nothing must not look the same as one that enforces its gates.
+  // The only published V2 build (0.0.0-dev-202610280534) offers neither.
+  if (typeof ctx?.tool?.hook !== "function")
+    console.error("DAW: this OpenCode V2 build offers plugins no tool hook; DAW's write gates are NOT enforced.")
+  if (typeof ctx?.session?.hook !== "function")
+    console.error("DAW: this OpenCode V2 build offers plugins no session hook; DAW's user-turn counter and bootstrap are NOT applied.")
+
   // Before every write. In V2 only `execute.before` may reject, and a
   // rejection fails that call alone, which is Claude Code's exit 2.
   await ctx?.tool?.hook?.("execute.before", async (event) => {

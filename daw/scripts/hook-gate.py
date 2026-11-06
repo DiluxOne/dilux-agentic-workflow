@@ -142,9 +142,11 @@ def normalize(event, dialect):
         paths = _paths_from_patch(args.get("command"))
     # OpenCode's patch names its files only inside the program: read from
     # there, a write to product source in a phase that forbids it reached the
-    # gate with no path and was allowed unjudged.
-    if spec.get("patch_text") and not paths and isinstance(args.get("patchText"), str):
-        paths = _paths_from_patch(args["patchText"])
+    # gate with no path and was allowed unjudged. Always read, never only as a
+    # fallback: a decoy `path` beside the program would be judged alone while
+    # the program wrote the real file.
+    if spec.get("patch_text") and isinstance(args.get("patchText"), str):
+        paths = paths + [p for p in _paths_from_patch(args["patchText"]) if p not in paths]
 
     # Copilot's INTERACTIVE writes arrive as `apply_patch` with toolArgs being
     # the raw patch PROGRAM — not a JSON string. json.loads failed, no path

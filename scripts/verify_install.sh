@@ -30,7 +30,7 @@ set -uo pipefail
 # a knob anyone could turn from outside the file. `docs/AI-POLICY.md` and
 # `CONTRIBUTING.md` both name this variable as the thing not to soften; it was
 # softenable without editing the file they were talking about.
-EXPECT_CHECKS=687
+EXPECT_CHECKS=688
 EXPECT_SKILLS=20
 EXPECT_AGENTS=5
 EXPECT_RULES=14
@@ -40,7 +40,7 @@ EXPECT_ADAPTERS=6
 # `--check-anchors`, `--cover` and every check in this file green, and the
 # published percentage went on being a percentage of a smaller list. The same
 # reason `EXPECT_CHECKS` exists, one file over.
-EXPECT_MUTATIONS=825
+EXPECT_MUTATIONS=827
 
 SELF="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # EXPORTED, because the Python blocks below anchor their own temporary
@@ -13014,16 +13014,37 @@ print(json.dumps([
     ["edit", {"path": src, "oldString": "x = 1", "newString": "x = 2"}],
     ["patch", {"patchText": "*** Begin Patch\n*** Update File: src/app.py\n@@\n-x = 1\n+x = 2\n*** End Patch\n"}],
     ["opencode.tool.write", {"path": src, "content": "x = 1\n"}],
-]))' "$ALL/src/app.py")
+    ["patch", {"path": sys.argv[2], "patchText": "*** Begin Patch\n*** Update File: src/app.py\n@@\n-x = 1\n+x = 2\n*** End Patch\n"}],
+]))' "$ALL/src/app.py" "$ALL/docs/ok.md")
   printf '%s' "$IN_PLAN" > "$ALL/.daw-state.json"
-  [ "$(v2pre "$V2_SRC_CASES")" = "[true,true,true,true]" ] \
-    && ok "OpenCode V2 refuses product source in PLAN through write, edit, patch and a namespaced id" \
+  [ "$(v2pre "$V2_SRC_CASES")" = "[true,true,true,true,true]" ] \
+    && ok "OpenCode V2 refuses product source in PLAN through write, edit, patch (with or without a decoy path) and a namespaced id" \
     || bad "OpenCode V2: product source was written in PLAN through at least one write tool ($(v2pre "$V2_SRC_CASES"))"
   printf '%s' "$IN_CODE" > "$ALL/.daw-state.json"
-  [ "$(v2pre "$V2_SRC_CASES")" = "[false,false,false,false]" ] \
+  [ "$(v2pre "$V2_SRC_CASES")" = "[false,false,false,false,false]" ] \
     && ok "OpenCode V2 lets the same source through once CODE was reached" \
     || bad "OpenCode V2 blocks source in CODE — the guard refuses everything ($(v2pre "$V2_SRC_CASES"))"
   printf '%s' "$IDLE_STATE" > "$ALL/.daw-state.json"
+
+  # A V2 build without the tool or session domain (the only published one has
+  # neither) skips those registrations. Skipped in silence, a plugin that
+  # enforces nothing looks the same as one that does: it has to say so.
+  cat > "$WORK/opencode-v2-bare.mjs" <<PROBE
+import { load } from "$WORK/opencode-v2ctx.mjs"
+const said = []
+console.error = (...a) => said.push(a.join(" "))
+const mod = await import("$ALL/.opencode/plugins/daw.js")
+await mod.default.setup({ location: { directory: "$ALL" }, options: {} })
+const bare = said.splice(0)
+await load("$ALL/.opencode/plugins/daw.js", "$ALL")
+const has = (lines, what) => lines.some((l) => l.includes(what) && l.includes("NOT"))
+console.log(JSON.stringify([has(bare, "no tool hook"), has(bare, "no session hook"),
+                            has(said, "no tool hook") || has(said, "no session hook")]))
+PROBE
+  V2_BARE=$(node "$WORK/opencode-v2-bare.mjs" 2>&1)
+  [ "$V2_BARE" = "[true,true,false]" ] \
+    && ok "OpenCode V2 says so when the build offers no tool or session hook, and stays silent when it does" \
+    || bad "OpenCode V2 skips a missing tool or session domain in silence, or warns when it is there ($V2_BARE)"
 
   # After the write. V2's `execute.after` cannot reject, so a state forged
   # behind the pre-write gate (through `shell`, the way it gets forged) has to
