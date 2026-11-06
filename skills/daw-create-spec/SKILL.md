@@ -59,6 +59,9 @@ the how.
 2. Identify the root cause and the affected files.
 3. Produce the document: problem, root cause, solution with steps, tests, regression risk.
 
+Under `spec-format: openspec` the fix-plan is the same: a FIX needs no OpenSpec change. If it names
+one (`**OpenSpec change:**`), `F-SPEC-OS-01/02` apply to it and its receipt seals that change.
+
 The **Rollback plan** is mandatory for FIX (F-SPEC-15), and the fix-plan references the RCA that
 DEFINE produced (`docs/daw/specs/rca-{ticket}.md`) — the reference is a convention of the tier, not
 an F-SPEC rule. If

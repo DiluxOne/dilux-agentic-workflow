@@ -43,6 +43,7 @@ def _fixture(marker, tag):
 
 SPEC = _fixture('cat > "$VS/spec-FEAT-001.md" <<\'SPECEOF\'', "SPECEOF")
 PRD = _fixture('cat > "$VP/docs/daw/prd/prd-FEAT-001.md" <<\'PRDEOF\'', "PRDEOF")
+FIXPLAN = _fixture('cat > "$VS/fix-FIX-002.md" <<\'FIXEOF\'', "FIXEOF")
 
 PROPOSAL = """## Why
 Customers ask for their invoices as a spreadsheet they can file with their accountant.
@@ -84,10 +85,10 @@ def repo(tmp_path):
     return r
 
 
-def validate(repo, text, name="spec-FEAT-001.md"):
+def validate(repo, text, name="spec-FEAT-001.md", tier="FEATURE"):
     path = repo / "docs" / "daw" / "specs" / name
     path.write_text(text, encoding="utf-8")
-    out = subprocess.run([sys.executable, VALIDATE, str(path), "--tier", "FEATURE"],
+    out = subprocess.run([sys.executable, VALIDATE, str(path), "--tier", tier],
                          capture_output=True, text=True, cwd=str(repo))
     return out, path
 
@@ -141,6 +142,28 @@ def test_a_spec_naming_two_changes_fails(repo):
     out, _ = validate(repo, two)
     assert out.returncode == 2 and failed(out, "F-SPEC-OS-01"), out.stdout[-800:]
     assert "exactly one" in out.stdout
+
+
+def test_a_fix_plan_that_names_no_change_passes_and_keeps_todays_receipt(repo):
+    # A FIX answers to an RCA, not to an OpenSpec change: a bug fix in an
+    # openspec project is not made to invent one to get its receipt.
+    out, path = validate(repo, FIXPLAN, name="fix-FIX-002.md", tier="FIX")
+    assert out.returncode == 0, out.stdout[-1500:] + out.stderr
+    assert "F-SPEC-OS" not in out.stdout, out.stdout[-800:]
+    name = "spec-validated-" + daw_receipt.digest_of(path.read_text(encoding="utf-8"))
+    assert (repo / ".daw-sessions" / name).is_file(), os.listdir(repo / ".daw-sessions")
+
+
+def test_a_fix_plan_that_names_a_change_is_held_to_the_bridge(repo):
+    out, _ = validate(repo, linked(FIXPLAN), name="fix-FIX-002.md", tier="FIX")
+    assert out.returncode == 0 and "✅ F-SPEC-OS-01" in out.stdout, out.stdout[-1500:]
+    assert "Seals: " + CHANGE in out.stdout
+    out, _ = validate(repo, linked(FIXPLAN) + "\n### Requirement: Invoice export\n",
+                      name="fix-FIX-002.md", tier="FIX")
+    assert out.returncode == 2 and failed(out, "F-SPEC-OS-02"), out.stdout[-800:]
+    out, _ = validate(repo, linked(FIXPLAN, "openspec/changes/add-nothing"),
+                      name="fix-FIX-002.md", tier="FIX")
+    assert out.returncode == 2 and failed(out, "F-SPEC-OS-01"), out.stdout[-800:]
 
 
 @pytest.mark.parametrize("bad", ["openspec/changes/../../etc", "openspec/changes/Add_Export",

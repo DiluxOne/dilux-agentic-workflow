@@ -570,7 +570,9 @@ def main():
         warn("W-SPEC-03", "schema changes with no rollback or reverse-migration consideration")
 
     # ── The OpenSpec bridge (F-SPEC-OS-01/02), only under spec-format: openspec ─
-    if spec_format == "openspec":
+    # A FEATURE spec owes a change. A FIX answers to an RCA, not to a change, so a
+    # fix-plan is held to the bridge only when it names one itself.
+    if spec_format == "openspec" and (not is_fix or daw_receipt.openspec_named(text)):
         _openspec_rules(text, repo, fail, ok)
 
     # What the receipt will hash: the spec and the change it names, whatever the

@@ -180,7 +180,8 @@ completeness principle (every design decision must be documented).
 
 Run only when the project's `.daw/config.yml` says `spec-format: openspec` (`/daw-init`). A project
 without the file, or with `spec-format: daw`, never sees them. Like `F-SPEC-LOOP`, they sit outside
-the numbered rules and the summary below.
+the numbered rules and the summary below. They hold every FEATURE spec; a FIX fix-plan answers to
+an RCA, not to a change, and is held to them only when it names a change itself.
 
 | ID | Check | Precise description | Basis |
 |---|---|---|---|

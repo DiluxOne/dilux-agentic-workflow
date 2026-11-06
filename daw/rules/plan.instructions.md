@@ -252,6 +252,9 @@ document, writable in DEFINE and PLAN like `docs/`), then create the spec with `
 which has the OpenSpec variant of the template. DEFINE and the PRD are unchanged: the spec still
 covers every FR and AC of the PRD.
 
+A FIX is not held to it: a fix-plan answers to its RCA and needs no OpenSpec change. If it names
+one anyway (`**OpenSpec change:**`), both rules apply to it and its receipt seals that change.
+
 The spec's receipt seals the change with it. **Editing the change after the spec is approved drops
 the approval**: the spec gate refuses until `daw-validate-spec` passes again and the user approves
 again. Archive the change (`openspec archive`) only after the merge: archiving moves the folder the
