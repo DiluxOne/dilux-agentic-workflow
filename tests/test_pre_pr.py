@@ -3,8 +3,11 @@ the first failure (DiluxOne/.github#552).
 
 The commands are read from the workflows themselves, so a step added to
 verify.yml or mutations.yml and not to the Makefile fails here. What CI alone
-runs is named and left out: the shards (one machine runs the whole list), and
-the kill map with its ledger (2.5 hours on one machine; mutations.yml says why).
+runs is named and left out: the mutation slice of the change (`mutations`, one
+full run of the suite per fault: over two hours on one machine for a change to
+the validators, longer than an autopilot run, #78; CI runs it in 96 shards,
+required before a merge), and the kill map with its ledger (2.5 hours on one
+machine; mutations.yml says why).
 """
 import os
 import re
@@ -17,7 +20,7 @@ yaml = pytest.importorskip("yaml")
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 WORKFLOWS = os.path.join(ROOT, ".github", "workflows")
-CI_ONLY_JOBS = {"kill-map", "kill-map-ledger"}
+CI_ONLY_JOBS = {"mutations", "kill-map", "kill-map-ledger"}
 COMMAND = re.compile(r"^(python3|bash) ((?:scripts|evals)/\S+)(.*)$")
 
 if not shutil.which("make"):
