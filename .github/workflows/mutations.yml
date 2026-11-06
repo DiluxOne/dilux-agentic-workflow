@@ -25,13 +25,16 @@ on:
 permissions:
   contents: read
 
-# Queued, not cancelled. A cancelled run and a failed run look alike in the
-# checks list and in the badge, and this is the job whose whole purpose is to
-# report a number honestly — so a second push waits its turn instead of turning
-# the first one into a result nobody can read.
+# Queued, not cancelled, on main and on the schedule. A cancelled run and a
+# failed run look alike in the checks list and in the badge, and this is the
+# job whose whole purpose is to report a number honestly — so a second push to
+# main waits its turn instead of turning the first one into a result nobody can
+# read. On a pull request the opposite: a new push makes the old head's run a
+# result no check reads any more, and queuing behind it held each new push for
+# the old run's whole kill map, an hour (#78), so the old run is cancelled.
 concurrency:
   group: "${{ github.workflow }}-${{ github.ref }}"
-  cancel-in-progress: false
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   anchors:
@@ -53,7 +56,7 @@ jobs:
       - run: python3 scripts/mutate.py --check-anchors
 
   mutations:
-    name: can the suite fail? (${{ matrix.shard }}/24)
+    name: can the suite fail? (${{ matrix.shard }}/96)
     runs-on: ubuntu-latest
     # One fault is one full run of the suite, so the slice count is not a
     # preference — it is what keeps a shard under the ceiling. Ten slices did,
@@ -61,15 +64,22 @@ jobs:
     # consecutive runs died at exactly 45:00 and reported "cancelled", which is
     # the shape this repository already named as "not an answer": the coverage
     # number CI publishes was unobtainable and nothing said so. Twenty-four
-    # slices puts a shard back at roughly half the ceiling, and the ceiling
-    # itself is raised so the next growth is a slow job rather than a silent
-    # one. Whoever adds faults: divide, do not delete.
+    # slices put a shard back at roughly half the ceiling, until a change to
+    # the validators made its slowest shard take 70 minutes, an hour every
+    # pull request waited, and one shard lost by the runner restarted the
+    # hour (#78). Ninety-six slices bring it to about twenty minutes; the
+    # organisation has the runners, and `make pre-pr` leaves this slice to
+    # them. Whoever adds faults: divide, do not delete.
     timeout-minutes: 75
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12,
-                13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24]
+        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16,
+                17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32,
+                33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48,
+                49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64,
+                65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80,
+                81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96]
     steps:
       - uses: actions/checkout@v7
         with:
@@ -107,13 +117,13 @@ jobs:
       # base: the same narrowed set, not the coverage run.
       - run: |
           if [ "${{ github.event_name }}" = "pull_request" ]; then
-            python3 scripts/mutate.py --shard ${{ matrix.shard }}/24 --changed "origin/${{ github.base_ref }}"
+            python3 scripts/mutate.py --shard ${{ matrix.shard }}/96 --changed "origin/${{ github.base_ref }}"
           elif [ "${{ github.event_name }}" = "merge_group" ]; then
             base="${QUEUE_BASE#refs/heads/}"
             git fetch --no-tags origin "+refs/heads/$base:refs/remotes/origin/$base"
-            python3 scripts/mutate.py --shard ${{ matrix.shard }}/24 --changed "origin/$base"
+            python3 scripts/mutate.py --shard ${{ matrix.shard }}/96 --changed "origin/$base"
           else
-            python3 scripts/mutate.py --shard ${{ matrix.shard }}/24
+            python3 scripts/mutate.py --shard ${{ matrix.shard }}/96
           fi
         env:
           QUEUE_BASE: ${{ github.event.merge_group.base_ref }}

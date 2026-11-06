@@ -5,9 +5,13 @@ include dx.mk
 # organisation's checks (dx.mk). Every line runs under `bash -euo pipefail` and
 # the targets never in parallel, so the first failure stops it there.
 #
-# Left to CI, and said here so nobody reads them as forgotten: the shards
-# (`--shard`, one machine runs the whole list) and the kill map (472 complete
-# runs of the suite, about 2.5 hours on one machine; mutations.yml says why).
+# Left to CI, and said here so nobody reads them as forgotten: the mutation
+# slice of the change (`--changed`: one full run of the suite per fault, over
+# two hours on one machine for a change to the validators, which no
+# autopilot run fits; mutations.yml runs it in 96 shards, required before a
+# merge, #78) and the kill map (472 complete runs of the suite, about 2.5
+# hours on one machine; mutations.yml says why). Here, the anchors and the
+# cover, which take seconds.
 SHELL := bash
 .SHELLFLAGS := -euo pipefail -c
 .NOTPARALLEL:
@@ -30,7 +34,6 @@ verify:
 
 mutations:
 	python3 scripts/mutate.py --check-anchors
-	python3 scripts/mutate.py --changed "$(BASE)"
 	python3 scripts/mutate.py --cover .github/workflows/mutations.yml
 
 # The layer that needs a model (behavioral.yml, run on demand there). Without
