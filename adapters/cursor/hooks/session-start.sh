@@ -9,7 +9,7 @@ REPO="$([ -n "${CURSOR_PROJECT_DIR:-}" ] && printf "%s" "$CURSOR_PROJECT_DIR" ||
 # installed to judge while the skills load and the pipeline looks installed.
 PLUGIN_ROOT="${DAW_PLUGIN_ROOT:-${CURSOR_PLUGIN_ROOT:-}}"
 DAW="$REPO/.daw"
-if [ ! -d "$DAW" ] && [ -n "$PLUGIN_ROOT" ] && [ -d "$PLUGIN_ROOT/daw" ]; then
+if [ ! -f "$DAW/scripts/session-boot.py" ] && [ -n "$PLUGIN_ROOT" ] && [ -d "$PLUGIN_ROOT/daw" ]; then
   DAW="$PLUGIN_ROOT/daw"
 fi
 BOOT="$DAW/scripts/session-boot.py"

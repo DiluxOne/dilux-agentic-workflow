@@ -69,7 +69,9 @@ wins.
 ### If `phase` is `IDLE`
 
 - Greet briefly and report that the system is ready.
-- **Wait for the user's request. Do not propose actions.**
+- **Wait for the user's request. Do not propose actions.** One exception: when the session boot
+  says this project has no `.daw/config.yml`, offer `/daw-init` once, in the greeting, and say that
+  skipping it keeps today's flow. A project without the file runs exactly as `spec-format: daw`.
 - When the user asks for something, classify it:
   - **QUERY** (informational question) → `💬` Answer directly. Do not touch state. Done.
     - Allowed tools: reading files, searching the codebase.
