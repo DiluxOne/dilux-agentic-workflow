@@ -55,18 +55,32 @@ spec. A blocking gate.
 
 ### For FIX
 
-1. **Verify the fix-plan's solution:**
-   - Were all the steps implemented (F-VER-02)?
-   - Does the regression test exist, reproduce the original bug, and pass with the fix applied?
+The fix-plan is the contract. Run the validator with `--tier FIX`: it reads the plan the way the
+fix-plan template writes it, not as a spec, so it asks for no `## Block N` and no `test_x` names the
+plan never had.
 
-2. **Verify no regressions were introduced:**
-   - The full test suite passes.
+1. **Verify the PRD's acceptance criteria, if there is a PRD** (F-VER-01):
+   - A PRD for the ticket, passed or found at `docs/daw/prd/prd-{ticket}.md`, is checked as for
+     FEATURE. With none, F-VER-01 passes and says the fix-plan's steps and tests are the contract.
+
+2. **Verify the fix-plan's solution** (F-VER-02):
+   - Was every numbered step under `## Solution — steps` implemented? Name each in the verdict as
+     `Step N`. A step missing from the verdict, or marked ❌, is a FAIL that names it.
+
+3. **Verify the tests the fix-plan promised** (F-VER-06):
+   - Every bullet under `## Tests` exists and passes. One that opens with a `test_x` name is named by
+     it; one that is only a description is named by its position, `Test N`. `Test 1` is the
+     regression test: does it reproduce the original bug, and pass with the fix applied?
+
+4. **Verify no regressions were introduced:**
+   - The full test suite passes, with the coverage numbers (F-VER-03) and a sad path (F-VER-04).
    - Lint passes (F-VER-05).
 
 ### Then, for every tier: write the verdict and validate that it is complete
 
 Write the verdict to `docs/daw/reports/verify-{ticket}.md` — every AC by ID with its result, every
-block, the three coverage numbers, the sad-path answer and the lint answer. Then run:
+block (on FIX, every fix-plan step and test), the three coverage numbers, the sad-path answer and the
+lint answer. Then run:
 
 `python3 .daw/scripts/validate_verify.py docs/daw/reports/verify-{ticket}.md --tier <tier>`
 
@@ -169,13 +183,45 @@ Every AC by its **identifier** (`AC-01`, not "the first criterion"), every block
 every test the spec promised by **name**, the three coverage numbers, and the floor quoted from the
 project. Those are what F-VER-01 to F-VER-06 look for, one rule each.
 
+For a FIX, the fix-plan's steps and tests take the place of the blocks and the named tests. Each
+step by its number as `Step N`, each test by its `test_x` name or, when the plan only describes it,
+by its position as `Test N` — the order of the bullets under the fix-plan's `## Tests`:
+
+```markdown
+# Verification {ticket}
+
+| Field | Value |
+|---|---|
+| Module | src/config/loader.ts |
+| Line coverage | 95% |
+| Branch coverage | 92% |
+| Function coverage | 96% |
+| Coverage floor | 80% (AGENTS.md, "Testing") |
+| Lint | `eslint .` — clean |
+
+## Fix-plan steps
+- ✅ Step 1 — only the BOM is stripped (src/config/loader.ts:41)
+- ✅ Step 2 — the text read is written back unmodified (src/config/loader.ts:58)
+
+## Fix-plan tests
+- ✅ Test 1 — regression: a config with a BOM keeps its trailing newline; red before the fix
+- ✅ Test 2 — an unreadable file falls back to the defaults
+- ✅ Test 3 — an invalid UTF-8 byte reports its offset (sad path)
+
+Result: PASSED
+```
+
+A step or test on a line marked ❌, or carrying `fail`/`error`, reads as not done: write the failing
+ones as failing, and describe the passing ones without those words.
+
 ## PASS/FAIL criteria
 - **PASSED:** 0 FAILs → `gates.verify` = `true`. WARNINGs are reported and do not block.
 - **BLOCKED:** 1+ FAILs → go back to the CODE phase to fix. Never patch the code in VERIFY. Max 3
   attempts, then escalate to the user.
 
 For detailed cross-verification, spawn `daw-module-verifier` via the Agent tool — an agent that did
-not write the code.
+not write the code. That review is owed for every tier, FIX included, and a PASSED receipt does not
+replace it: the receipt says the verdict is complete, not that anyone independent has read the code.
 
 ## Tier modifier: QUICK-FIX
 Does not apply — that tier has no VERIFY phase.
