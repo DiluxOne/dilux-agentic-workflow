@@ -2,6 +2,13 @@
 // The METHOD does not live here: it lives in the repo's .daw/. This only plugs it in.
 // Equivalent to Claude Code's PreToolUse/PostToolUse/SessionStart hooks.
 //
+// One file, both of OpenCode's plugin interfaces. V1 calls every named export
+// (each must be a function or `{ server: fn }`); V2 runs only the default
+// export, `{ id, setup(ctx) }`, and ignores V1's hooks entirely ("V1 plugin
+// implementations do not run in V2"). The default carries both: V1 reaches the
+// same `DawPlugin` through `server` and loads it once, V2's schema ignores the
+// extra key. Only the registration differs; every decision is the same call.
+//
 // Everything this file does is delegate. The event is built from the tool's own
 // arguments and piped to the validator on stdin: that is the only way it can
 // judge a write that has not happened yet. Run with stdin closed it sees an
@@ -14,12 +21,21 @@ import { execFileSync } from "node:child_process"
 // OpenCode's real tool ids (opencode.ai/docs/tools). `apply_patch` is a write
 // tool and belongs here; ids that do not exist match nothing and gate nothing.
 const WRITE_TOOLS = new Set(["write", "edit", "apply_patch"])
+// V2 renamed two of them: `apply_patch` is `patch`, `bash` is `shell`. Both
+// spellings stay, so the same file gates whichever version loads it.
+const V2_WRITE_TOOLS = new Set(["patch"])
 // The post-write net must also watch the shell: `bash` is exactly how a state
 // gets forged behind the pre-write hook, and filtering it out meant the one
 // check that exists to catch that could never see it.
-const POST_TOOLS = new Set([...WRITE_TOOLS, "bash"])
+const POST_TOOLS = new Set([...WRITE_TOOLS, ...V2_WRITE_TOOLS, "bash", "shell"])
 
-export const DawPlugin = async ({ directory }) => {
+// A V2 tool id may arrive namespaced (`opencode.tool.write`); the last segment
+// is the tool. Matching the whole string would gate nothing.
+const toolId = (tool) => String(tool ?? "").split(".").pop()
+
+// What both interfaces share: where the method is, how a gate is called, what
+// the model is told. Everything version-specific is in how it is registered.
+const wire = (directory) => {
   // Repo first, plugin second — the same resolution the Claude plugin's hooks
   // use. A repo that carries its own .daw/ (drop-in, or vendored to diverge)
   // keeps winning; a repo with none gets the method that travels with this
@@ -48,7 +64,7 @@ export const DawPlugin = async ({ directory }) => {
   // Set when OpenCode reports a compaction, consumed by the next message
   // transform. A flag rather than a print: the event hook's stdout goes to the
   // terminal, and a reminder the model never receives is not a reminder.
-  let compacted = false
+  const flags = { compacted: false }
 
   // The wording is the method's — every tool compacts, and six copies of one
   // paragraph is five nobody would remember to edit.
@@ -113,6 +129,28 @@ export const DawPlugin = async ({ directory }) => {
       stdio: ["pipe", "pipe", "pipe"],
     })
 
+  // The session boot, whichever interface reported the session. Its stdout
+  // reaches the terminal, not the model: the bootstrap is what steers.
+  const sessionBoot = (sid) => {
+    if (!existsSync(join(daw, "orchestrator.md"))) return
+    try {
+      const out = execFileSync("python3", [boot, "--repo", directory, "--session-id", sid], {
+        stdio: ["ignore", "pipe", "pipe"],
+      }).toString().trim()
+      if (out) console.log(out)
+    } catch (e) {
+      console.error(`DAW: could not run the session boot. ${(e.stderr?.toString() || "").trim()}`)
+    }
+  }
+
+  return { daw, state, skills, flags, BOOT_MARK, bootstrap, compactionNudge, installed,
+           envelope, runGate, sessionBoot }
+}
+
+export const DawPlugin = async ({ directory }) => {
+  const { skills, flags, BOOT_MARK, bootstrap, compactionNudge, installed, envelope, runGate,
+          sessionBoot } = wire(directory)
+
   return {
     // Registers the packaged skills with OpenCode's native discovery — the
     // same move Superpowers makes. Without it the bootstrap tells the model to
@@ -133,14 +171,14 @@ export const DawPlugin = async ({ directory }) => {
       // The post-compaction reminder rides the NEWEST user message: the summary
       // it corrects sits behind that turn, and the first message may no longer
       // be in the context at all.
-      if (compacted) {
+      if (flags.compacted) {
         const users = output.messages.filter((m) => m.info?.role === "user")
         const last = users[users.length - 1]
         if (last?.parts?.length) {
           const text = compactionNudge()
           if (text) {
             last.parts.unshift({ ...last.parts[0], type: "text", text })
-            compacted = false
+            flags.compacted = false
           }
         }
       }
@@ -166,21 +204,12 @@ export const DawPlugin = async ({ directory }) => {
       // terminal and never the model — so it is flagged and rides the next user
       // message, the one channel to the model this plugin has.
       if (event?.type === "session.compacted") {
-        compacted = true
+        flags.compacted = true
         return
       }
       if (event?.type !== "session.created") return
-      if (!existsSync(join(daw, "orchestrator.md"))) return
-      const sid = String(event?.properties?.info?.id ?? event?.properties?.sessionID
-                         ?? `opencode-${process.pid}`)
-      try {
-        const out = execFileSync("python3", [boot, "--repo", directory, "--session-id", sid], {
-          stdio: ["ignore", "pipe", "pipe"],
-        }).toString().trim()
-        if (out) console.log(out)
-      } catch (e) {
-        console.error(`DAW: could not run the session boot. ${(e.stderr?.toString() || "").trim()}`)
-      }
+      sessionBoot(String(event?.properties?.info?.id ?? event?.properties?.sessionID
+                         ?? `opencode-${process.pid}`))
     },
 
     // Before every write: validate the transition against the graph.
@@ -211,3 +240,28 @@ export const DawPlugin = async ({ directory }) => {
     },
   }
 }
+
+// OpenCode V2. The same gates, registered through the context V2 hands its
+// plugins. A domain the running build does not have is skipped rather than
+// dereferenced: one missing domain must not take the others down with it.
+const setup = async (ctx) => {
+  const directory = ctx?.location?.directory ?? process.cwd()
+  const { installed, envelope, runGate } = wire(directory)
+  const writes = (tool) => WRITE_TOOLS.has(tool) || V2_WRITE_TOOLS.has(tool)
+
+  // Before every write. In V2 only `execute.before` may reject, and a
+  // rejection fails that call alone, which is Claude Code's exit 2.
+  await ctx?.tool?.hook?.("execute.before", async (event) => {
+    const tool = toolId(event?.tool)
+    if (!writes(tool)) return
+    if (!installed()) return
+    try {
+      runGate("pre", envelope(tool, event?.input ?? {}))
+    } catch (e) {
+      const reason = (e.stderr?.toString() || e.stdout?.toString() || "").trim()
+      throw new Error(`DAW blocked the write.\n${reason}`)
+    }
+  })
+}
+
+export default { id: "daw", server: DawPlugin, setup }

@@ -30,7 +30,7 @@ set -uo pipefail
 # a knob anyone could turn from outside the file. `docs/AI-POLICY.md` and
 # `CONTRIBUTING.md` both name this variable as the thing not to soften; it was
 # softenable without editing the file they were talking about.
-EXPECT_CHECKS=671
+EXPECT_CHECKS=675
 EXPECT_SKILLS=20
 EXPECT_AGENTS=5
 EXPECT_RULES=14
@@ -40,7 +40,7 @@ EXPECT_ADAPTERS=6
 # `--check-anchors`, `--cover` and every check in this file green, and the
 # published percentage went on being a percentage of a smaller list. The same
 # reason `EXPECT_CHECKS` exists, one file over.
-EXPECT_MUTATIONS=784
+EXPECT_MUTATIONS=788
 
 SELF="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # EXPORTED, because the Python blocks below anchor their own temporary
@@ -8434,10 +8434,14 @@ js = open(os.path.join(repo, ".opencode", "plugins", "daw.js"), encoding="utf-8"
 # under the wrong key it is never called, so nothing ever boots.
 assert '"session.created":' not in js, "opencode: session.created is an event type, not a hook key"
 assert "event:" in js, "opencode: the generic event hook is missing, so the pipeline never boots"
-# opencode.ai/docs/tools: the real ids. `patch` and `multiedit` do not exist.
+# opencode.ai/docs/tools: the real V1 ids. `multiedit` does not exist. V2
+# renamed two of them (`patch`, `shell`; sst/opencode, the V2 tool registry),
+# so those are real ids too, and gating only one version's names leaves the
+# other version's writes unjudged.
 assert '"apply_patch"' in js, "opencode: apply_patch is a real write tool and is not gated"
-assert '"multiedit"' not in js and '"patch"' not in js, "opencode: gating tool ids that do not exist"
+assert '"multiedit"' not in js, "opencode: gating tool ids that do not exist"
 assert '"bash"' in js, "opencode: the post net cannot see the shell, which is what forges a state"
+assert '"patch"' in js and '"shell"' in js, "opencode: V2's patch and shell are not gated"
 
 oc = json.load(open(os.path.join(src, "adapters", "opencode", "adapter.json"), encoding="utf-8"))
 perm = oc["agents"]["when_readonly"]["permission"]
@@ -12808,6 +12812,86 @@ PROBE
   node "$WORK/opencode-steer-probe.mjs" >/dev/null 2>&1 \
     && ok "OpenCode plugin steers: skills registered, bootstrap rides the first message, once" \
     || bad "OpenCode plugin install enforces but does not steer — the PRD-to-monorepo failure is back"
+
+  # OpenCode V2 runs only the default export, `{ id, setup(ctx) }`, and none of
+  # the V1 hooks above. A mock context records what `setup` registers, and the
+  # probe drives those registrations the way V2 does: `execute.before` with the
+  # V2 tool ids and their V2 argument names. A refusal is a throw.
+  cat > "$WORK/opencode-v2ctx.mjs" <<'PROBE'
+export const load = async (file, directory) => {
+  const hooks = {}
+  const reg = (domain) => async (name, cb) => {
+    hooks[`${domain}.${name}`] = cb
+    return { dispose: async () => {} }
+  }
+  const transforms = {}
+  const tf = (domain) => async (cb) => {
+    transforms[domain] = cb
+    return { dispose: async () => {} }
+  }
+  const ctx = {
+    location: { directory, project: { directory } },
+    options: {},
+    tool: { hook: reg("tool") },
+    session: { hook: reg("session") },
+    agent: { transform: tf("agent") },
+    skill: { transform: tf("skill") },
+    event: { subscribe: () => ({ [Symbol.asyncIterator]: () => ({ next: () => new Promise(() => {}) }) }) },
+  }
+  const mod = await import(file)
+  await mod.default.setup(ctx)
+  return { hooks, transforms, mod }
+}
+PROBE
+  cat > "$WORK/opencode-v2-pre.mjs" <<PROBE
+import { load } from "$WORK/opencode-v2ctx.mjs"
+const { hooks } = await load("$ALL/.opencode/plugins/daw.js", "$ALL")
+const before = hooks["tool.execute.before"]
+if (typeof before !== "function") process.exit(3)
+const out = []
+for (const [tool, input] of JSON.parse(process.argv[2])) {
+  let refused = false
+  try {
+    await before({ tool, sessionID: "s", agent: "build", messageID: "m", id: "c", input })
+  } catch (e) {
+    refused = String(e?.message ?? "").startsWith("DAW blocked the write.")
+  }
+  out.push(refused)
+}
+console.log(JSON.stringify(out))
+PROBE
+  v2pre() { node "$WORK/opencode-v2-pre.mjs" "$1" 2>/dev/null; }
+  V2_STATE_CASES=$(python3 -c 'import json,sys; print(json.dumps([["write", {"path": sys.argv[1], "content": sys.argv[2]}]]))' \
+                     "$ALL/.daw-state.json" "$ILLEGAL")
+  [ "$(v2pre "$V2_STATE_CASES")" = "[true]" ] \
+    && ok "OpenCode V2 refuses an illegal transition before it is written (execute.before throws)" \
+    || bad "OpenCode V2: an illegal transition was ALLOWED — the V2 gate is not registered or does not refuse"
+  V2_STATE_CASES=$(python3 -c 'import json,sys; print(json.dumps([["write", {"path": sys.argv[1], "content": sys.argv[2]}]]))' \
+                     "$ALL/.daw-state.json" "$LEGAL")
+  [ "$(v2pre "$V2_STATE_CASES")" = "[false]" ] \
+    && ok "OpenCode V2 lets a legal transition through" \
+    || bad "OpenCode V2 blocks a LEGAL transition"
+  # Product source in PLAN, through each V2 write tool and its own argument
+  # names. `patch` carries its path only inside `patchText`: without reading it
+  # from there the gate has no path and the write sails through unjudged.
+  V2_SRC_CASES=$(python3 -c '
+import json, sys
+src = sys.argv[1]
+print(json.dumps([
+    ["write", {"path": src, "content": "x = 1\n"}],
+    ["edit", {"path": src, "oldString": "x = 1", "newString": "x = 2"}],
+    ["patch", {"patchText": "*** Begin Patch\n*** Update File: src/app.py\n@@\n-x = 1\n+x = 2\n*** End Patch\n"}],
+    ["opencode.tool.write", {"path": src, "content": "x = 1\n"}],
+]))' "$ALL/src/app.py")
+  printf '%s' "$IN_PLAN" > "$ALL/.daw-state.json"
+  [ "$(v2pre "$V2_SRC_CASES")" = "[true,true,true,true]" ] \
+    && ok "OpenCode V2 refuses product source in PLAN through write, edit, patch and a namespaced id" \
+    || bad "OpenCode V2: product source was written in PLAN through at least one write tool ($(v2pre "$V2_SRC_CASES"))"
+  printf '%s' "$IN_CODE" > "$ALL/.daw-state.json"
+  [ "$(v2pre "$V2_SRC_CASES")" = "[false,false,false,false]" ] \
+    && ok "OpenCode V2 lets the same source through once CODE was reached" \
+    || bad "OpenCode V2 blocks source in CODE — the guard refuses everything ($(v2pre "$V2_SRC_CASES"))"
+  printf '%s' "$IDLE_STATE" > "$ALL/.daw-state.json"
 else
   echo "  · node not available — OpenCode's plugin was not exercised"
 fi
