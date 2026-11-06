@@ -30,7 +30,7 @@ set -uo pipefail
 # a knob anyone could turn from outside the file. `docs/AI-POLICY.md` and
 # `CONTRIBUTING.md` both name this variable as the thing not to soften; it was
 # softenable without editing the file they were talking about.
-EXPECT_CHECKS=681
+EXPECT_CHECKS=682
 EXPECT_SKILLS=20
 EXPECT_AGENTS=5
 EXPECT_RULES=14
@@ -40,7 +40,7 @@ EXPECT_ADAPTERS=6
 # `--check-anchors`, `--cover` and every check in this file green, and the
 # published percentage went on being a percentage of a smaller list. The same
 # reason `EXPECT_CHECKS` exists, one file over.
-EXPECT_MUTATIONS=797
+EXPECT_MUTATIONS=805
 
 SELF="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # EXPORTED, because the Python blocks below anchor their own temporary
@@ -12858,6 +12858,11 @@ export const load = async (file, directory) => {
     return { dispose: async () => {} }
   }
   const transforms = {}
+  // A reload only counts once the domain's transform is registered: V2 builds
+  // a domain before `setup` returns, and a transform it never rebuilds with
+  // never runs (driven live, 0.0.0-dev-202610280534).
+  const reloads = {}
+  const rl = (domain) => async () => { reloads[domain] = domain in transforms }
   const tf = (domain) => async (cb) => {
     transforms[domain] = cb
     return { dispose: async () => {} }
@@ -12867,8 +12872,8 @@ export const load = async (file, directory) => {
     options: {},
     tool: { hook: reg("tool") },
     session: { hook: reg("session") },
-    agent: { transform: tf("agent") },
-    skill: { transform: tf("skill") },
+    agent: { transform: tf("agent"), reload: rl("agent") },
+    skill: { transform: tf("skill"), reload: rl("skill") },
     // The events a probe queues in `globalThis.dawEvents`, then a stream that
     // stays open, as V2's does for the plugin's lifetime.
     event: {
@@ -12880,7 +12885,7 @@ export const load = async (file, directory) => {
   }
   const mod = await import(file)
   await mod.default.setup(ctx)
-  return { hooks, transforms, mod }
+  return { hooks, transforms, reloads, mod }
 }
 PROBE
   cat > "$WORK/opencode-v2-pre.mjs" <<PROBE
@@ -12991,10 +12996,11 @@ PROBE
   # through the skill domain.
   cat > "$WORK/opencode-v2-steer.mjs" <<PROBE
 import { load } from "$WORK/opencode-v2ctx.mjs"
-const { hooks, transforms } = await load("$WORK/fakecfg/plugins/daw.js", "$WORK/blankrepo")
+const { hooks, transforms, reloads } = await load("$WORK/fakecfg/plugins/daw.js", "$WORK/blankrepo")
 const sources = []
 await transforms.skill?.({ source: (s) => sources.push(s), list: () => sources })
 const registered = sources.some((s) => s.type === "directory" && s.path.includes("fakecfg/skills"))
+  && reloads.skill === true
 const event = { sessionID: "s", messages: [{ role: "user", content: [{ type: "text", text: "implement the PRD" }] }] }
 await hooks["session.context"](event)
 await hooks["session.context"](event)
@@ -13025,6 +13031,68 @@ PROBE
   node "$WORK/opencode-v2-compact.mjs" >/dev/null 2>&1 \
     && ok "OpenCode V2 hears the compaction and reminds the model on the next request, once" \
     || bad "OpenCode V2 compacts and DAW says nothing — the pipeline ends at the first summary"
+
+  # The verifier under V2. V2 keeps an agent's rules as a `permissions` list of
+  # {action, resource, effect} and lets a plugin edit them through
+  # `agent.transform`; without DAW's rules a read-only agent's shell is
+  # unrestricted. The draft below starts as V2 builds it from a drop-in's files
+  # (their V1 `edit: deny` already translated), plus an agent of the user's.
+  # Under a plugin install there are no agent files, and the verifier VERIFY
+  # spawns has to be added from the packaged source.
+  cat > "$WORK/opencode-v2-agents.mjs" <<PROBE
+import { load } from "$WORK/opencode-v2ctx.mjs"
+const deny = { action: "edit", resource: "*", effect: "deny" }
+const draft = (seed) => {
+  const agents = new Map(seed.map((a) => [a.id, structuredClone(a)]))
+  return {
+    agents,
+    list: () => [...agents.values()],
+    get: (id) => agents.get(id),
+    default: () => {},
+    remove: (id) => agents.delete(id),
+    // V2's own config-agent creates an agent by updating an id it lacks.
+    update: (id, fn) => {
+      if (!agents.has(id)) agents.set(id, { id, request: { headers: {}, body: {} }, mode: "all", hidden: false, permissions: [] })
+      fn(agents.get(id))
+    },
+  }
+}
+const rules = (a) => JSON.stringify(a?.permissions ?? [])
+const want = JSON.stringify([deny, { action: "shell", resource: "*", effect: "ask" }])
+const out = {}
+
+const dropin = await load("$ALL/.opencode/plugins/daw.js", "$ALL")
+const d = draft([
+  { id: "build", mode: "primary", permissions: [{ action: "*", resource: "*", effect: "allow" }] },
+  ...["daw-arch-auditor", "daw-impact-scanner", "daw-module-verifier", "daw-sec-auditor"]
+    .map((id) => ({ id, mode: "subagent", permissions: [deny] })),
+  { id: "daw-implementer", mode: "subagent", permissions: [] },
+  { id: "reviewer", mode: "subagent", permissions: [] },
+])
+await dropin.transforms.agent(d)
+out.readonly = ["daw-arch-auditor", "daw-impact-scanner", "daw-module-verifier", "daw-sec-auditor"]
+  .every((id) => rules(d.get(id)) === want)
+out.reloaded = dropin.reloads.agent === true
+out.writer = rules(d.get("daw-implementer")) === "[]"
+out.user = rules(d.get("build")) === JSON.stringify([{ action: "*", resource: "*", effect: "allow" }])
+  && rules(d.get("reviewer")) === "[]"
+
+const plugin = await load("$SELF/adapters/opencode/plugin/daw.js", "$WORK/blankrepo")
+const p = draft([{ id: "build", mode: "primary", permissions: [] }])
+await plugin.transforms.agent(p)
+const v = p.get("daw-module-verifier")
+out.added = rules(v) === want && v.mode === "subagent" && (v.system ?? "").includes("daw-module-verifier")
+out.only = [...p.agents.keys()].join(",") === "build,daw-module-verifier"
+console.log(JSON.stringify(out))
+PROBE
+  # The user's own read-only agent, next to DAW's: it is not DAW's to change.
+  printf -- '---\ndescription: the team reviewer\ntools: Read, Grep\n---\nReview.\n' \
+    > "$ALL/.opencode/agents/reviewer.md"
+  V2_AGENTS=$(node "$WORK/opencode-v2-agents.mjs" 2>&1)
+  rm -f "$ALL/.opencode/agents/reviewer.md"
+  [ "$V2_AGENTS" = '{"readonly":true,"reloaded":true,"writer":true,"user":true,"added":true,"only":true}' ] \
+    && ok "OpenCode V2: every read-only DAW agent gets edit deny and shell ask, the writer and the user's agents do not" \
+    || bad "OpenCode V2: the verifier's permissions are not edit deny + shell ask in V2's format ($V2_AGENTS)"
 else
   echo "  · node not available — OpenCode's plugin was not exercised"
 fi

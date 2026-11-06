@@ -29,6 +29,19 @@ const V2_WRITE_TOOLS = new Set(["patch"])
 // check that exists to catch that could never see it.
 const POST_TOOLS = new Set([...WRITE_TOOLS, ...V2_WRITE_TOOLS, "bash", "shell"])
 
+// A read-only agent under V2: no edit at all, and a shell only with the user's
+// say-so (it runs tests; it must not be the way round the edit rule). V2 reads
+// an agent's rules as `permissions`, a list of {action, resource, effect}
+// (AgentV2Info, @opencode-ai/sdk v2 types); V1's `permission:` map in the agent
+// files is translated to that list, and these join after whatever it holds.
+const READONLY_RULES = [
+  { action: "edit", resource: "*", effect: "deny" },
+  { action: "shell", resource: "*", effect: "ask" },
+]
+// The installer's rule for which agent writes (scripts/install_target.py):
+// one whose source lists any of these tools.
+const WRITING_TOOLS = ["Write", "Edit", "NotebookEdit"]
+
 // A V2 tool id may arrive namespaced (`opencode.tool.write`); the last segment
 // is the tool. Matching the whole string would gate nothing.
 const toolId = (tool) => String(tool ?? "").split(".").pop()
@@ -56,6 +69,38 @@ const wire = (directory) => {
   // which OpenCode discovers natively — so an absent directory is skipped, not
   // an error.
   const skills = join(daw, "..", "skills")
+
+  // DAW's agents and whether each writes. A drop-in's are the files the
+  // installer wrote to .opencode/agents, where a read-only one carries the
+  // `edit: deny` it was given; a plugin install has only the packaged sources
+  // (agents/ next to the method), judged by their tool list as the installer
+  // judges them. The repo's own agents/ is the project's, so a drop-in never
+  // reads it. The first file of a name wins: the installed one is what V2 loaded.
+  const agents = () => {
+    const dirs = [join(directory, ".opencode", "agents")]
+    if (daw !== join(directory, ".daw")) dirs.push(join(daw, "..", "agents"))
+    const found = new Map()
+    for (const dir of dirs) {
+      let names = []
+      try { names = readdirSync(dir) } catch { continue }
+      for (const file of names.sort()) {
+        if (!/^daw-.+\.md$/.test(file)) continue
+        const id = file.slice(0, -3)
+        if (found.has(id)) continue
+        const text = readFileSync(join(dir, file), "utf8")
+        const m = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?/.exec(text)
+        if (!m) continue
+        const fm = m[1]
+        const tools = /^tools:\s*(.*)$/m.exec(fm)?.[1]
+        const readonly = tools !== undefined
+          ? !tools.split(/[,\s]+/).some((t) => WRITING_TOOLS.includes(t))
+          : /^\s+edit:\s*["']?deny["']?\s*$/m.test(fm)
+        const description = /^description:\s*(.+)$/m.exec(fm)?.[1]?.trim().replace(/^["']|["']$/g, "")
+        found.set(id, { id, readonly, description, system: text.slice(m[0].length).trim() })
+      }
+    }
+    return [...found.values()]
+  }
 
   // What the model reads before its first turn. Without this, a plugin install
   // enforces but never steers: the gates refuse what phases forbid, while the
@@ -154,7 +199,7 @@ const wire = (directory) => {
     } catch {}
   }
 
-  return { daw, state, skills, flags, BOOT_MARK, bootstrap, compactionNudge, installed,
+  return { daw, state, skills, agents, flags, BOOT_MARK, bootstrap, compactionNudge, installed,
            envelope, runGate, sessionBoot, userTurn }
 }
 
@@ -257,8 +302,8 @@ export const DawPlugin = async ({ directory }) => {
 // dereferenced: one missing domain must not take the others down with it.
 const setup = async (ctx) => {
   const directory = ctx?.location?.directory ?? process.cwd()
-  const { skills, flags, BOOT_MARK, bootstrap, compactionNudge, installed, envelope, runGate,
-          sessionBoot, userTurn } = wire(directory)
+  const { skills, agents, flags, BOOT_MARK, bootstrap, compactionNudge, installed, envelope,
+          runGate, sessionBoot, userTurn } = wire(directory)
   const writes = (tool) => WRITE_TOOLS.has(tool) || V2_WRITE_TOOLS.has(tool)
 
   // Before every write. In V2 only `execute.before` may reject, and a
@@ -332,6 +377,37 @@ const setup = async (ctx) => {
     })().catch(() => {})
   }
 
+  // The read-only agents, in V2's own terms. Without the shell rule a verifier
+  // under V2 has an unrestricted shell, which is an edit by another name. A
+  // plugin install ships no agent files, so the verifier VERIFY spawns is added
+  // from its packaged source; `update` on an id the draft does not have creates
+  // it, as V2's own config-agent does.
+  await ctx?.agent?.transform?.((draft) => {
+    if (typeof draft?.update !== "function") return
+    for (const agent of agents()) {
+      if (!agent.readonly) continue
+      const present = draft.get?.(agent.id) !== undefined
+      if (!present && agent.id !== "daw-module-verifier") continue
+      draft.update(agent.id, (info) => {
+        if (!present) {
+          info.mode = "subagent"
+          if (agent.description) info.description = agent.description
+          if (agent.system) info.system = agent.system
+        }
+        if (!Array.isArray(info.permissions)) info.permissions = []
+        // A drop-in's own `edit: deny` already arrives translated; the same
+        // rule twice would only make the list harder to read.
+        const has = (r) => info.permissions.some((p) =>
+          p?.action === r.action && p?.resource === r.resource && p?.effect === r.effect)
+        info.permissions.push(...READONLY_RULES.filter((r) => !has(r)).map((r) => ({ ...r })))
+      })
+    }
+  })
+  // A transform registered from `setup` joins the domain's next rebuild, and
+  // the agents were already built by then: driven against OpenCode
+  // 0.0.0-dev-202610280534, the rules never reached `/api/agent` until a reload.
+  await ctx?.agent?.reload?.()
+
   // The packaged skills, through V2's skill domain. A drop-in has none to add:
   // its skills sit in .opencode/skills, which V2 discovers on its own.
   await ctx?.skill?.transform?.((editor) => {
@@ -349,6 +425,8 @@ const setup = async (ctx) => {
       editor.add({ id: name, name, description, path: file, content: text })
     }
   })
+  // The same late registration as the agents'.
+  await ctx?.skill?.reload?.()
 }
 
 // A V2 tool result carries its text as a string or as a list of parts; the
