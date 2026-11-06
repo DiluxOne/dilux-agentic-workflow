@@ -688,7 +688,7 @@ MUTATIONS = [
           "read .daw/orchestrator.md and follow its Boot Sequence",
           "read the orchestrator and follow its Boot Sequence")),
     ("the OpenCode drop-in instructions go back to counting 17 skills",
-     edit(".opencode/INSTALL.md", "Method, plugin, 20 skills,", "Method, plugin, 17 skills,")),
+     edit(".opencode/INSTALL.md", "Method, plugin, 21 skills,", "Method, plugin, 17 skills,")),
     ("the OpenCode drop-in instructions stop saying the plugin loads under V2",
      edit(".opencode/INSTALL.md", "loads\nunder V1 and V2, from the same file", "loads\nunder V1, from the same file")),
     ("the bootstrap never reaches the first user message",

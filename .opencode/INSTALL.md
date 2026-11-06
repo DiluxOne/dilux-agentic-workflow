@@ -62,7 +62,7 @@ acts. The acceptance record is `scripts/acceptance.md`.
 bash install.sh . --target opencode
 ```
 
-Method, plugin, 20 skills, 5 agents, 20 commands — all in the repo: the method
+Method, plugin, 21 skills, 5 agents, 21 commands — all in the repo: the method
 in `.daw/`, the plugin at `.opencode/plugins/daw.js`, the skills, agents and
 commands under `.opencode/`, and DAW's block in `AGENTS.md`. Nothing goes in
 `opencode.json`.
