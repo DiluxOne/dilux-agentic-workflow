@@ -356,9 +356,10 @@ CI runs both on pull requests, which is where the range exists.
 full run of the suite per injected fault. In one process that does not finish
 inside any timeout worth setting, and a job killed at its timeout reports
 *cancelled*, which is not an answer to the question it was asked. So it runs in
-twenty-four slices, `mutate.py --shard I/24`, one job each. Measured: they start within seconds of
-each other and the slowest finishes in about fourteen minutes, so a pull request waits for one shard
-and not for twenty-four. (A job that has not finished reports as *pending* whether it is running or
+ninety-six slices, `mutate.py --shard I/96`, one job each (#78: at twenty-four, a change to the
+validators made the slowest take 70 minutes). They start within seconds of each other, so a pull
+request waits for one shard and not for ninety-six. `make pre-pr` does not run this slice: it is
+CI's, required before a merge. (A job that has not finished reports as *pending* whether it is running or
 waiting for a runner — the two are indistinguishable in the checks list, and the only way to tell
 them apart is to compare each job's `startedAt` against the run's creation.)
 
