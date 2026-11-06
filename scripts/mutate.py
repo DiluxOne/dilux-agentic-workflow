@@ -3401,8 +3401,11 @@ MUTATIONS = [
           "        if False:\n            # The plugin root:")),
     ("a tier can be added to the graph and explained nowhere",
      edit("scripts/lint_method.py", "    check_tiers_documented(root, graph)\n", "")),
+    # The kill map's timeout, the last 75 in the file: at 96 shards a mutations
+    # shard runs about ten faults, which 30 minutes holds, so lowering ITS
+    # timeout is no longer a fault (#78); the kill map's 24 shards still need 75.
     ("the shard timeout goes back under what a shard actually takes",
-     edit(".github/workflows/mutations.yml", "    timeout-minutes: 75", "    timeout-minutes: 30")),
+     edit(".github/workflows/mutations.yml", "    timeout-minutes: 75", "    timeout-minutes: 30", last=True)),
     # It used to be `\bdos\b` against `dos\b`, and nothing kills it:
     # `_entry_after` already requires the match to BE the label, so the boundary
     # became redundant when the position guard arrived. A fault no check can see
