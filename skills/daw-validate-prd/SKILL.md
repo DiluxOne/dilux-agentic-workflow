@@ -37,7 +37,7 @@ Summary of what each ID covers, so you know what you are looking for:
 | F-PRD-02 | An AC is not binary (unmeasurable adjectives, no verifiable outcome) |
 | F-PRD-03 | An NFR has no quantitative value |
 | F-PRD-04 | "Out of Scope" is missing or empty (FEATURE) |
-| F-PRD-05 | Duplicate or missing FR/NFR/AC IDs |
+| F-PRD-05 | Duplicate or missing FR/NFR/AC IDs — a split child (a sibling `prd-{TICKET}.md` with `Status: Split` and a row for it) carries exactly the ACs its row assigns, not AC-01 onwards |
 | F-PRD-06 | A requirement uses "should"/"could"/"ideally" instead of "must" |
 | F-PRD-07 | A cross-reference is not declared under "Dependencies" |
 | F-PRD-08 | A mandatory structural section is missing |

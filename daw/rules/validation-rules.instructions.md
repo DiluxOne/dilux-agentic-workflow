@@ -1,6 +1,6 @@
 ---
 applyTo: '**'
-version: 1.16.1
+version: 1.17.1
 ---
 
 # Validation Rules — Central Catalog
@@ -78,7 +78,7 @@ Valuable, Estimable, Small, Testable), EARS (Easy Approach to Requirements Synta
 | F-PRD-02 | Non-binary AC | Every acceptance criterion must be evaluable as PASS or FAIL without ambiguity. It must follow the pattern: "Given [context], when [action], then [measurable result]". If an AC says "works correctly", "behaves appropriately" or uses any unmeasurable adjective → FAIL. | BDD: acceptance criteria are verifiable contracts. An ambiguous AC produces divergent implementations. |
 | F-PRD-03 | NFR with no metric | Every non-functional requirement (NFR-xx) must include a quantitative value. Valid examples: "< 500ms p95", "99.9% uptime", "≥ 80% coverage". Invalid examples: "fast", "secure", "scalable", "highly available". | IEEE 830 §3.4: NFRs must be measurable. "Fast" is not a requirement, it is a wish. Without a number there is no possible acceptance criterion. |
 | F-PRD-04 | Empty "Out of Scope" | For tier FEATURE: the "Out of Scope" section must exist and contain at least one explicit item. If the section is missing or empty → FAIL. | The #1 cause of scope creep is not defining what is NOT included. Whatever is not explicitly excluded is assumed to be included. |
-| F-PRD-05 | Non-unique IDs | Every FR, NFR and AC must have a unique identifier (FR-01, NFR-01, AC-01). If there are duplicate or missing IDs → FAIL. | Without unique IDs there is no traceability. You cannot link PRD → spec → test → code. |
+| F-PRD-05 | Non-unique IDs | Every FR, NFR and AC must have a unique identifier (FR-01, NFR-01, AC-01). If there are duplicate or missing IDs → FAIL. A **split child** (`prd-{TICKET}{letter}.md` with a sibling `prd-{TICKET}.md` that has `\| Status \| Split \|` and a row for it) keeps the global AC ids its index assigns (F-PRD-11), so its ACs are checked against exactly that row instead of from AC-01: an assigned AC absent, or an AC the row does not assign → FAIL, naming it. Its FR and NFR still count from 01. | Without unique IDs there is no traceability. You cannot link PRD → spec → test → code. |
 | F-PRD-06 | Ambiguous verb | Requirements must use defined imperative verbs: "must", "must not". If a requirement uses "should", "could", "may", "ideally", "it is recommended" → FAIL. | IEEE 830 §3.1: "shall" for mandatory; "should" is forbidden in requirements because it creates contractual ambiguity. A requirement that "should" be met is a requirement that can be ignored. |
 | F-PRD-07 | Undeclared dependencies | If an FR references another module, an external service, or an existing feature, that dependency must be listed in the "Dependencies" section. If there are undeclared cross-references → FAIL. | Undeclared dependencies cause implementation blockers and integration errors. |
 | F-PRD-08 | Missing structural section | The PRD must contain ALL of these sections: Context and Problem, Goals, Functional Requirements, Non-Functional Requirements, Acceptance Criteria, Out of Scope (FEATURE), Dependencies. If any is missing → FAIL. | A structurally incomplete PRD cannot be validated. Missing sections are requirements nobody thought about. |
