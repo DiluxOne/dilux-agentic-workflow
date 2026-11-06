@@ -1,6 +1,6 @@
 ---
 applyTo: '**'
-version: 2.0.0
+version: 2.0.1
 ---
 
 # Phase 4: VERIFY
@@ -16,14 +16,19 @@ Read `.daw-state.json.tier` to determine your behavior.
 1. Run `daw-verify-module`, applying **every rule in section 5 of
    `.daw/rules/validation-rules.instructions.md`** (F-VER-01 to F-VER-06, W-VER-01 to W-VER-03).
    This skill verifies:
-   - Every AC in the PRD has a passing test (F-VER-01 — FAIL if missing).
-   - Every task in the spec/fix-plan is implemented (F-VER-02 — FAIL if missing).
+   - Every AC in the PRD has a passing test (F-VER-01 — FAIL if missing). On FIX with no PRD for
+     the ticket, the fix-plan's steps and tests are the contract, and F-VER-01 says so; a PRD that
+     exists is checked as for any tier.
+   - Every task in the spec is implemented (F-VER-02 — FAIL if missing). On FIX, every numbered
+     step under the fix-plan's `## Solution — steps` is done, named in the report as `Step N`.
    - Test coverage ≥ 80% lines, ≥ 80% branches and ≥ 80% functions over new/modified code
      (F-VER-03 — FAIL if any of the three is below).
    - Every endpoint/function taking input has at least one sad-path test (F-VER-04 — FAIL if only
      happy path).
    - Lint/type checker passes with no errors (F-VER-05 — FAIL on errors).
-   - Every test listed in the spec exists and passes (F-VER-06 — FAIL if any is missing).
+   - Every test listed in the spec exists and passes (F-VER-06 — FAIL if any is missing). On FIX,
+     every bullet under the fix-plan's `## Tests`: by its `test_x` name when it has one, otherwise
+     by its position, `Test N` (`Test 1` is the regression test).
    - Dead code, unused imports (W-VER-01 — WARNING).
    - Business-logic coverage between 80–90% (W-VER-02 — WARNING, recommend raising to 90%+).
    - Fragile tests: order dependencies, global state, hardcoded values (W-VER-03 — WARNING).
@@ -38,7 +43,9 @@ Read `.daw-state.json.tier` to determine your behavior.
 3. If it PASSES → `gates.verify` = `true`.
 
 Spawn an agent via the Agent tool with `subagent_type="daw-module-verifier"` for detailed
-cross-verification (do NOT read AGENT.md as a file).
+cross-verification (do NOT read AGENT.md as a file). This independent review is owed for every tier,
+FIX included, and a PASSED receipt does not replace it: the receipt says the verdict is complete,
+not that an agent that did not write the code has looked at it.
 
 ---
 
