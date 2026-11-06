@@ -1,6 +1,6 @@
 ---
 applyTo: '**'
-version: 2.13.0
+version: 2.12.0
 ---
 
 # Phase 1: DEFINE (Requirements Definition)
@@ -376,11 +376,7 @@ that takes AC-09..AC-17 writes its criteria as AC-09..AC-17; it does NOT restart
 Measured on a live split: the index said "b takes AC-09..AC-17", the sub-PRD numbered them
 AC-01..AC-09, and every cross-reference between the two documents had two possible answers.
 `validate_prd.py` refuses an index whose on-disk parts never name the criteria it assigns them
-(F-PRD-11), and holds each sub-PRD to its row (F-PRD-05): a `prd-{TICKET}{letter}.md` with a
-`prd-{TICKET}.md` beside it that says `| Status | Split |` and has a row for it is a split child,
-and its AC ids must be exactly the ones that row assigns — none missing, none extra — instead of
-counting from AC-01. FR and NFR ids stay local to each sub-PRD and still count from 01 — nothing
-cross-references those between documents.
+(F-PRD-11). FR ids stay local to each sub-PRD — nothing cross-references those between documents.
 
 **3. Validate ALL the sub-PRDs:**
 

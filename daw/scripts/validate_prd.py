@@ -156,50 +156,6 @@ def _items(text, prefix):
     return out
 
 
-SPLIT_INDEX = re.compile(r"^\|\s*Status\s*\|\s*Split\s*\|", re.MULTILINE | re.IGNORECASE)
-
-
-def _split_rows(text):
-    """The sub-ticket rows of a split index, as (sub-ticket, [AC ids]) in order.
-
-    One reading for the index (F-PRD-10/11) and for its children (F-PRD-05),
-    so the two can never disagree about who was handed which criterion.
-    """
-    out = []
-    for row in re.findall(r"^\|.*$", text, re.MULTILINE):
-        cells = [c.strip() for c in row.strip().strip("|").split("|")]
-        sub = cells[0] if cells else ""
-        if re.match(r"^[A-Z]+-\d+[a-z]$", sub):
-            out.append((sub, re.findall(r"AC-\d+", " ".join(cells))))
-    return out
-
-
-def _split_parent(prd_path):
-    """(index file name, the AC ids its row assigns) when this PRD is a split child.
-
-    A child is `prd-{TICKET}{letter}.md` with `prd-{TICKET}.md` beside it, that
-    file a split index (`| Status | Split |`) with a row for the child — what
-    the Split Protocol produces, so no part has to declare its parent. None for
-    anything else, which keeps the ordinary gap check from AC-01.
-    """
-    m = re.match(r"^prd-([A-Z]+-\d+[a-z])\.md$", os.path.basename(prd_path))
-    if not m:
-        return None
-    sub = m.group(1)
-    index = "prd-%s.md" % sub[:-1]
-    try:
-        text = open(os.path.join(os.path.dirname(os.path.abspath(prd_path)), index),
-                    encoding="utf-8").read()
-    except (OSError, UnicodeDecodeError):
-        return None
-    if not SPLIT_INDEX.search(text):
-        return None
-    for row_sub, acs in _split_rows(text):
-        if row_sub == sub:
-            return index, acs
-    return None
-
-
 def _after_id(item_id, text):
     """The requirement itself, with its identifier removed.
 
@@ -301,15 +257,19 @@ def main():
     # the moment the split lands. So the one thing nobody could check afterwards
     # is whether the parts actually cover the whole — and nothing did. The index
     # now carries the mapping, and this is where it is counted.
-    if SPLIT_INDEX.search(text):
+    if re.search(r"^\|\s*Status\s*\|\s*Split\s*\|", text, re.MULTILINE | re.IGNORECASE):
         # The header is a table here, like every other field of the index, so it
         # is read as one — `_after_label` reads `label:` prose and found nothing.
         m = re.search(r"^\|\s*Acceptance criteria to cover\s*\|\s*(\d+)",
                       text, re.MULTILINE | re.IGNORECASE)
         total = int(m.group(1)) if m else 0
         taken, dupes = {}, []
-        for sub, row_acs in _split_rows(text):
-            for ac in row_acs:
+        for row in re.findall(r"^\|.*$", text, re.MULTILINE):
+            cells = [c.strip() for c in row.strip().strip("|").split("|")]
+            sub = cells[0] if cells else ""
+            if not re.match(r"^[A-Z]+-\d+[a-z]$", sub):
+                continue
+            for ac in re.findall(r"AC-\d+", " ".join(cells)):
                 if ac in taken:
                     dupes.append(f"{ac} is in {taken[ac]} and {sub}")
                 taken[ac] = sub
@@ -528,11 +488,6 @@ def main():
                              "other shape are invisible to every rule here, and a battery that "
                              "measured nothing must not pass" % ", ".join(empty))
         else:
-            # A split child keeps the global AC ids its index hands it
-            # (F-PRD-11), so AC-09..AC-17 has a "gap" from AC-01 by design: its
-            # ACs are held to exactly that row instead. FR and NFR are the
-            # child's own and still count from 1.
-            parent = _split_parent(args.prd)
             dup_msgs = []
             for prefix, items in (("FR", frs), ("NFR", nfrs), ("AC", acs)):
                 ids = [i for i, _ in items]
@@ -540,25 +495,12 @@ def main():
                 if dupes:
                     dup_msgs.append(f"duplicated {', '.join(dupes)}")
                 nums = sorted(int(i.split('-')[1]) for i in set(ids))
-                if prefix == "AC" and parent:
-                    index, assigned = parent
-                    want = {int(a.split('-')[1]) for a in assigned}
-                    lost = sorted(want - set(nums))
-                    if lost:
-                        dup_msgs.append("missing " + ", ".join(f"AC-{n:02d}" for n in lost))
-                    for n in sorted(set(nums) - want):
-                        sub = os.path.basename(args.prd)[len("prd-"):-len(".md")]
-                        dup_msgs.append(f"AC-{n:02d} is not assigned to {sub} by {index}")
-                    continue
                 gaps = [f"{prefix}-{n:02d}" for n in range(1, nums[-1] + 1)
                         if nums and n not in nums] if nums else []
                 if gaps:
                     dup_msgs.append(f"missing {', '.join(gaps)}")
             if dup_msgs:
                 fail("F-PRD-05", "; ".join(dup_msgs))
-            elif parent:
-                ok("F-PRD-05", f"{len(frs)} FR, {len(nfrs)} NFR, {len(acs)} AC — unique, FR/NFR "
-                               f"gapless, the ACs exactly those {parent[0]} assigns")
             else:
                 ok("F-PRD-05", f"{len(frs)} FR, {len(nfrs)} NFR, {len(acs)} AC — unique, gapless")
 
