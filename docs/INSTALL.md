@@ -83,7 +83,9 @@ on clone) and `--scope local` remain the tool's own options for teams that want 
 Both need steps of their own, and the reason is worth knowing before you start. Copilot reads the
 plugin manifest for its skills and **ignores the hooks in it**, so the gates ride user-level hooks
 instead — install the skills and stop, and it looks alive while enforcing nothing. OpenCode
-registers the plugin in `opencode.json` and needs a permission for the directory the method lives in.
+registers the plugin in `opencode.json`, under `plugin` (the key V1 reads and V2's schema still
+carries; V2's own `plugins` is ignored by V1), and needs a permission for the directory the method
+lives in: V2 as well as V1 asks before an agent reads outside the project.
 
 Both are written out as steps to hand to your agent:
 [`.github/INSTALL.md`](../.github/INSTALL.md) · [`.opencode/INSTALL.md`](../.opencode/INSTALL.md)
@@ -139,6 +141,11 @@ Drop `--target` and it asks. Valid values: `claude`, `codex`, `copilot`, `cursor
 `opencode`, several separated by commas, or `all`.
 
 Installing **is** activating — there is no separate enable step.
+
+**OpenCode, dropped in:** `--target opencode` writes the plugin to `.opencode/plugins/daw.js` and
+nothing to `opencode.json`. Open OpenCode in the project and that one file loads under V1 and V2
+alike, and points the model at `.daw/orchestrator.md`. The steps are in
+[`.opencode/INSTALL.md`](../.opencode/INSTALL.md), under "Drop-in".
 
 **If the repo is git-tracked, a fresh install asks — before writing a byte —
 where the installation lands:**

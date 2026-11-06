@@ -143,6 +143,8 @@ says nothing about the other.
 | Copilot CLI | **plugin** | assisted | 1.0.75 | 2026-07-29 | — | — | — | ✅ model stopped | — | — |
 | OpenCode | drop-in | assisted | 1.18.9 | 2026-07-29 | ✅ | ✅ | ✅ | ✅ | — | — |
 | OpenCode | **plugin** (global) | assisted | 1.18.9 | 2026-07-29 | ✅ | ❌ see below | ✅ | ✅ | — | — |
+| OpenCode V1 | drop-in | assisted | 1.19.5 | 2026-11-06 | ✅ in the request, see below | — owed | — owed | ✅ scripted call | — | — |
+| OpenCode V2 | drop-in | assisted | 0.0.0-dev-202610280534 | 2026-11-06 | ✅ through `AGENTS.md`, see below | — owed | — owed | ❌ see below | — | — |
 
 > **Claude Code, plugin, driven 2026-08-02 on DAW 0.9.3.** All five, plus the
 > fifth observation this file asks for: told to implement a whole PRD it did not
@@ -174,6 +176,44 @@ says nothing about the other.
 > coded instead of classifying, and IDLE permits source by design. Until the
 > skills travel with the plugin, the plugin install enforces but does not
 > steer; the row stays ❌ so nobody reads enforcement as the whole method.
+>
+> **OpenCode V1 and V2, drop-in, driven 2026-11-06 (#68), without a model.**
+> Both versions installed from npm into a temporary directory (`opencode-ai@1.19.5`
+> and `opencode-ai@0.0.0-dev-202610280534`, the `latest` and `dev` tags), the repo
+> made by `install.sh . --target opencode`. No model key was available, so the
+> model was a local stand-in: an OpenAI-compatible server registered as a custom
+> provider, which records every request OpenCode sends and, when told to, answers
+> with one call to the `write` tool. What it shows is what OpenCode hands the
+> model and what OpenCode does with a tool call; what a model decides to do with
+> that (checks 2 and 3, and check 1's answer) needs a real one and is owed.
+>
+> - **V1, `opencode run`.** The plugin loads from `.opencode/plugins/daw.js` and
+>   the session boot runs. The first user message of the request arrives
+>   prefixed with the bootstrap: `read .daw/orchestrator.md`, phase IDLE,
+>   classify-first, and none of the plugin install's prohibitions. A scripted
+>   `write` of an unparsable `.daw-state.json` comes back as the tool's error,
+>   `DAW blocked the write.` with the FSM's reason, and the file keeps its state.
+>   The same holds on the V2 build's `opencode run`, which still loads plugins
+>   through V1's interface (a module with only the V2 default is refused there:
+>   "must default export an object with server()").
+> - **V2, its own session runtime (`opencode serve`, `/api/session`).** The
+>   plugin's `setup` runs: `/api/agent` lists the four read-only DAW agents with
+>   `edit`/`*`/`deny` and `shell`/`*`/`ask` and the writer without them (C4). The
+>   system prompt carries `AGENTS.md`, whose DAW block says to read
+>   `.daw/orchestrator.md`, so a drop-in still starts there. But this build's
+>   plugin context has no `tool`, `session`, `event` or `location` domain
+>   (`PluginContext` in `@opencode-ai/plugin@0.0.0-dev-202610280534`,
+>   `dist/v2/promise/context.d.ts`, has only options, agent, aisdk, catalog,
+>   command, integration, plugin, reference and skill), and it runs no V1 hook.
+>   So the bootstrap prefix never reaches the request, the turn counter does
+>   not move, and the scripted `write` of `.daw-state.json` **landed**: no gate
+>   was asked. The plugin registers those hooks where V2 offers them and skips
+>   them where it does not; until a published V2 offers them, V2's own runtime
+>   is not enforced, and the row stays ❌ so nobody reads C4 as the whole of it.
+> - **Config keys.** V2 reports `plugins` as its native key and warns that it
+>   "cannot be represented in V1"; its schema still carries `plugin`. Loading a
+>   package through either key under V2 was not observed and is owed.
+>   `external_directory` is `ask` by default in V2, as in V1.
 >
 > **OpenCode's check 4 is a refusal** — its post hook can throw, so the forged
 > state was blocked, not just reported. That same run is where the corrupt-state

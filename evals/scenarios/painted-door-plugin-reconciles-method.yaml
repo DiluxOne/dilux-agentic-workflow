@@ -52,20 +52,18 @@ when:
     # bootstrap said where the method lived and nothing more, and the model
     # deduced the rest. What fixed this was a sentence that FORBIDS, so the
     # defect is the bootstrap block without that sentence, and that is what the
-    # pattern looks for: from `BOOT_MARK,` to `"</DAW_BOOTSTRAP>"` without the
-    # prohibition appearing in between. If it ever gets deleted again, the
-    # pattern matches again.
-    #
-    # `BOOT_MARK,` with the comma: the constant is defined above as
-    # `BOOT_MARK = `, and without the comma the pattern would start at the
-    # definition and not at the block.
+    # pattern looks for: from `const where = dropin` (where the bootstrap picks
+    # the plugin install's sentences or the drop-in's) to `"</DAW_BOOTSTRAP>"`
+    # without the prohibition appearing in between. If it ever gets deleted
+    # again, the pattern matches again. A drop-in's bootstrap leaves the
+    # sentence out on purpose: there the repo's `.daw/` is the install.
     - path: .daw/rules/transition-graph.json
-      ordered_if_matches: 'BOOT_MARK,(?:(?!do NOT install DAW into this repo).)*?"</DAW_BOOTSTRAP>"'
+      ordered_if_matches: 'const where = dropin(?:(?!do NOT install DAW into this repo).)*?"</DAW_BOOTSTRAP>"'
     # The second half of what `install.sh . --target opencode` writes. Both are
     # probed because the reconciliation was ONE command that writes both, and
     # fixing the seal on only one would leave the door open through the other.
     - path: .opencode/plugins/daw.js
-      ordered_if_matches: 'BOOT_MARK,(?:(?!do NOT install DAW into this repo).)*?"</DAW_BOOTSTRAP>"'
+      ordered_if_matches: 'const where = dropin(?:(?!do NOT install DAW into this repo).)*?"</DAW_BOOTSTRAP>"'
 
 expect:
   no_ordered_write_is_refused: true

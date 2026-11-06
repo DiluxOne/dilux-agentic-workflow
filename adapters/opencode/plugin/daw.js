@@ -125,6 +125,11 @@ const wire = (directory) => {
   }
 
   const BOOT_MARK = "<DAW_BOOTSTRAP>"
+  // A drop-in chose files: its .daw/ and its AGENTS.md block are DAW's by
+  // design. Telling that model "do NOT install DAW, never put DAW content in
+  // AGENTS.md" contradicts the repo it is looking at, so those two sentences
+  // are the plugin install's alone.
+  const dropin = daw === join(directory, ".daw")
   const bootstrap = () => {
     if (!existsSync(join(daw, "orchestrator.md"))) return ""
     let status = "There is no .daw-state.json: the pipeline is IDLE — no ticket has been started in this repo."
@@ -132,17 +137,22 @@ const wire = (directory) => {
       const s = JSON.parse(readFileSync(state, "utf8"))
       status = `Current state: phase ${s.phase}, tier ${s.tier ?? "?"}, ticket ${s.ticket ?? "?"}.`
     } catch {}
+    const where = dropin
+      ? ["The method is installed in this repo, in .daw/ — read .daw/orchestrator.md and follow its Boot Sequence before doing anything else."]
+      : [
+        `The method lives at ${daw} — read ${join(daw, "orchestrator.md")} and follow its Boot Sequence before doing anything else.`,
+        "The method STAYS with the plugin: do NOT install DAW into this repo — no install.sh, no copying .daw/ or .opencode/. " +
+        "Where the method's documents say `.daw/...`, resolve them under the path above. " +
+        "Only .daw-state.json, the context file and the phase artifacts (docs/) belong in the repo.",
+        "The context file (AGENTS.md) is the PROJECT's, not DAW's: if it is missing, gather the stack and conventions " +
+        "from the user and write it as a plain project file. Never put DAW content in it — no DAW blocks, no DAW " +
+        "template boilerplate, no references to DAW or its phases. A reader without the plugin must see an ordinary repo.",
+      ]
     return [
       BOOT_MARK,
       "This repo is governed by DAW (Dilux Agentic Workflow), a strict state machine over",
       "CLASSIFY → DEFINE → PLAN → CODE → VERIFY → CLOSEOUT, recorded in .daw-state.json at the repo root.",
-      `The method lives at ${daw} — read ${join(daw, "orchestrator.md")} and follow its Boot Sequence before doing anything else.`,
-      "The method STAYS with the plugin: do NOT install DAW into this repo — no install.sh, no copying .daw/ or .opencode/. " +
-      "Where the method's documents say `.daw/...`, resolve them under the path above. " +
-      "Only .daw-state.json, the context file and the phase artifacts (docs/) belong in the repo.",
-      "The context file (AGENTS.md) is the PROJECT's, not DAW's: if it is missing, gather the stack and conventions " +
-      "from the user and write it as a plain project file. Never put DAW content in it — no DAW blocks, no DAW " +
-      "template boilerplate, no references to DAW or its phases. A reader without the plugin must see an ordinary repo.",
+      ...where,
       status,
       "Work that changes this repo starts by CLASSIFYING it into a ticket (the daw-* skills exist for each phase) — never by writing code first.",
       "Any message starting with `DAW:` comes from the plugin's gates, not from the user. Obey it literally — especially STOP instructions.",

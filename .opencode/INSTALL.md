@@ -19,6 +19,11 @@ is for one project only, use the project's `opencode.json`. Create the file with
 }
 ```
 
+`plugin` is the key OpenCode V1 reads, and V2's configuration schema still
+carries it. V2's own key is `plugins`, which V1 ignores (V2 itself warns that it
+"cannot be represented in V1"), so a config shared by both versions lists DAW
+under `plugin`.
+
 There is no step for making the model aware of DAW: the plugin does that
 itself. On load it registers the packaged skills with OpenCode's discovery and
 prefixes a bootstrap — method path, current phase, classify-first — to the
@@ -51,13 +56,25 @@ both driven live on OpenCode 1.18.9), the packaged method, the **skills**
 the first user message so the model knows the method's path and phase before it
 acts. The acceptance record is `scripts/acceptance.md`.
 
-## Drop-in (everything in the repo — driven live for the ritual's first four checks; 5 and 6 are still owed)
+## Drop-in (everything in the repo)
 
 ```bash
 bash install.sh . --target opencode
 ```
 
-Method, plugin, 17 skills, 5 agents, 17 commands — all in the repo.
+Method, plugin, 20 skills, 5 agents, 20 commands — all in the repo: the method
+in `.daw/`, the plugin at `.opencode/plugins/daw.js`, the skills, agents and
+commands under `.opencode/`, and DAW's block in `AGENTS.md`. Nothing goes in
+`opencode.json`.
+
+Then open OpenCode in the project. The plugin in `.opencode/plugins/` loads
+under V1 and V2, from the same file: V1 through its named export, V2 through its
+default `{ id, setup }`. Its bootstrap, prefixed to the first user
+message, points the model at `.daw/orchestrator.md`; where a V2 build offers
+plugins no session hook, the DAW block in `AGENTS.md`, which OpenCode puts in
+the system prompt, says the same. What was
+driven against which OpenCode, and what is still owed, is in
+`scripts/acceptance.md`.
 
 ## Manual global install (no package manager)
 

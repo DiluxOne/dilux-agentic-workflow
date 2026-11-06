@@ -30,7 +30,7 @@ set -uo pipefail
 # a knob anyone could turn from outside the file. `docs/AI-POLICY.md` and
 # `CONTRIBUTING.md` both name this variable as the thing not to soften; it was
 # softenable without editing the file they were talking about.
-EXPECT_CHECKS=682
+EXPECT_CHECKS=684
 EXPECT_SKILLS=20
 EXPECT_AGENTS=5
 EXPECT_RULES=14
@@ -40,7 +40,7 @@ EXPECT_ADAPTERS=6
 # `--check-anchors`, `--cover` and every check in this file green, and the
 # published percentage went on being a percentage of a smaller list. The same
 # reason `EXPECT_CHECKS` exists, one file over.
-EXPECT_MUTATIONS=805
+EXPECT_MUTATIONS=809
 
 SELF="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # EXPORTED, because the Python blocks below anchor their own temporary
@@ -13093,6 +13093,50 @@ PROBE
   [ "$V2_AGENTS" = '{"readonly":true,"reloaded":true,"writer":true,"user":true,"added":true,"only":true}' ] \
     && ok "OpenCode V2: every read-only DAW agent gets edit deny and shell ask, the writer and the user's agents do not" \
     || bad "OpenCode V2: the verifier's permissions are not edit deny + shell ask in V2's format ($V2_AGENTS)"
+
+  # A drop-in, followed as `.opencode/INSTALL.md` says, starts with the model
+  # pointed at the repo's own .daw/orchestrator.md. The plugin install's
+  # prohibitions ("do NOT install DAW", "never put DAW content in AGENTS.md")
+  # contradict a drop-in, whose .daw/ and AGENTS.md block are DAW's by design:
+  # a model told both reads its own repo as the mistake and starts undoing it.
+  OCD="$WORK/opencode-dropin"; mkdir -p "$OCD"; git -C "$OCD" init -q .
+  DAW_GIT_FLOW=none bash "$SELF/install.sh" "$OCD" --target opencode </dev/null >/dev/null 2>&1
+  cat > "$WORK/opencode-dropin-boot.mjs" <<PROBE
+import { load } from "$WORK/opencode-v2ctx.mjs"
+const file = "$OCD/.opencode/plugins/daw.js"
+const mod = await import(file)
+const v1 = await mod.DawPlugin({ directory: "$OCD", worktree: "$OCD" })
+const output = { messages: [{ info: { role: "user" }, parts: [{ type: "text", text: "hi" }] }] }
+await v1["experimental.chat.messages.transform"]({}, output)
+const { hooks } = await load(file, "$OCD")
+const event = { sessionID: "s", messages: [{ role: "user", content: [{ type: "text", text: "hi" }] }] }
+await hooks["session.context"](event)
+const right = (t) => t.includes("DAW_BOOTSTRAP") && t.includes("read .daw/orchestrator.md")
+  && !t.includes("do NOT install") && !t.includes("Never put DAW content")
+console.log(JSON.stringify([right(output.messages[0].parts[0].text), right(event.messages[0].content[0].text)]))
+PROBE
+  OCD_BOOT=$(node "$WORK/opencode-dropin-boot.mjs" 2>&1)
+  [ "$OCD_BOOT" = "[true,true]" ] \
+    && ok "an OpenCode drop-in boots on .daw/orchestrator.md under V1 and V2, without the plugin's prohibitions" \
+    || bad "an OpenCode drop-in's bootstrap tells the model not to install the DAW it installed ($OCD_BOOT)"
+
+  # What `.opencode/INSTALL.md` promises a drop-in installs is what it installs.
+  python3 - "$SELF/.opencode/INSTALL.md" "$OCD" <<'PYOCD' \
+    && ok "the OpenCode drop-in instructions count what the install writes, and name the plugin both versions load" \
+    || bad "the OpenCode drop-in instructions no longer match the install"
+import os, re, sys
+doc, repo = open(sys.argv[1], encoding="utf-8").read(), sys.argv[2]
+oc = os.path.join(repo, ".opencode")
+have = {"skills": len([d for d in os.listdir(f"{oc}/skills") if os.path.isfile(f"{oc}/skills/{d}/SKILL.md")]),
+        "agents": len([f for f in os.listdir(f"{oc}/agents") if f.endswith(".md")]),
+        "commands": len([f for f in os.listdir(f"{oc}/commands") if f.endswith(".md")])}
+section = doc.split("## Drop-in", 1)[1].split("\n## ", 1)[0]
+for kind, n in have.items():
+    said = re.search(rf"(\d+) {kind}", section)
+    assert said and int(said.group(1)) == n, f"{kind}: the doc says {said and said.group(1)}, the install wrote {n}"
+assert os.path.isfile(f"{oc}/plugins/daw.js") and ".opencode/plugins/daw.js" in section
+assert "V1 and V2" in section and "still owed" not in section.split("\n", 1)[0]
+PYOCD
 else
   echo "  · node not available — OpenCode's plugin was not exercised"
 fi

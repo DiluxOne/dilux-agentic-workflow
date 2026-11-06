@@ -657,16 +657,28 @@ MUTATIONS = [
           "")),
     ("the bootstrap stops forbidding the self-install that broke the plugin promise",
      edit("adapters/opencode/plugin/daw.js",
-          '      "The method STAYS with the plugin: do NOT install DAW into this repo — no install.sh, no copying .daw/ or .opencode/. " +\n'
-          '      "Where the method\'s documents say `.daw/...`, resolve them under the path above. " +\n'
-          '      "Only .daw-state.json, the context file and the phase artifacts (docs/) belong in the repo.",\n',
+          '        "The method STAYS with the plugin: do NOT install DAW into this repo — no install.sh, no copying .daw/ or .opencode/. " +\n'
+          '        "Where the method\'s documents say `.daw/...`, resolve them under the path above. " +\n'
+          '        "Only .daw-state.json, the context file and the phase artifacts (docs/) belong in the repo.",\n',
           '')),
     ("the bootstrap lets DAW content leak into the project's context file",
      edit("adapters/opencode/plugin/daw.js",
-          '      "The context file (AGENTS.md) is the PROJECT\'s, not DAW\'s: if it is missing, gather the stack and conventions " +\n'
-          '      "from the user and write it as a plain project file. Never put DAW content in it — no DAW blocks, no DAW " +\n'
-          '      "template boilerplate, no references to DAW or its phases. A reader without the plugin must see an ordinary repo.",\n',
+          '        "The context file (AGENTS.md) is the PROJECT\'s, not DAW\'s: if it is missing, gather the stack and conventions " +\n'
+          '        "from the user and write it as a plain project file. Never put DAW content in it — no DAW blocks, no DAW " +\n'
+          '        "template boilerplate, no references to DAW or its phases. A reader without the plugin must see an ordinary repo.",\n',
           '')),
+    ("a drop-in's bootstrap tells the model not to install the DAW it installed",
+     edit("adapters/opencode/plugin/daw.js",
+          '  const dropin = daw === join(directory, ".daw")\n',
+          '  const dropin = false\n')),
+    ("a drop-in's bootstrap stops naming .daw/orchestrator.md",
+     edit("adapters/opencode/plugin/daw.js",
+          "read .daw/orchestrator.md and follow its Boot Sequence",
+          "read the orchestrator and follow its Boot Sequence")),
+    ("the OpenCode drop-in instructions go back to counting 17 skills",
+     edit(".opencode/INSTALL.md", "Method, plugin, 20 skills,", "Method, plugin, 17 skills,")),
+    ("the OpenCode drop-in instructions stop saying the plugin loads under V2",
+     edit(".opencode/INSTALL.md", "loads\nunder V1 and V2, from the same file", "loads\nunder V1, from the same file")),
     ("the bootstrap never reaches the first user message",
      edit("adapters/opencode/plugin/daw.js",
           "      firstUser.parts.unshift({ ...ref, type: \"text\", text })",
