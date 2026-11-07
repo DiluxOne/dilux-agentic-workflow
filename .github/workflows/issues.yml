@@ -106,3 +106,18 @@ jobs:
     uses: DiluxOne/.github/.github/workflows/waiting-update.yml@v7
     secrets:
       DILUX_BOT_PRIVATE_KEY: ${{ secrets.DILUX_BOT_PRIVATE_KEY }}
+
+  # A pull request merged into the default branch (#669): the open autopilot
+  # pull requests it leaves behind or in conflict come back in step within
+  # minutes (autopilot-sweep.yml), for this repository alone: the bot merges
+  # main into one only behind, and continues one in conflict, whose fix
+  # round resolves it. Metadata only: no pull request's code is checked out.
+  autopilot-sweep:
+    if: github.event_name == 'pull_request_target' && github.event.action == 'closed' && github.event.pull_request.merged == true && github.event.pull_request.base.ref == github.event.repository.default_branch
+    permissions:
+      contents: read
+    uses: DiluxOne/.github/.github/workflows/autopilot-sweep.yml@v7
+    with:
+      repo: ${{ github.repository }}
+    secrets:
+      DILUX_BOT_PRIVATE_KEY: ${{ secrets.DILUX_BOT_PRIVATE_KEY }}
